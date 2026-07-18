@@ -119,7 +119,7 @@ public class QrLoginController(
         var (found, qrChallenge) = await cache.GetAsyncWithStatus<QrLoginChallenge>($"{QrCachePrefix}{id}");
 
         if (!found || qrChallenge is null)
-            return NotFound("QR challenge not found or expired.");
+            return NotFound(new ApiError { Code = "PADLOCK_QR_CHALLENGE_NOT_FOUND", Message = "QR challenge not found or expired.", Status = 404 });
 
         return Ok(new QrStatusResponse
         {
@@ -140,21 +140,21 @@ public class QrLoginController(
     public async Task<IActionResult> ScanQrChallenge(Guid id)
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var (found, qrChallenge) = await cache.GetAsyncWithStatus<QrLoginChallenge>($"{QrCachePrefix}{id}");
 
         if (!found || qrChallenge is null)
-            return NotFound("QR challenge not found or expired.");
+            return NotFound(new ApiError { Code = "PADLOCK_QR_CHALLENGE_NOT_FOUND", Message = "QR challenge not found or expired.", Status = 404 });
 
         if (qrChallenge.Status != QrLoginStatus.Pending)
-            return BadRequest("QR challenge is no longer pending.");
+            return BadRequest(new ApiError { Code = "PADLOCK_QR_CHALLENGE_NOT_PENDING", Message = "QR challenge is no longer pending.", Status = 400 });
 
         var now = SystemClock.Instance.GetCurrentInstant();
         if (now > qrChallenge.ExpiresAt)
         {
             await cache.RemoveAsync($"{QrCachePrefix}{id}");
-            return BadRequest("QR challenge has expired.");
+            return BadRequest(new ApiError { Code = "PADLOCK_QR_CHALLENGE_EXPIRED", Message = "QR challenge has expired.", Status = 400 });
         }
 
         var scanned = qrChallenge with { Status = QrLoginStatus.Scanned };
@@ -183,9 +183,9 @@ public class QrLoginController(
     public async Task<IActionResult> ApproveQrChallenge(Guid id)
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         if (HttpContext.Items["CurrentSession"] is not SnAuthSession currentSession)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var hasQrLoginFactor = await db.AccountAuthFactors
             .Where(f => f.AccountId == currentUser.Id)
@@ -194,26 +194,26 @@ public class QrLoginController(
             .AnyAsync();
 
         if (!hasQrLoginFactor)
-            return BadRequest("QR login factor is not enabled for this account.");
+            return BadRequest(new ApiError { Code = "PADLOCK_QR_FACTOR_NOT_ENABLED", Message = "QR login factor is not enabled for this account.", Status = 400 });
 
         var (found, qrChallenge) = await cache.GetAsyncWithStatus<QrLoginChallenge>($"{QrCachePrefix}{id}");
 
         if (!found || qrChallenge is null)
-            return NotFound("QR challenge not found or expired.");
+            return NotFound(new ApiError { Code = "PADLOCK_QR_CHALLENGE_NOT_FOUND", Message = "QR challenge not found or expired.", Status = 404 });
 
         if (qrChallenge.Status is not (QrLoginStatus.Pending or QrLoginStatus.Scanned))
-            return BadRequest("QR challenge is no longer pending.");
+            return BadRequest(new ApiError { Code = "PADLOCK_QR_CHALLENGE_NOT_PENDING", Message = "QR challenge is no longer pending.", Status = 400 });
 
         var now = SystemClock.Instance.GetCurrentInstant();
         if (now > qrChallenge.ExpiresAt)
         {
             await cache.RemoveAsync($"{QrCachePrefix}{id}");
-            return BadRequest("QR challenge has expired.");
+            return BadRequest(new ApiError { Code = "PADLOCK_QR_CHALLENGE_EXPIRED", Message = "QR challenge has expired.", Status = 400 });
         }
 
         var authChallenge = await db.AuthChallenges.FindAsync(qrChallenge.AuthChallengeId);
         if (authChallenge is null)
-            return BadRequest("Associated auth challenge not found.");
+            return BadRequest(new ApiError { Code = "PADLOCK_AUTH_CHALLENGE_NOT_FOUND", Message = "Associated auth challenge not found.", Status = 400 });
 
         authChallenge.AccountId = currentUser.Id;
         authChallenge.StepRemain = 0;
@@ -256,9 +256,9 @@ public class QrLoginController(
     public async Task<IActionResult> DeclineQrChallenge(Guid id)
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         if (HttpContext.Items["CurrentSession"] is not SnAuthSession currentSession)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var hasQrLoginFactor = await db.AccountAuthFactors
             .Where(f => f.AccountId == currentUser.Id)
@@ -267,21 +267,21 @@ public class QrLoginController(
             .AnyAsync();
 
         if (!hasQrLoginFactor)
-            return BadRequest("QR login factor is not enabled for this account.");
+            return BadRequest(new ApiError { Code = "PADLOCK_QR_FACTOR_NOT_ENABLED", Message = "QR login factor is not enabled for this account.", Status = 400 });
 
         var (found, qrChallenge) = await cache.GetAsyncWithStatus<QrLoginChallenge>($"{QrCachePrefix}{id}");
 
         if (!found || qrChallenge is null)
-            return NotFound("QR challenge not found or expired.");
+            return NotFound(new ApiError { Code = "PADLOCK_QR_CHALLENGE_NOT_FOUND", Message = "QR challenge not found or expired.", Status = 404 });
 
         if (qrChallenge.Status is not (QrLoginStatus.Pending or QrLoginStatus.Scanned))
-            return BadRequest("QR challenge is no longer pending.");
+            return BadRequest(new ApiError { Code = "PADLOCK_QR_CHALLENGE_NOT_PENDING", Message = "QR challenge is no longer pending.", Status = 400 });
 
         var now = SystemClock.Instance.GetCurrentInstant();
         if (now > qrChallenge.ExpiresAt)
         {
             await cache.RemoveAsync($"{QrCachePrefix}{id}");
-            return BadRequest("QR challenge has expired.");
+            return BadRequest(new ApiError { Code = "PADLOCK_QR_CHALLENGE_EXPIRED", Message = "QR challenge has expired.", Status = 400 });
         }
 
         var declined = qrChallenge with

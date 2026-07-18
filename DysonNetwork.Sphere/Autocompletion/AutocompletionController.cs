@@ -1,4 +1,5 @@
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Proto;
 using Microsoft.AspNetCore.Mvc;
 
@@ -12,7 +13,7 @@ public class AutocompletionController(AutocompletionService aus) : ControllerBas
     public async Task<ActionResult<List<Shared.Models.Autocompletion>>> TextAutocomplete([FromBody] AutocompletionRequest request, Guid roomId)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var result = await aus.GetAutocompletion(request.Content, chatId: roomId, limit: 10);
         return Ok(result);

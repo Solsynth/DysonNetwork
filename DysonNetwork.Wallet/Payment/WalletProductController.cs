@@ -1,4 +1,5 @@
 using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Wallet.Payment.PaymentHandlers;
 using Microsoft.AspNetCore.Authorization;
@@ -42,7 +43,8 @@ public class WalletProductController(
         [FromBody] ProviderCheckoutRequest? request = null
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         try
         {
@@ -69,7 +71,7 @@ public class WalletProductController(
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new ApiError { Code = "WALLET_PRODUCT_CHECKOUT_FAILED", Message = ex.Message, Status = 400 });
         }
     }
 
@@ -80,7 +82,8 @@ public class WalletProductController(
         [FromBody] ProviderCheckoutRequest? request = null
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         try
         {
@@ -98,7 +101,7 @@ public class WalletProductController(
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new ApiError { Code = "WALLET_PRODUCT_CHECKOUT_FAILED", Message = ex.Message, Status = 400 });
         }
     }
 

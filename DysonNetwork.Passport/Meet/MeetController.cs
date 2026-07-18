@@ -38,7 +38,7 @@ public class MeetController(
     [Authorize]
     public async Task<ActionResult<SnMeet>> CreateMeet([FromBody] CreateMeetRequest request, CancellationToken cancellationToken)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         try
         {
@@ -94,7 +94,7 @@ public class MeetController(
         CancellationToken cancellationToken = default
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         if (string.IsNullOrWhiteSpace(locationWkt))
         {
@@ -149,7 +149,7 @@ public class MeetController(
         CancellationToken cancellationToken = default
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var meets = await meetService.ListMeetsAsync(currentUser.Id, status, hostOnly, offset, take, cancellationToken);
         return Ok(meets);
@@ -159,7 +159,7 @@ public class MeetController(
     [Authorize]
     public async Task<ActionResult<SnMeet>> GetMeet(Guid id, [FromQuery] string? locationWkt = null, CancellationToken cancellationToken = default)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         Geometry? userLocation = null;
         if (!string.IsNullOrWhiteSpace(locationWkt))
@@ -190,7 +190,7 @@ public class MeetController(
     [AskPermission(PermissionKeys.MeetComplete)]
     public async Task<ActionResult<SnMeet>> CompleteMeet(Guid id, CancellationToken cancellationToken)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         try
         {
@@ -222,7 +222,7 @@ public class MeetController(
     [AskPermission(PermissionKeys.MeetDelete)]
     public async Task<ActionResult> DeleteMeet(Guid id, CancellationToken cancellationToken)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         try
         {
@@ -249,7 +249,7 @@ public class MeetController(
     [AskPermission(PermissionKeys.MeetVisibilityUpdate)]
     public async Task<ActionResult<SnMeet>> UpdateVisibility(Guid id, [FromBody] UpdateVisibilityRequest request, CancellationToken cancellationToken)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         if (!ModelState.IsValid)
         {
@@ -391,7 +391,7 @@ public class MeetController(
     )
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser ||
-            HttpContext.Items["CurrentSession"] is not SnAuthSession currentSession) return Unauthorized();
+            HttpContext.Items["CurrentSession"] is not SnAuthSession currentSession) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var meet = await meetService.GetMeetAsync(id, currentUser.Id, null, cancellationToken);
         if (meet is null)
@@ -443,7 +443,7 @@ public class MeetController(
     )
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser ||
-            HttpContext.Items["CurrentSession"] is not SnAuthSession currentSession) return Unauthorized();
+            HttpContext.Items["CurrentSession"] is not SnAuthSession currentSession) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var meet = await meetService.GetMeetAsync(id, currentUser.Id, null, cancellationToken);
         if (meet is null)
@@ -468,7 +468,7 @@ public class MeetController(
         CancellationToken cancellationToken = default
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var meet = await meetService.GetMeetAsync(id, currentUser.Id, null, cancellationToken);
         if (meet is null)

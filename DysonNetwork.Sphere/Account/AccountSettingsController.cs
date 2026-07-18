@@ -1,5 +1,6 @@
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
 using DysonNetwork.Sphere.ActivityPub.Services;
@@ -31,7 +32,7 @@ public class PublishingSettingsController(
     public async Task<ActionResult<SnPublishingSettings>> GetSettings()
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var accountId = Guid.Parse(currentUser.Id);
 
@@ -52,7 +53,7 @@ public class PublishingSettingsController(
     public async Task<ActionResult<SnPublishingSettings>> UpdateSettings([FromBody] PublishingSettingsRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var accountId = Guid.Parse(currentUser.Id);
 
@@ -70,9 +71,9 @@ public class PublishingSettingsController(
             var publisher = await db.Publishers
                 .FirstOrDefaultAsync(p => p.Id == request.DefaultPostingPublisherId);
             if (publisher == null)
-                return BadRequest("Publisher not found");
+                return BadRequest(new ApiError { Code = "PUBLISHER_NOT_FOUND", Message = "Publisher not found", Status = 400 });
             if (!await IsMemberAsync(publisher.Id, accountId))
-                return BadRequest("You are not a member of this publisher");
+                return BadRequest(new ApiError { Code = "PUBLISHER_NOT_A_MEMBER", Message = "You are not a member of this publisher", Status = 400 });
             settings.DefaultPostingPublisherId = request.DefaultPostingPublisherId;
         }
 
@@ -81,9 +82,9 @@ public class PublishingSettingsController(
             var publisher = await db.Publishers
                 .FirstOrDefaultAsync(p => p.Id == request.DefaultReplyPublisherId);
             if (publisher == null)
-                return BadRequest("Publisher not found");
+                return BadRequest(new ApiError { Code = "PUBLISHER_NOT_FOUND", Message = "Publisher not found", Status = 400 });
             if (!await IsMemberAsync(publisher.Id, accountId))
-                return BadRequest("You are not a member of this publisher");
+                return BadRequest(new ApiError { Code = "PUBLISHER_NOT_A_MEMBER", Message = "You are not a member of this publisher", Status = 400 });
             settings.DefaultReplyPublisherId = request.DefaultReplyPublisherId;
         }
 
@@ -92,13 +93,13 @@ public class PublishingSettingsController(
             var publisher = await db.Publishers
                 .FirstOrDefaultAsync(p => p.Id == request.DefaultFediversePublisherId);
             if (publisher == null)
-                return BadRequest("Publisher not found");
+                return BadRequest(new ApiError { Code = "PUBLISHER_NOT_FOUND", Message = "Publisher not found", Status = 400 });
             if (!await IsMemberAsync(publisher.Id, accountId))
-                return BadRequest("You are not a member of this publisher");
+                return BadRequest(new ApiError { Code = "PUBLISHER_NOT_A_MEMBER", Message = "You are not a member of this publisher", Status = 400 });
 
             var actor = await objFactory.GetLocalActorAsync(request.DefaultFediversePublisherId.Value);
             if (actor == null)
-                return BadRequest("Fediverse is not enabled for this publisher");
+                return BadRequest(new ApiError { Code = "PUBLISHER_FEDIVERSE_NOT_ENABLED", Message = "Fediverse is not enabled for this publisher", Status = 400 });
             settings.DefaultFediversePublisherId = request.DefaultFediversePublisherId;
         }
 

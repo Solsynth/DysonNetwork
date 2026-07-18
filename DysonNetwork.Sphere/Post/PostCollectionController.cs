@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Sphere.Publisher;
@@ -200,7 +201,7 @@ public class PostCollectionController(
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new ApiError { Code = "COLLECTION_CREATE_FAILED", Message = ex.Message, Status = 400 });
         }
     }
 
@@ -219,12 +220,12 @@ public class PostCollectionController(
     public async Task<ActionResult<SnPostCategorySubscription>> SubscribeCollection(string publisherName, string slug)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         var accountId = Guid.Parse(currentUser.Id);
 
         var collection = await collectionService.GetCollectionBySlugAsync(publisherName, slug);
         if (collection is null)
-            return NotFound("Collection not found.");
+            return NotFound(new ApiError { Code = "COLLECTION_NOT_FOUND", Message = "Collection not found.", Status = 404 });
 
         var existingSubscription = await db.PostCategorySubscriptions
             .FirstOrDefaultAsync(s => s.CollectionId == collection.Id && s.AccountId == accountId);
@@ -254,12 +255,12 @@ public class PostCollectionController(
     public async Task<IActionResult> UnsubscribeCollection(string publisherName, string slug)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         var accountId = Guid.Parse(currentUser.Id);
 
         var collection = await collectionService.GetCollectionBySlugAsync(publisherName, slug);
         if (collection is null)
-            return NotFound("Collection not found.");
+            return NotFound(new ApiError { Code = "COLLECTION_NOT_FOUND", Message = "Collection not found.", Status = 404 });
 
         var subscription = await db.PostCategorySubscriptions
             .FirstOrDefaultAsync(s => s.CollectionId == collection.Id && s.AccountId == accountId);
@@ -280,17 +281,17 @@ public class PostCollectionController(
     )
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         var accountId = Guid.Parse(currentUser.Id);
 
         var collection = await collectionService.GetCollectionBySlugAsync(publisherName, slug);
         if (collection is null)
-            return NotFound("Collection not found.");
+            return NotFound(new ApiError { Code = "COLLECTION_NOT_FOUND", Message = "Collection not found.", Status = 404 });
 
         var subscription = await db.PostCategorySubscriptions
             .FirstOrDefaultAsync(s => s.CollectionId == collection.Id && s.AccountId == accountId);
         if (subscription is null)
-            return NotFound("Subscription not found.");
+            return NotFound(new ApiError { Code = "COLLECTION_SUBSCRIPTION_NOT_FOUND", Message = "Subscription not found.", Status = 404 });
 
         return Ok(subscription);
     }
@@ -383,7 +384,7 @@ public class PostCollectionController(
             return auth.Result;
 
         if (request.Order.HasValue)
-            return BadRequest("Manual ordering is not supported. Collection posts are sorted automatically by published date descending.");
+            return BadRequest(new ApiError { Code = "COLLECTION_ORDER_NOT_SUPPORTED", Message = "Manual ordering is not supported. Collection posts are sorted automatically by published date descending.", Status = 400 });
 
         try
         {
@@ -392,7 +393,7 @@ public class PostCollectionController(
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new ApiError { Code = "COLLECTION_ADD_POST_FAILED", Message = ex.Message, Status = 400 });
         }
     }
 
@@ -420,7 +421,7 @@ public class PostCollectionController(
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new ApiError { Code = "COLLECTION_BATCH_ADD_FAILED", Message = ex.Message, Status = 400 });
         }
     }
 
@@ -479,7 +480,7 @@ public class PostCollectionController(
         if (auth.Result is not null)
             return auth.Result;
 
-        return BadRequest("Manual reordering is not supported. Collection posts are sorted automatically by published date descending.");
+        return BadRequest(new ApiError { Code = "COLLECTION_REORDER_NOT_SUPPORTED", Message = "Manual reordering is not supported. Collection posts are sorted automatically by published date descending.", Status = 400 });
     }
 
     [HttpGet("{slug}/posts/{postId:guid}/prev")]
@@ -519,7 +520,7 @@ public class PostCollectionController(
         );
 
         if (post is null)
-            return NotFound(next ? "No next post found" : "No previous post found");
+            return NotFound(new ApiError { Code = "COLLECTION_POST_NOT_FOUND", Message = next ? "No next post found." : "No previous post found.", Status = 404 });
         return Ok(post);
     }
 
@@ -537,7 +538,7 @@ public class PostCollectionController(
     private async Task<ActionResult<SnPublisher?>> RequirePublisherEditorAsync(string publisherName)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var publisher = await publisherService.GetPublisherByName(publisherName);
         if (publisher is null)
@@ -545,7 +546,7 @@ public class PostCollectionController(
 
         var accountId = Guid.Parse(currentUser.Id);
         if (!await publisherService.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.Editor))
-            return StatusCode(403, "You need at least be an editor to manage this publisher collections.");
+            return StatusCode(403, ApiError.Unauthorized("You need at least be an editor to manage this publisher collections.", forbidden: true));
 
         return publisher;
     }

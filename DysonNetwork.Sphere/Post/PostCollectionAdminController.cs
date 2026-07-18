@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Extensions;
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
 using Microsoft.AspNetCore.Authorization;
@@ -121,7 +122,7 @@ public class PostCollectionAdminController(
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new ApiError { Code = "COLLECTION_UPDATE_FAILED", Message = ex.Message, Status = 400 });
         }
 
         LogCollectionAction("update", collection.Id, new Dictionary<string, object>

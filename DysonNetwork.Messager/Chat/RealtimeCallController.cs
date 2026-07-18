@@ -3,6 +3,7 @@ using DysonNetwork.Messager.Models;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Localization;
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
 using DysonNetwork.Shared.Auth;
@@ -44,11 +45,11 @@ public class RealtimeCallController(
         var accountId = Guid.Parse(currentUser.Id);
         var member = await GetJoinedMemberAsync(roomId, accountId);
         if (member is null)
-            return StatusCode(403, "You need to be a member to view participants.");
+            return StatusCode(403, ApiError.Unauthorized("You need to be a member to view participants.", forbidden: true));
 
         var call = await EnsureRealtimeCallAsync(roomId, member);
         if (string.IsNullOrWhiteSpace(call.SessionId))
-            return BadRequest("Call session is not properly configured.");
+            return BadRequest(new ApiError { Code = "CHAT_CALL_SESSION_NOT_CONFIGURED", Message = "Call session is not properly configured.", Status = 400 });
 
         var roomParticipants = await SyncProviderParticipantsAsync(call.SessionId);
         var participants = await BuildParticipantsAsync(roomId, roomParticipants);
@@ -71,14 +72,14 @@ public class RealtimeCallController(
         var accountId = Guid.Parse(currentUser.Id);
         var member = await GetJoinedMemberAsync(roomId, accountId, includeRoom: true);
         if (member is null)
-            return StatusCode(403, "You need to be a member.");
+            return StatusCode(403, ApiError.Unauthorized("You need to be a member.", forbidden: true));
 
         var call = await EnsureRealtimeCallAsync(roomId, member);
         var roomOwnerId = call.Room.AccountId ?? member.ChatRoom.AccountId;
         var isAdmin =
             member.AccountId == roomOwnerId || call.Room.Type == ChatRoomType.DirectMessage;
         if (!isAdmin)
-            return StatusCode(403, "Only room admin can kick participants.");
+            return StatusCode(403, ApiError.Unauthorized("Only room admin can kick participants.", forbidden: true));
 
         var targetMember = await db
             .ChatMembers.Where(m =>
@@ -89,10 +90,10 @@ public class RealtimeCallController(
             )
             .FirstOrDefaultAsync();
         if (targetMember is null)
-            return NotFound("Target member not found.");
+            return NotFound(ApiError.NotFound("member", message: "Target member not found.", code: "CHAT_CALL_TARGET_NOT_FOUND"));
 
         if (targetMember.AccountId == roomOwnerId)
-            return BadRequest("Cannot kick the room owner.");
+            return BadRequest(new ApiError { Code = "CHAT_CALL_CANNOT_KICK_OWNER", Message = "Cannot kick the room owner.", Status = 400 });
 
         var participantRemoved = false;
         if (
@@ -181,7 +182,7 @@ public class RealtimeCallController(
         var accountId = Guid.Parse(currentUser.Id);
         var member = await GetJoinedMemberAsync(roomId, accountId);
         if (member is null)
-            return StatusCode(403, "You need to be a member to view call status.");
+            return StatusCode(403, ApiError.Unauthorized("You need to be a member to view call status.", forbidden: true));
 
         var call = await EnsureRealtimeCallAsync(roomId, member);
         call.Sender = await crs.LoadMemberAccount(call.Sender);
@@ -203,13 +204,13 @@ public class RealtimeCallController(
 
         var now = SystemClock.Instance.GetCurrentInstant();
         if (member is null)
-            return StatusCode(403, "You need to be a member to join a call.");
+            return StatusCode(403, ApiError.Unauthorized("You need to be a member to join a call.", forbidden: true));
         if (member.TimeoutUntil.HasValue && member.TimeoutUntil.Value > now)
-            return StatusCode(403, "You has been timed out in this chat.");
+            return StatusCode(403, ApiError.Unauthorized("You has been timed out in this chat.", forbidden: true));
 
         var call = await EnsureRealtimeCallAsync(roomId, member);
         if (string.IsNullOrWhiteSpace(call.SessionId))
-            return BadRequest("Call session is not properly configured.");
+            return BadRequest(new ApiError { Code = "CHAT_CALL_SESSION_NOT_CONFIGURED", Message = "Call session is not properly configured.", Status = 400 });
 
         var roomParticipants = await SyncProviderParticipantsAsync(call.SessionId);
         var defaultIdentity = realtime.GetParticipantIdentity(currentUser);
@@ -277,9 +278,9 @@ public class RealtimeCallController(
 
         var member = await GetJoinedMemberAsync(roomId, accountId);
         if (member is null)
-            return StatusCode(403, "You need to be a member to start a call.");
+            return StatusCode(403, ApiError.Unauthorized("You need to be a member to start a call.", forbidden: true));
         if (member.TimeoutUntil.HasValue && member.TimeoutUntil.Value > now)
-            return StatusCode(403, "You has been timed out in this chat.");
+            return StatusCode(403, ApiError.Unauthorized("You has been timed out in this chat.", forbidden: true));
 
         // Backward compatible: this endpoint now only ensures the long-lived call record/session exists.
         var call = await EnsureRealtimeCallAsync(roomId, member);
@@ -299,18 +300,18 @@ public class RealtimeCallController(
 
         var member = await GetJoinedMemberAsync(roomId, accountId, includeRoom: true);
         if (member is null)
-            return StatusCode(403, "You need to be a member to invite someone.");
+            return StatusCode(403, ApiError.Unauthorized("You need to be a member to invite someone.", forbidden: true));
         if (member.TimeoutUntil.HasValue && member.TimeoutUntil.Value > now)
-            return StatusCode(403, "You have been timed out in this chat.");
+            return StatusCode(403, ApiError.Unauthorized("You have been timed out in this chat.", forbidden: true));
 
         // Target must also be a member of the room
         var targetMember = await GetJoinedMemberAsync(roomId, targetAccountId, includeRoom: true);
         if (targetMember is null)
-            return StatusCode(403, "Target user is not a member of this room.");
+            return StatusCode(403, ApiError.Unauthorized("Target user is not a member of this room.", forbidden: true));
 
         var call = await EnsureRealtimeCallAsync(roomId, member);
         if (string.IsNullOrWhiteSpace(call.SessionId))
-            return BadRequest("Call session is not properly configured.");
+            return BadRequest(new ApiError { Code = "CHAT_CALL_SESSION_NOT_CONFIGURED", Message = "Call session is not properly configured.", Status = 400 });
 
         // Fire-and-forget VoIP push via Ring gRPC
         try
@@ -392,7 +393,7 @@ public class RealtimeCallController(
         var accountId = Guid.Parse(currentUser.Id);
         var member = await GetJoinedMemberAsync(roomId, accountId, includeRoom: true);
         if (member is null)
-            return StatusCode(403, "You need to be a member to leave a call.");
+            return StatusCode(403, ApiError.Unauthorized("You need to be a member to leave a call.", forbidden: true));
 
         var call = await EnsureRealtimeCallAsync(roomId, member);
         if (string.IsNullOrWhiteSpace(call.SessionId))
@@ -451,17 +452,17 @@ public class RealtimeCallController(
         var accountId = Guid.Parse(currentUser.Id);
         var member = await GetJoinedMemberAsync(roomId, accountId, includeRoom: true);
         if (member is null)
-            return StatusCode(403, "You need to be a member.");
+            return StatusCode(403, ApiError.Unauthorized("You need to be a member.", forbidden: true));
 
         var call = await EnsureRealtimeCallAsync(roomId, member);
         if (string.IsNullOrWhiteSpace(call.SessionId))
-            return BadRequest("Call session is not properly configured.");
+            return BadRequest(new ApiError { Code = "CHAT_CALL_SESSION_NOT_CONFIGURED", Message = "Call session is not properly configured.", Status = 400 });
 
         var roomOwnerId = call.Room.AccountId ?? member.ChatRoom.AccountId;
         var isAdmin =
             member.AccountId == roomOwnerId || call.Room.Type == ChatRoomType.DirectMessage;
         if (!isAdmin)
-            return StatusCode(403, "Only room admin can mute participants.");
+            return StatusCode(403, ApiError.Unauthorized("Only room admin can mute participants.", forbidden: true));
 
         if (realtime is LiveKitRealtimeService livekitService)
         {
@@ -471,10 +472,10 @@ public class RealtimeCallController(
             );
 
             if (targetParticipant == null)
-                return NotFound("Target participant not found in call.");
+                return NotFound(ApiError.NotFound("participant", message: "Target participant not found in call.", code: "CHAT_CALL_PARTICIPANT_NOT_FOUND"));
 
             if (string.IsNullOrEmpty(targetParticipant.TrackSid))
-                return BadRequest("No track available to mute.");
+                return BadRequest(new ApiError { Code = "CHAT_CALL_NO_TRACK", Message = "No track available to mute.", Status = 400 });
 
             await livekitService.MuteParticipantAsync(
                 call.SessionId,

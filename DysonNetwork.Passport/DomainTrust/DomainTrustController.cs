@@ -1,7 +1,8 @@
 using System.ComponentModel.DataAnnotations;
+using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Models;
-using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Networking;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using NodaTime;
@@ -44,7 +45,7 @@ public class DomainTrustController(
     public async Task<ActionResult<SnDomainBlock>> GetRule(Guid id)
     {
         var rule = await service.GetRuleAsync(id);
-        if (rule == null) return NotFound();
+        if (rule == null) return NotFound(new ApiError { Code = "PASSPORT_DOMAIN_RULE_NOT_FOUND", Message = "Domain block rule not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
         return Ok(rule);
     }
@@ -71,7 +72,7 @@ public class DomainTrustController(
     [Authorize]
     public async Task<ActionResult<SnDomainBlock>> CreateRule([FromBody] CreateBlockRuleRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var rule = new SnDomainBlock
         {
@@ -122,7 +123,7 @@ public class DomainTrustController(
             if (request.IsActive.HasValue) r.IsActive = request.IsActive.Value;
         });
 
-        if (rule == null) return NotFound();
+        if (rule == null) return NotFound(new ApiError { Code = "PASSPORT_DOMAIN_RULE_NOT_FOUND", Message = "Domain block rule not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
         return Ok(rule);
     }
 
@@ -132,7 +133,7 @@ public class DomainTrustController(
     public async Task<ActionResult> DeleteRule(Guid id)
     {
         var deleted = await service.DeleteRuleAsync(id);
-        if (!deleted) return NotFound();
+        if (!deleted) return NotFound(new ApiError { Code = "PASSPORT_DOMAIN_RULE_NOT_FOUND", Message = "Domain block rule not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
         return NoContent();
     }
@@ -190,7 +191,7 @@ public class DomainTrustController(
     public async Task<ActionResult<DomainValidationMetricResponse>> GetMetric(string domain)
     {
         var metric = await service.GetDomainMetricAsync(domain.Trim().ToLowerInvariant());
-        if (metric is null) return NotFound();
+        if (metric is null) return NotFound(new ApiError { Code = "PASSPORT_DOMAIN_METRIC_NOT_FOUND", Message = "Domain validation metric not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
         return Ok(new DomainValidationMetricResponse
         {

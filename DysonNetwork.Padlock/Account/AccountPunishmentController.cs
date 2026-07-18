@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Padlock.Models;
+using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
@@ -28,7 +29,7 @@ public class AccountPunishmentController(
     {
         var account = await accounts.LookupAccount(name);
         if (account is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PADLOCK_ACCOUNT_NOT_FOUND", Message = "Account not found.", Status = 404 });
 
         var now = SystemClock.Instance.GetCurrentInstant();
 
@@ -54,7 +55,7 @@ public class AccountPunishmentController(
     {
         var account = await accounts.LookupAccount(name);
         if (account is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PADLOCK_ACCOUNT_NOT_FOUND", Message = "Account not found.", Status = 404 });
 
         var overview = await accounts.GetActivePunishmentOverview(account.Id);
         return Ok(overview);
@@ -68,7 +69,7 @@ public class AccountPunishmentController(
     )
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var query = db.Punishments
             .Where(p => p.AccountId == currentUser.Id);

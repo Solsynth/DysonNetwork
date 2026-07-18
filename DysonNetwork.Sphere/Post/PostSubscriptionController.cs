@@ -1,4 +1,5 @@
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Sphere.Publisher;
@@ -40,7 +41,7 @@ public class PostSubscriptionController(
     )
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var post = await GetVisiblePostAsync(id, currentUser);
         if (post is null)
@@ -77,7 +78,7 @@ public class PostSubscriptionController(
     public async Task<IActionResult> UnsubscribePost(Guid id)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var accountId = Guid.Parse(currentUser.Id);
         var subscription = await db.PostSubscriptions
@@ -97,7 +98,7 @@ public class PostSubscriptionController(
     public async Task<ActionResult<SnPostSubscription>> GetPostSubscription(Guid id)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var post = await GetVisiblePostAsync(id, currentUser);
         if (post is null)
@@ -108,7 +109,7 @@ public class PostSubscriptionController(
             .FirstOrDefaultAsync(s => s.PostId == id && s.AccountId == accountId);
 
         if (subscription is null)
-            return NotFound("Subscription not found.");
+            return NotFound(new ApiError { Code = "POST_SUBSCRIPTION_NOT_FOUND", Message = "Subscription not found.", Status = 404 });
 
         return Ok(subscription);
     }
@@ -121,7 +122,7 @@ public class PostSubscriptionController(
     )
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var accountId = Guid.Parse(currentUser.Id);
         var subscriptionsQuery = db.PostSubscriptions

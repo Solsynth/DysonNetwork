@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Cache;
 using Microsoft.AspNetCore.Authorization;
@@ -58,7 +59,7 @@ public class CacheAdminController(
     public async Task<ActionResult<CacheGroupResponse>> GetGroup(string group)
     {
         if (string.IsNullOrWhiteSpace(group))
-            return BadRequest(new { error = "Group is required." });
+            return BadRequest(new ApiError { Code = "PADLOCK_CACHE_GROUP_REQUIRED", Message = "Group is required.", Status = 400 });
 
         var keys = (await cache.GetGroupKeysAsync(group)).Order().ToList();
         return Ok(new CacheGroupResponse
@@ -76,7 +77,7 @@ public class CacheAdminController(
     public async Task<ActionResult<CacheClearResponse>> ClearKey([FromBody] ClearKeyRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Key))
-            return BadRequest(new { error = "Key is required." });
+            return BadRequest(new ApiError { Code = "PADLOCK_CACHE_KEY_REQUIRED", Message = "Key is required.", Status = 400 });
 
         await cache.RemoveAsync(request.Key.Trim());
         logger.LogWarning("Admin cleared cache key {Key}", request.Key.Trim());
@@ -95,7 +96,7 @@ public class CacheAdminController(
     public async Task<ActionResult<CacheClearResponse>> ClearGroup([FromBody] ClearGroupRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Group))
-            return BadRequest(new { error = "Group is required." });
+            return BadRequest(new ApiError { Code = "PADLOCK_CACHE_GROUP_REQUIRED", Message = "Group is required.", Status = 400 });
 
         var group = request.Group.Trim();
         var removedCount = (await cache.GetGroupKeysAsync(group)).LongCount();

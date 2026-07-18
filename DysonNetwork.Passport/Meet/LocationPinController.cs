@@ -51,7 +51,7 @@ public class LocationPinController(
     )
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser ||
-            HttpContext.Items["CurrentSession"] is not SnAuthSession currentSession) return Unauthorized();
+            HttpContext.Items["CurrentSession"] is not SnAuthSession currentSession) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         Geometry? location = null;
         if (!string.IsNullOrWhiteSpace(request.LocationWkt))
@@ -97,7 +97,7 @@ public class LocationPinController(
     )
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser ||
-            HttpContext.Items["CurrentSession"] is not SnAuthSession currentSession) return Unauthorized();
+            HttpContext.Items["CurrentSession"] is not SnAuthSession currentSession) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         Geometry? location = null;
         if (!string.IsNullOrWhiteSpace(request.LocationWkt))
@@ -143,7 +143,7 @@ public class LocationPinController(
     )
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser ||
-            HttpContext.Items["CurrentSession"] is not SnAuthSession currentSession) return Unauthorized();
+            HttpContext.Items["CurrentSession"] is not SnAuthSession currentSession) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var removed = await locationPinService.RemovePinAsync(currentUser.Id, currentSession.Id.ToString(), null, cancellationToken);
         if (!removed)
@@ -164,7 +164,7 @@ public class LocationPinController(
         CancellationToken cancellationToken = default
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         Geometry? location = null;
         if (!string.IsNullOrWhiteSpace(locationWkt))
@@ -203,7 +203,7 @@ public class LocationPinController(
         CancellationToken cancellationToken = default
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         Geometry? userLocation = null;
         if (!string.IsNullOrWhiteSpace(locationWkt))
@@ -241,7 +241,7 @@ public class LocationPinController(
     )
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser ||
-            HttpContext.Items["CurrentSession"] is not SnAuthSession currentSession) return Unauthorized();
+            HttpContext.Items["CurrentSession"] is not SnAuthSession currentSession) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         await locationPinService.DisconnectPinAsync(
             currentUser.Id,
@@ -314,7 +314,7 @@ public class LocationPinController(
         CancellationToken cancellationToken
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var pins = await locationPinService.ListNearbyPinsAsync(
             currentUser.Id,

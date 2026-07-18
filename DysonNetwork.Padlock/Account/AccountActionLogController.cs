@@ -1,4 +1,5 @@
 using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -20,7 +21,7 @@ public class AccountActionLogController(AppDatabase db) : ControllerBase
     )
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         take = take <= 0 ? 50 : Math.Min(take, 1000);
         offset = Math.Max(offset, 0);

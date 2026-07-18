@@ -1,4 +1,5 @@
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
 using Microsoft.AspNetCore.Authorization;
@@ -18,7 +19,7 @@ public class DevelopQuotaController(
     public async Task<ActionResult<ResourceQuotaResponse<DeveloperBotQuotaRecord>>> GetQuota()
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var account = SnAccount.FromProtoValue(await remoteAccounts.GetAccount(Guid.Parse(currentUser.Id)));
         return Ok(await quotaService.GetQuotaAsync(account));

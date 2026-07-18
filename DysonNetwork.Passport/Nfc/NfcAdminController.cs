@@ -79,7 +79,7 @@ public class NfcAdminController(NfcService nfc) : ControllerBase
             return Conflict(
                 new ApiError
                 {
-                    Code = "NFC_TAG_EXISTS",
+                    Code = "PASSPORT_NFC_TAG_EXISTS",
                     Message = ex.Message,
                     Status = 409,
                 }

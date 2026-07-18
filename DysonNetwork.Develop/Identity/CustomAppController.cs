@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Develop.Project;
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Data;
@@ -77,17 +78,17 @@ public class CustomAppController(
     public async Task<IActionResult> ListApps([FromQuery(Name = "dev")] string dev, [FromQuery(Name = "proj")] Guid proj)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var developer = await ds.GetDeveloperByName(dev);
-        if (developer is null) return NotFound();
+        if (developer is null) return NotFound(new ApiError { Code = "DEV_APP_DEVELOPER_NOT_FOUND", Message = "Developer not found", Status = 404 });
 
         var accountId = Guid.Parse(currentUser.Id);
         if (!await ds.IsMemberWithRole(developer.PublisherId, accountId, DyPublisherMemberRole.DyViewer))
-            return StatusCode(403, "You must be a viewer of the developer to list custom apps");
+            return StatusCode(403, ApiError.Unauthorized("You must be a viewer of the developer to list custom apps", forbidden: true));
 
         var project = await projectService.GetProjectAsync(proj, developer.Id);
-        if (project is null) return NotFound();
+        if (project is null) return NotFound(new ApiError { Code = "DEV_APP_PROJECT_NOT_FOUND", Message = "Project not found", Status = 404 });
 
         var apps = await customApps.GetAppsByProjectAsync(proj);
         return Ok(apps);
@@ -101,21 +102,21 @@ public class CustomAppController(
         [FromRoute] Guid appId)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var developer = await ds.GetDeveloperByName(dev);
-        if (developer is null) return NotFound();
+        if (developer is null) return NotFound(new ApiError { Code = "DEV_APP_DEVELOPER_NOT_FOUND", Message = "Developer not found", Status = 404 });
 
         var accountId = Guid.Parse(currentUser.Id);
         if (!await ds.IsMemberWithRole(developer.PublisherId, accountId, DyPublisherMemberRole.DyViewer))
-            return StatusCode(403, "You must be a viewer of the developer to list custom apps");
+            return StatusCode(403, ApiError.Unauthorized("You must be a viewer of the developer to list custom apps", forbidden: true));
 
         var project = await projectService.GetProjectAsync(proj, developer.Id);
-        if (project is null) return NotFound();
+        if (project is null) return NotFound(new ApiError { Code = "DEV_APP_PROJECT_NOT_FOUND", Message = "Project not found", Status = 404 });
 
         var app = await customApps.GetAppAsync(appId, proj);
         if (app == null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "DEV_APP_NOT_FOUND", Message = "App not found", Status = 404 });
 
         return Ok(app);
     }
@@ -129,21 +130,21 @@ public class CustomAppController(
         [FromRoute] Guid appId)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var developer = await ds.GetDeveloperByName(dev);
-        if (developer is null) return NotFound();
+        if (developer is null) return NotFound(new ApiError { Code = "DEV_APP_DEVELOPER_NOT_FOUND", Message = "Developer not found", Status = 404 });
 
         var accountId = Guid.Parse(currentUser.Id);
         if (!await ds.IsMemberWithRole(developer.PublisherId, accountId, DyPublisherMemberRole.DyEditor))
-            return StatusCode(403, "You must be an editor of the developer to manage board widgets");
+            return StatusCode(403, ApiError.Unauthorized("You must be an editor of the developer to manage board widgets", forbidden: true));
 
         var project = await projectService.GetProjectAsync(proj, developer.Id);
-        if (project is null) return NotFound();
+        if (project is null) return NotFound(new ApiError { Code = "DEV_APP_PROJECT_NOT_FOUND", Message = "Project not found", Status = 404 });
 
         var app = await customApps.GetAppAsync(appId, proj);
         if (app == null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "DEV_APP_NOT_FOUND", Message = "App not found", Status = 404 });
 
         var widgets = await customApps.GetBoardWidgetsAsync(appId);
         return Ok(widgets);
@@ -159,32 +160,32 @@ public class CustomAppController(
         [FromBody] SnBoardWidgetManifest request)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var developer = await ds.GetDeveloperByName(dev);
-        if (developer is null) return NotFound();
+        if (developer is null) return NotFound(new ApiError { Code = "DEV_APP_DEVELOPER_NOT_FOUND", Message = "Developer not found", Status = 404 });
 
         var accountId = Guid.Parse(currentUser.Id);
         if (!await ds.IsMemberWithRole(developer.PublisherId, accountId, DyPublisherMemberRole.DyEditor))
-            return StatusCode(403, "You must be an editor of the developer to manage board widgets");
+            return StatusCode(403, ApiError.Unauthorized("You must be an editor of the developer to manage board widgets", forbidden: true));
 
         var project = await projectService.GetProjectAsync(proj, developer.Id);
-        if (project is null) return NotFound();
+        if (project is null) return NotFound(new ApiError { Code = "DEV_APP_PROJECT_NOT_FOUND", Message = "Project not found", Status = 404 });
 
         var app = await customApps.GetAppAsync(appId, proj);
         if (app is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "DEV_APP_NOT_FOUND", Message = "App not found", Status = 404 });
 
         try
         {
             var created = await customApps.CreateBoardWidgetAsync(appId, request);
             if (created is null)
-                return BadRequest("Failed to create board widget. A widget with this key may already exist.");
+                return BadRequest(new ApiError { Code = "DEV_APP_BOARD_WIDGET_CREATE_FAILED", Message = "Failed to create board widget. A widget with this key may already exist.", Status = 400 });
             return Ok(created);
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new ApiError { Code = "DEV_APP_BOARD_WIDGET_CREATE_FAILED", Message = ex.Message, Status = 400 });
         }
     }
 
@@ -199,32 +200,32 @@ public class CustomAppController(
         [FromBody] SnBoardWidgetManifest request)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var developer = await ds.GetDeveloperByName(dev);
-        if (developer is null) return NotFound();
+        if (developer is null) return NotFound(new ApiError { Code = "DEV_APP_DEVELOPER_NOT_FOUND", Message = "Developer not found", Status = 404 });
 
         var accountId = Guid.Parse(currentUser.Id);
         if (!await ds.IsMemberWithRole(developer.PublisherId, accountId, DyPublisherMemberRole.DyEditor))
-            return StatusCode(403, "You must be an editor of the developer to manage board widgets");
+            return StatusCode(403, ApiError.Unauthorized("You must be an editor of the developer to manage board widgets", forbidden: true));
 
         var project = await projectService.GetProjectAsync(proj, developer.Id);
-        if (project is null) return NotFound();
+        if (project is null) return NotFound(new ApiError { Code = "DEV_APP_PROJECT_NOT_FOUND", Message = "Project not found", Status = 404 });
 
         var app = await customApps.GetAppAsync(appId, proj);
         if (app is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "DEV_APP_NOT_FOUND", Message = "App not found", Status = 404 });
 
         try
         {
             var updated = await customApps.UpdateBoardWidgetAsync(appId, widgetKey, request);
             if (updated is null)
-                return NotFound($"Board widget '{widgetKey}' not found.");
+                return NotFound(new ApiError { Code = "DEV_APP_BOARD_WIDGET_NOT_FOUND", Message = $"Board widget '{widgetKey}' not found.", Status = 404 });
             return Ok(updated);
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new ApiError { Code = "DEV_APP_BOARD_WIDGET_UPDATE_FAILED", Message = ex.Message, Status = 400 });
         }
     }
 
@@ -238,25 +239,25 @@ public class CustomAppController(
         [FromRoute] string widgetKey)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var developer = await ds.GetDeveloperByName(dev);
-        if (developer is null) return NotFound();
+        if (developer is null) return NotFound(new ApiError { Code = "DEV_APP_DEVELOPER_NOT_FOUND", Message = "Developer not found", Status = 404 });
 
         var accountId = Guid.Parse(currentUser.Id);
         if (!await ds.IsMemberWithRole(developer.PublisherId, accountId, DyPublisherMemberRole.DyEditor))
-            return StatusCode(403, "You must be an editor of the developer to manage board widgets");
+            return StatusCode(403, ApiError.Unauthorized("You must be an editor of the developer to manage board widgets", forbidden: true));
 
         var project = await projectService.GetProjectAsync(proj, developer.Id);
-        if (project is null) return NotFound();
+        if (project is null) return NotFound(new ApiError { Code = "DEV_APP_PROJECT_NOT_FOUND", Message = "Project not found", Status = 404 });
 
         var app = await customApps.GetAppAsync(appId, proj);
         if (app is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "DEV_APP_NOT_FOUND", Message = "App not found", Status = 404 });
 
         var ok = await customApps.DeleteBoardWidgetAsync(appId, widgetKey);
         if (!ok)
-            return NotFound($"Board widget '{widgetKey}' not found.");
+            return NotFound(new ApiError { Code = "DEV_APP_BOARD_WIDGET_NOT_FOUND", Message = $"Board widget '{widgetKey}' not found.", Status = 404 });
 
         return NoContent();
     }
@@ -269,33 +270,33 @@ public class CustomAppController(
         [FromBody] CustomAppRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var developer = await ds.GetDeveloperByName(dev);
         if (developer is null)
-            return NotFound("Developer not found");
+            return NotFound(new ApiError { Code = "DEV_APP_DEVELOPER_NOT_FOUND", Message = "Developer not found", Status = 404 });
 
         if (!await ds.IsMemberWithRole(developer.PublisherId, Guid.Parse(currentUser.Id), DyPublisherMemberRole.DyEditor))
-            return StatusCode(403, "You must be an editor of the developer to create a custom app");
+            return StatusCode(403, ApiError.Unauthorized("You must be an editor of the developer to create a custom app", forbidden: true));
 
         var project = await projectService.GetProjectAsync(proj, developer.Id);
         if (project is null)
-            return NotFound("Project not found or you don't have access");
+            return NotFound(new ApiError { Code = "DEV_APP_PROJECT_NOT_FOUND", Message = "Project not found or you don't have access", Status = 404 });
 
         if (string.IsNullOrWhiteSpace(request.Name) || string.IsNullOrWhiteSpace(request.Slug))
-            return BadRequest("Name and slug are required");
+            return BadRequest(new ApiError { Code = "DEV_APP_NAME_SLUG_REQUIRED", Message = "Name and slug are required", Status = 400 });
 
         try
         {
             var app = await customApps.CreateAppAsync(proj, request);
             if (app == null)
-                return BadRequest("Failed to create app");
+                return BadRequest(new ApiError { Code = "DEV_APP_CREATE_FAILED", Message = "Failed to create app", Status = 400 });
 
             return CreatedAtAction(nameof(GetApp), new { dev, proj, appId = app.Id }, app);
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new ApiError { Code = "DEV_APP_CREATE_FAILED", Message = ex.Message, Status = 400 });
         }
     }
 
@@ -310,22 +311,22 @@ public class CustomAppController(
     )
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var developer = await ds.GetDeveloperByName(dev);
         if (developer is null)
-            return NotFound("Developer not found");
+            return NotFound(new ApiError { Code = "DEV_APP_DEVELOPER_NOT_FOUND", Message = "Developer not found", Status = 404 });
 
         if (!await ds.IsMemberWithRole(developer.PublisherId, Guid.Parse(currentUser.Id), DyPublisherMemberRole.DyEditor))
-            return StatusCode(403, "You must be an editor of the developer to update a custom app");
+            return StatusCode(403, ApiError.Unauthorized("You must be an editor of the developer to update a custom app", forbidden: true));
 
         var project = await projectService.GetProjectAsync(proj, developer.Id);
         if (project is null)
-            return NotFound("Project not found or you don't have access");
+            return NotFound(new ApiError { Code = "DEV_APP_PROJECT_NOT_FOUND", Message = "Project not found or you don't have access", Status = 404 });
 
         var app = await customApps.GetAppAsync(appId, proj);
         if (app == null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "DEV_APP_NOT_FOUND", Message = "App not found", Status = 404 });
 
         try
         {
@@ -334,7 +335,7 @@ public class CustomAppController(
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new ApiError { Code = "DEV_APP_UPDATE_FAILED", Message = ex.Message, Status = 400 });
         }
     }
 
@@ -348,26 +349,26 @@ public class CustomAppController(
     )
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var developer = await ds.GetDeveloperByName(dev);
         if (developer is null)
-            return NotFound("Developer not found");
+            return NotFound(new ApiError { Code = "DEV_APP_DEVELOPER_NOT_FOUND", Message = "Developer not found", Status = 404 });
 
         if (!await ds.IsMemberWithRole(developer.PublisherId, Guid.Parse(currentUser.Id), DyPublisherMemberRole.DyEditor))
-            return StatusCode(403, "You must be an editor of the developer to delete a custom app");
+            return StatusCode(403, ApiError.Unauthorized("You must be an editor of the developer to delete a custom app", forbidden: true));
 
         var project = await projectService.GetProjectAsync(proj, developer.Id);
         if (project is null)
-            return NotFound("Project not found or you don't have access");
+            return NotFound(new ApiError { Code = "DEV_APP_PROJECT_NOT_FOUND", Message = "Project not found or you don't have access", Status = 404 });
 
         var app = await customApps.GetAppAsync(appId, proj);
         if (app == null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "DEV_APP_NOT_FOUND", Message = "App not found", Status = 404 });
 
         var result = await customApps.DeleteAppAsync(appId);
         if (!result)
-            return NotFound();
+            return NotFound(new ApiError { Code = "DEV_APP_NOT_FOUND", Message = "App not found", Status = 404 });
 
         return NoContent();
     }
@@ -382,31 +383,31 @@ public class CustomAppController(
         [FromBody] CreateCustomOrderRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var developer = await ds.GetDeveloperByName(dev);
         if (developer is null)
-            return NotFound("Developer not found");
+            return NotFound(new ApiError { Code = "DEV_APP_DEVELOPER_NOT_FOUND", Message = "Developer not found", Status = 404 });
 
         if (!await ds.IsMemberWithRole(developer.PublisherId, Guid.Parse(currentUser.Id), DyPublisherMemberRole.DyEditor))
-            return StatusCode(403, "You must be an editor of the developer to create custom app orders");
+            return StatusCode(403, ApiError.Unauthorized("You must be an editor of the developer to create custom app orders", forbidden: true));
 
         var project = await projectService.GetProjectAsync(proj, developer.Id);
         if (project is null)
-            return NotFound("Project not found or you don't have access");
+            return NotFound(new ApiError { Code = "DEV_APP_PROJECT_NOT_FOUND", Message = "Project not found or you don't have access", Status = 404 });
 
         var app = await customApps.GetAppAsync(appId, proj);
         if (app is null)
-            return NotFound("App not found");
+            return NotFound(new ApiError { Code = "DEV_APP_NOT_FOUND", Message = "App not found", Status = 404 });
 
         if (string.IsNullOrWhiteSpace(request.Identifier))
-            return BadRequest("Identifier is required");
+            return BadRequest(new ApiError { Code = "DEV_APP_ORDER_IDENTIFIER_REQUIRED", Message = "Identifier is required", Status = 400 });
 
         if (string.IsNullOrWhiteSpace(request.Currency))
-            return BadRequest("Currency is required");
+            return BadRequest(new ApiError { Code = "DEV_APP_ORDER_CURRENCY_REQUIRED", Message = "Currency is required", Status = 400 });
 
         if (request.Amount < 0.001m)
-            return BadRequest("Amount must be at least 0.001");
+            return BadRequest(new ApiError { Code = "DEV_APP_ORDER_AMOUNT_TOO_SMALL", Message = "Amount must be at least 0.001", Status = 400 });
 
         var order = await payment.CreateOrder(
             request.Currency,
@@ -430,17 +431,17 @@ public class CustomAppController(
     {
         var app = await customApps.GetAppAsync(appId);
         if (app is null)
-            return NotFound("App not found");
+            return NotFound(new ApiError { Code = "DEV_APP_NOT_FOUND", Message = "App not found", Status = 404 });
 
         var secret = GetAppSecretFromRequest();
         if (string.IsNullOrWhiteSpace(secret) || !await customApps.ValidateApiSecretAsync(appId, secret, cancellationToken))
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         if (app.OauthConfig?.AllowedScopes?.Contains(
                 PermissionKeys.AccountsProfileBoard, StringComparer.OrdinalIgnoreCase) != true)
         {
             return StatusCode(403,
-                $"Custom app must declare '{PermissionKeys.AccountsProfileBoard}' scope to provide board widgets.");
+                ApiError.Unauthorized($"Custom app must declare '{PermissionKeys.AccountsProfileBoard}' scope to provide board widgets.", forbidden: true));
         }
 
         var widgets = await customApps.GetBoardWidgetsAsync(appId);
@@ -456,11 +457,11 @@ public class CustomAppController(
     {
         var app = await customApps.GetAppAsync(appId);
         if (app is null)
-            return NotFound("App not found");
+            return NotFound(new ApiError { Code = "DEV_APP_NOT_FOUND", Message = "App not found", Status = 404 });
 
         var secret = GetAppSecretFromRequest();
         if (string.IsNullOrWhiteSpace(secret) || !await customApps.ValidateApiSecretAsync(appId, secret, cancellationToken))
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         // App capability: must declare accounts.profile.board in OauthConfig.AllowedScopes.
         // User consent: must have authorized this app with that scope (AuthorizedApp).
@@ -468,11 +469,11 @@ public class CustomAppController(
                 PermissionKeys.AccountsProfileBoard, StringComparer.OrdinalIgnoreCase) != true)
         {
             return StatusCode(403,
-                $"Custom app must declare '{PermissionKeys.AccountsProfileBoard}' scope to provide board widgets.");
+                ApiError.Unauthorized($"Custom app must declare '{PermissionKeys.AccountsProfileBoard}' scope to provide board widgets.", forbidden: true));
         }
 
         if (string.IsNullOrWhiteSpace(request.AccountId) || !Guid.TryParse(request.AccountId, out _))
-            return BadRequest("account_id is required.");
+            return BadRequest(new ApiError { Code = "DEV_APP_BOARD_PAYLOAD_ACCOUNT_ID_REQUIRED", Message = "account_id is required.", Status = 400 });
 
         var authorized = await authorizedApps.QueryAuthorizedBoardAppsAsync(
             new DyQueryAuthorizedBoardAppsRequest
@@ -488,12 +489,12 @@ public class CustomAppController(
         if (authorized.Apps.All(a => !string.Equals(a.AppId, appIdString, StringComparison.OrdinalIgnoreCase)))
         {
             return StatusCode(403,
-                $"User has not authorized this app with scope '{PermissionKeys.AccountsProfileBoard}'.");
+                ApiError.Unauthorized($"User has not authorized this app with scope '{PermissionKeys.AccountsProfileBoard}'.", forbidden: true));
         }
 
         var validation = await customApps.ValidateBoardWidgetPayload(app, request.WidgetKey, request.Payload);
         if (!validation.Valid)
-            return BadRequest(validation.Message ?? "Invalid board payload.");
+            return BadRequest(new ApiError { Code = "DEV_APP_BOARD_PAYLOAD_INVALID", Message = validation.Message ?? "Invalid board payload.", Status = 400 });
 
         try
         {
@@ -517,12 +518,12 @@ public class CustomAppController(
         }
         catch (Grpc.Core.RpcException ex) when (ex.StatusCode == Grpc.Core.StatusCode.NotFound)
         {
-            return NotFound(ex.Status.Detail);
+            return NotFound(new ApiError { Code = "DEV_APP_NOT_FOUND", Message = ex.Status.Detail, Status = 404 });
         }
         catch (Grpc.Core.RpcException ex) when (ex.StatusCode == Grpc.Core.StatusCode.InvalidArgument
                                                 || ex.StatusCode == Grpc.Core.StatusCode.FailedPrecondition)
         {
-            return BadRequest(ex.Status.Detail);
+            return BadRequest(new ApiError { Code = "DEV_APP_BOARD_PAYLOAD_RPC_ERROR", Message = ex.Status.Detail, Status = 400 });
         }
     }
 
@@ -534,22 +535,22 @@ public class CustomAppController(
         [FromRoute] Guid appId)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var developer = await ds.GetDeveloperByName(dev);
         if (developer is null)
-            return NotFound("Developer not found");
+            return NotFound(new ApiError { Code = "DEV_APP_DEVELOPER_NOT_FOUND", Message = "Developer not found", Status = 404 });
 
         if (!await ds.IsMemberWithRole(developer.PublisherId, Guid.Parse(currentUser.Id), DyPublisherMemberRole.DyEditor))
-            return StatusCode(403, "You must be an editor of the developer to view app secrets");
+            return StatusCode(403, ApiError.Unauthorized("You must be an editor of the developer to view app secrets", forbidden: true));
 
         var project = await projectService.GetProjectAsync(proj, developer.Id);
         if (project is null)
-            return NotFound("Project not found or you don't have access");
+            return NotFound(new ApiError { Code = "DEV_APP_PROJECT_NOT_FOUND", Message = "Project not found or you don't have access", Status = 404 });
 
         var app = await customApps.GetAppAsync(appId, proj);
         if (app == null)
-            return NotFound("App not found");
+            return NotFound(new ApiError { Code = "DEV_APP_NOT_FOUND", Message = "App not found", Status = 404 });
 
         var secrets = await customApps.GetAppSecretsAsync(appId);
         return Ok(secrets.Select(s => new SecretResponse(
@@ -587,22 +588,22 @@ public class CustomAppController(
         [FromBody] CreateSecretRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var developer = await ds.GetDeveloperByName(dev);
         if (developer is null)
-            return NotFound("Developer not found");
+            return NotFound(new ApiError { Code = "DEV_APP_DEVELOPER_NOT_FOUND", Message = "Developer not found", Status = 404 });
 
         if (!await ds.IsMemberWithRole(developer.PublisherId, Guid.Parse(currentUser.Id), DyPublisherMemberRole.DyEditor))
-            return StatusCode(403, "You must be an editor of the developer to create app secrets");
+            return StatusCode(403, ApiError.Unauthorized("You must be an editor of the developer to create app secrets", forbidden: true));
 
         var project = await projectService.GetProjectAsync(proj, developer.Id);
         if (project is null)
-            return NotFound("Project not found or you don't have access");
+            return NotFound(new ApiError { Code = "DEV_APP_PROJECT_NOT_FOUND", Message = "Project not found or you don't have access", Status = 404 });
 
         var app = await customApps.GetAppAsync(appId, proj);
         if (app == null)
-            return NotFound("App not found");
+            return NotFound(new ApiError { Code = "DEV_APP_NOT_FOUND", Message = "App not found", Status = 404 });
 
         try
         {
@@ -633,7 +634,7 @@ public class CustomAppController(
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new ApiError { Code = "DEV_APP_SECRET_CREATE_FAILED", Message = ex.Message, Status = 400 });
         }
     }
 
@@ -646,26 +647,26 @@ public class CustomAppController(
         [FromRoute] Guid secretId)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var developer = await ds.GetDeveloperByName(dev);
         if (developer is null)
-            return NotFound("Developer not found");
+            return NotFound(new ApiError { Code = "DEV_APP_DEVELOPER_NOT_FOUND", Message = "Developer not found", Status = 404 });
 
         if (!await ds.IsMemberWithRole(developer.PublisherId, Guid.Parse(currentUser.Id), DyPublisherMemberRole.DyEditor))
-            return StatusCode(403, "You must be an editor of the developer to view app secrets");
+            return StatusCode(403, ApiError.Unauthorized("You must be an editor of the developer to view app secrets", forbidden: true));
 
         var project = await projectService.GetProjectAsync(proj, developer.Id);
         if (project is null)
-            return NotFound("Project not found or you don't have access");
+            return NotFound(new ApiError { Code = "DEV_APP_PROJECT_NOT_FOUND", Message = "Project not found or you don't have access", Status = 404 });
 
         var app = await customApps.GetAppAsync(appId, proj);
         if (app == null)
-            return NotFound("App not found");
+            return NotFound(new ApiError { Code = "DEV_APP_NOT_FOUND", Message = "App not found", Status = 404 });
 
         var secret = await customApps.GetAppSecretAsync(secretId, appId);
         if (secret == null)
-            return NotFound("Secret not found");
+            return NotFound(new ApiError { Code = "DEV_APP_SECRET_NOT_FOUND", Message = "Secret not found", Status = 404 });
 
         return Ok(new SecretResponse(
             secret.Id.ToString(),
@@ -688,30 +689,30 @@ public class CustomAppController(
         [FromRoute] Guid secretId)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var developer = await ds.GetDeveloperByName(dev);
         if (developer is null)
-            return NotFound("Developer not found");
+            return NotFound(new ApiError { Code = "DEV_APP_DEVELOPER_NOT_FOUND", Message = "Developer not found", Status = 404 });
 
         if (!await ds.IsMemberWithRole(developer.PublisherId, Guid.Parse(currentUser.Id), DyPublisherMemberRole.DyEditor))
-            return StatusCode(403, "You must be an editor of the developer to delete app secrets");
+            return StatusCode(403, ApiError.Unauthorized("You must be an editor of the developer to delete app secrets", forbidden: true));
 
         var project = await projectService.GetProjectAsync(proj, developer.Id);
         if (project is null)
-            return NotFound("Project not found or you don't have access");
+            return NotFound(new ApiError { Code = "DEV_APP_PROJECT_NOT_FOUND", Message = "Project not found or you don't have access", Status = 404 });
 
         var app = await customApps.GetAppAsync(appId, proj);
         if (app == null)
-            return NotFound("App not found");
+            return NotFound(new ApiError { Code = "DEV_APP_NOT_FOUND", Message = "App not found", Status = 404 });
 
         var secret = await customApps.GetAppSecretAsync(secretId, appId);
         if (secret == null)
-            return NotFound("Secret not found");
+            return NotFound(new ApiError { Code = "DEV_APP_SECRET_NOT_FOUND", Message = "Secret not found", Status = 404 });
 
         var result = await customApps.DeleteAppSecretAsync(secretId, appId);
         if (!result)
-            return NotFound("Failed to delete secret");
+            return NotFound(new ApiError { Code = "DEV_APP_SECRET_DELETE_FAILED", Message = "Failed to delete secret", Status = 404 });
 
         return NoContent();
     }
@@ -727,22 +728,22 @@ public class CustomAppController(
         [FromBody] CreateSecretRequest? request = null)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var developer = await ds.GetDeveloperByName(dev);
         if (developer is null)
-            return NotFound("Developer not found");
+            return NotFound(new ApiError { Code = "DEV_APP_DEVELOPER_NOT_FOUND", Message = "Developer not found", Status = 404 });
 
         if (!await ds.IsMemberWithRole(developer.PublisherId, Guid.Parse(currentUser.Id), DyPublisherMemberRole.DyEditor))
-            return StatusCode(403, "You must be an editor of the developer to rotate app secrets");
+            return StatusCode(403, ApiError.Unauthorized("You must be an editor of the developer to rotate app secrets", forbidden: true));
 
         var project = await projectService.GetProjectAsync(proj, developer.Id);
         if (project is null)
-            return NotFound("Project not found or you don't have access");
+            return NotFound(new ApiError { Code = "DEV_APP_PROJECT_NOT_FOUND", Message = "Project not found or you don't have access", Status = 404 });
 
         var app = await customApps.GetAppAsync(appId, proj);
         if (app == null)
-            return NotFound("App not found");
+            return NotFound(new ApiError { Code = "DEV_APP_NOT_FOUND", Message = "App not found", Status = 404 });
 
         try
         {
@@ -770,7 +771,7 @@ public class CustomAppController(
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new ApiError { Code = "DEV_APP_SECRET_ROTATE_FAILED", Message = ex.Message, Status = 400 });
         }
     }
 }

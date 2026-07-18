@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
-using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Networking;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -25,7 +26,7 @@ public class AffiliationSpellController(AppDatabase db, AffiliationSpellService 
     [Authorize]
     public async Task<ActionResult<SnAffiliationSpell>> CreateSpell([FromBody] CreateAffiliationSpellRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         try
         {
@@ -34,7 +35,7 @@ public class AffiliationSpellController(AppDatabase db, AffiliationSpellService 
         }
         catch (InvalidOperationException e)
         {
-            return BadRequest(e.Message);
+            return BadRequest(new ApiError { Code = "PASSPORT_AFFILIATION_SPELL_CREATE_FAILED", Message = e.Message, Status = 400, TraceId = HttpContext.TraceIdentifier });
         }
     }
 
@@ -54,7 +55,7 @@ public class AffiliationSpellController(AppDatabase db, AffiliationSpellService 
         }
         catch (InvalidOperationException e)
         {
-            return BadRequest(e.Message);
+            return BadRequest(new ApiError { Code = "PASSPORT_AFFILIATION_RESULT_RECORD_FAILED", Message = e.Message, Status = 400, TraceId = HttpContext.TraceIdentifier });
         }
     }
     
@@ -67,7 +68,7 @@ public class AffiliationSpellController(AppDatabase db, AffiliationSpellService 
         [FromQuery] int offset = 0
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var queryable = db.AffiliationSpells
             .Where(s => s.AccountId == currentUser.Id)
@@ -97,13 +98,13 @@ public class AffiliationSpellController(AppDatabase db, AffiliationSpellService 
     [Authorize]
     public async Task<ActionResult<SnAffiliationSpell>> GetSpell([FromRoute] Guid id)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var spell = await db.AffiliationSpells
             .Where(s => s.AccountId == currentUser.Id)
             .Where(s => s.Id == id)
             .FirstOrDefaultAsync();
-        if (spell is null) return NotFound();
+        if (spell is null) return NotFound(new ApiError { Code = "PASSPORT_AFFILIATION_SPELL_NOT_FOUND", Message = "Affiliation spell not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
         return Ok(spell);
     }
@@ -117,7 +118,7 @@ public class AffiliationSpellController(AppDatabase db, AffiliationSpellService 
         [FromQuery] int offset = 0
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var queryable = db.AffiliationResults
             .Include(r => r.Spell)
@@ -145,13 +146,13 @@ public class AffiliationSpellController(AppDatabase db, AffiliationSpellService 
     [AskPermission(PermissionKeys.AffiliationsManage)]
     public async Task<ActionResult> DeleteSpell([FromRoute] Guid id)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var spell = await db.AffiliationSpells
             .Where(s => s.AccountId == currentUser.Id)
             .Where(s => s.Id == id)
             .FirstOrDefaultAsync();
-        if (spell is null) return NotFound();
+        if (spell is null) return NotFound(new ApiError { Code = "PASSPORT_AFFILIATION_SPELL_NOT_FOUND", Message = "Affiliation spell not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
         db.AffiliationSpells.Remove(spell);
         await db.SaveChangesAsync();

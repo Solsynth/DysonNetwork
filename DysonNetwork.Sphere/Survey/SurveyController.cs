@@ -31,7 +31,7 @@ public class SurveyController(
             .Surveys.Include(p => p.Questions)
             .FirstOrDefaultAsync(p => p.Id == id);
         if (survey is null)
-            return NotFound("Survey not found");
+            return NotFound(new ApiError { Code = "SURVEY_NOT_FOUND", Message = "Survey not found", Status = 404 });
         var surveyWithAnswer = SurveyWithStats.FromSurvey(survey);
 
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
@@ -65,7 +65,7 @@ public class SurveyController(
     )
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         var accountId = Guid.Parse(currentUser.Id);
         try
         {
@@ -115,7 +115,7 @@ public class SurveyController(
     public async Task<IActionResult> DeleteSurveyAnswer(Guid id)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         var accountId = Guid.Parse(currentUser.Id);
         try
         {
@@ -167,7 +167,7 @@ public class SurveyController(
     )
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         var accountId = Guid.Parse(currentUser.Id);
 
         // Cap pagination to prevent unbounded result sets.
@@ -176,10 +176,10 @@ public class SurveyController(
 
         var survey = await db.Surveys.FirstOrDefaultAsync(p => p.Id == id);
         if (survey is null)
-            return NotFound("Survey not found");
+            return NotFound(new ApiError { Code = "SURVEY_NOT_FOUND", Message = "Survey not found", Status = 404 });
 
         if (!await pub.IsMemberWithRole(survey.PublisherId, accountId, PublisherMemberRole.Viewer))
-            return StatusCode(403, "You need to be a viewer to view this survey's feedback.");
+            return StatusCode(403, ApiError.Unauthorized("You need to be a viewer to view this survey's feedback.", forbidden: true));
 
         var answerQuery = db.SurveyAnswers.Where(a => a.SurveyId == id).AsQueryable();
 
@@ -221,7 +221,7 @@ public class SurveyController(
     )
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         var accountId = Guid.Parse(currentUser.Id);
 
         List<Guid> publishers;
@@ -329,18 +329,18 @@ public class SurveyController(
     )
     {
         if (request.Questions is null)
-            return BadRequest("Questions are required.");
+            return BadRequest(new ApiError { Code = "SURVEY_QUESTIONS_REQUIRED", Message = "Questions are required.", Status = 400 });
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         var accountId = Guid.Parse(currentUser.Id);
 
         var publisher = await pub.GetPublisherByName(pubName);
         if (publisher is null)
-            return BadRequest("Publisher was not found.");
+            return BadRequest(new ApiError { Code = "PUBLISHER_NOT_FOUND", Message = "Publisher was not found.", Status = 400 });
         if (!await pub.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.Editor))
             return StatusCode(
                 403,
-                "You need at least be an editor to create surveys as this publisher."
+                ApiError.Unauthorized("You need at least be an editor to create surveys as this publisher.", forbidden: true)
             );
 
         var survey = new SnSurvey
@@ -415,7 +415,7 @@ public class SurveyController(
     )
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         var accountId = Guid.Parse(currentUser.Id);
 
         // Start a transaction
@@ -428,7 +428,7 @@ public class SurveyController(
                 .FirstOrDefaultAsync(p => p.Id == id);
 
             if (survey == null)
-                return NotFound("Survey not found");
+                return NotFound(new ApiError { Code = "SURVEY_NOT_FOUND", Message = "Survey not found", Status = 404 });
 
             // Check if user is an editor of the publisher that owns the survey
             if (
@@ -438,7 +438,7 @@ public class SurveyController(
                     PublisherMemberRole.Editor
                 )
             )
-                return StatusCode(403, "You need to be at least an editor to update this survey.");
+                return StatusCode(403, ApiError.Unauthorized("You need to be at least an editor to update this survey.", forbidden: true));
 
             // Only Drafts can be edited. Published surveys are immutable (clone to revise),
             // and Archived surveys are fully locked.
@@ -588,16 +588,16 @@ public class SurveyController(
     public async Task<ActionResult<SnSurvey>> PublishSurvey(Guid id)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         var accountId = Guid.Parse(currentUser.Id);
 
         var existing = await db.Surveys.AsNoTracking().FirstOrDefaultAsync(p => p.Id == id);
         if (existing is null)
-            return NotFound("Survey not found");
+            return NotFound(new ApiError { Code = "SURVEY_NOT_FOUND", Message = "Survey not found", Status = 404 });
         if (
             !await pub.IsMemberWithRole(existing.PublisherId, accountId, PublisherMemberRole.Editor)
         )
-            return StatusCode(403, "You need at least editor rights to publish this survey.");
+            return StatusCode(403, ApiError.Unauthorized("You need at least editor rights to publish this survey.", forbidden: true));
 
         try
         {
@@ -647,16 +647,16 @@ public class SurveyController(
     public async Task<ActionResult<SnSurvey>> ArchiveSurvey(Guid id)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         var accountId = Guid.Parse(currentUser.Id);
 
         var existing = await db.Surveys.AsNoTracking().FirstOrDefaultAsync(p => p.Id == id);
         if (existing is null)
-            return NotFound("Survey not found");
+            return NotFound(new ApiError { Code = "SURVEY_NOT_FOUND", Message = "Survey not found", Status = 404 });
         if (
             !await pub.IsMemberWithRole(existing.PublisherId, accountId, PublisherMemberRole.Editor)
         )
-            return StatusCode(403, "You need at least editor rights to archive this survey.");
+            return StatusCode(403, ApiError.Unauthorized("You need at least editor rights to archive this survey.", forbidden: true));
 
         try
         {
@@ -702,16 +702,16 @@ public class SurveyController(
     public async Task<ActionResult<SnSurvey>> CloneSurvey(Guid id)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         var accountId = Guid.Parse(currentUser.Id);
 
         var existing = await db.Surveys.AsNoTracking().FirstOrDefaultAsync(p => p.Id == id);
         if (existing is null)
-            return NotFound("Survey not found");
+            return NotFound(new ApiError { Code = "SURVEY_NOT_FOUND", Message = "Survey not found", Status = 404 });
         if (
             !await pub.IsMemberWithRole(existing.PublisherId, accountId, PublisherMemberRole.Editor)
         )
-            return StatusCode(403, "You need at least editor rights to clone this survey.");
+            return StatusCode(403, ApiError.Unauthorized("You need at least editor rights to clone this survey.", forbidden: true));
 
         try
         {
@@ -760,7 +760,7 @@ public class SurveyController(
     public async Task<IActionResult> DeleteSurvey(Guid id)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         var accountId = Guid.Parse(currentUser.Id);
 
         // Start a transaction
@@ -773,7 +773,7 @@ public class SurveyController(
                 .FirstOrDefaultAsync(p => p.Id == id);
 
             if (survey == null)
-                return NotFound("Survey not found");
+                return NotFound(new ApiError { Code = "SURVEY_NOT_FOUND", Message = "Survey not found", Status = 404 });
 
             // Check if user is an editor of the publisher that owns the survey
             if (
@@ -783,7 +783,7 @@ public class SurveyController(
                     PublisherMemberRole.Editor
                 )
             )
-                return StatusCode(403, "You need to be at least an editor to delete this survey.");
+                return StatusCode(403, ApiError.Unauthorized("You need to be at least an editor to delete this survey.", forbidden: true));
 
             // Delete all answers for this survey
             var answers = await db.SurveyAnswers.Where(a => a.SurveyId == id).ToListAsync();
@@ -826,7 +826,7 @@ public class SurveyController(
         catch (Exception ex)
         {
             await transaction.RollbackAsync();
-            return StatusCode(500, "An error occurred while deleting the survey... " + ex.Message);
+            return StatusCode(500, new ApiError { Code = "SURVEY_DELETE_ERROR", Message = "An error occurred while deleting the survey... " + ex.Message, Status = 500 });
         }
     }
 
@@ -843,12 +843,12 @@ public class SurveyController(
     public async Task<ActionResult<SnSurveySubscription>> SubscribeToSurvey(Guid id)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         var accountId = Guid.Parse(currentUser.Id);
 
         var survey = await db.Surveys.FirstOrDefaultAsync(p => p.Id == id);
         if (survey is null)
-            return NotFound("Survey not found");
+            return NotFound(new ApiError { Code = "SURVEY_NOT_FOUND", Message = "Survey not found", Status = 404 });
 
         var existing = await db.SurveySubscriptions.FirstOrDefaultAsync(s =>
             s.SurveyId == id && s.AccountId == accountId
@@ -874,7 +874,7 @@ public class SurveyController(
     public async Task<IActionResult> UnsubscribeFromSurvey(Guid id)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         var accountId = Guid.Parse(currentUser.Id);
 
         var subscription = await db.SurveySubscriptions.FirstOrDefaultAsync(s =>
@@ -893,18 +893,18 @@ public class SurveyController(
     public async Task<ActionResult<SnSurveySubscription>> GetSurveySubscription(Guid id)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         var accountId = Guid.Parse(currentUser.Id);
 
         var survey = await db.Surveys.FirstOrDefaultAsync(p => p.Id == id);
         if (survey is null)
-            return NotFound("Survey not found");
+            return NotFound(new ApiError { Code = "SURVEY_NOT_FOUND", Message = "Survey not found", Status = 404 });
 
         var subscription = await db.SurveySubscriptions.FirstOrDefaultAsync(s =>
             s.SurveyId == id && s.AccountId == accountId
         );
         if (subscription is null)
-            return NotFound("Subscription not found");
+            return NotFound(new ApiError { Code = "SURVEY_SUBSCRIPTION_NOT_FOUND", Message = "Subscription not found", Status = 404 });
 
         return Ok(subscription);
     }

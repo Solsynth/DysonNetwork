@@ -30,7 +30,7 @@ public class AccountEventController(
     [HttpGet("statuses")]
     public async Task<ActionResult<SnAccountStatus>> GetCurrentStatus()
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         var status = await events.GetStatus(currentUser.Id);
         return Ok(status);
     }
@@ -39,9 +39,9 @@ public class AccountEventController(
     [AskPermission("accounts.statuses.update")]
     public async Task<ActionResult<SnAccountStatus>> UpdateStatus([FromBody] AccountController.StatusRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         if (request is { IsAutomated: true, AppIdentifier: not null })
-            return BadRequest("Automated status cannot be updated.");
+            return BadRequest(new ApiError { Code = "PASSPORT_STATUS_AUTOMATED_NO_UPDATE", Message = "Automated status cannot be updated.", Status = 400, TraceId = HttpContext.TraceIdentifier });
 
         var now = SystemClock.Instance.GetCurrentInstant();
         var status = await db.AccountStatuses
@@ -51,7 +51,7 @@ public class AccountEventController(
             .FirstOrDefaultAsync();
         if (status is null) return NotFound(ApiError.NotFound("status", traceId: HttpContext.TraceIdentifier));
         if (status.IsAutomated && request.AppIdentifier is null)
-            return BadRequest("Automated status cannot be updated.");
+            return BadRequest(new ApiError { Code = "PASSPORT_STATUS_AUTOMATED_NO_UPDATE", Message = "Automated status cannot be updated.", Status = 400, TraceId = HttpContext.TraceIdentifier });
 
         status.Attitude = request.Attitude;
         status.Type = request.Type;
@@ -66,7 +66,7 @@ public class AccountEventController(
         {
             var file = await files.GetFileAsync(new DyGetFileRequest { Id = request.IconId });
             if (file is null)
-                return BadRequest("Icon not found.");
+                return BadRequest(new ApiError { Code = "PASSPORT_ICON_NOT_FOUND", Message = "Icon not found.", Status = 400, TraceId = HttpContext.TraceIdentifier });
             status.Icon = SnCloudFileReferenceObject.FromProtoValue(file);
         }
 
@@ -74,7 +74,7 @@ public class AccountEventController(
         {
             var file = await files.GetFileAsync(new DyGetFileRequest { Id = request.BackgroundId });
             if (file is null)
-                return BadRequest("Background not found.");
+                return BadRequest(new ApiError { Code = "PASSPORT_BACKGROUND_NOT_FOUND", Message = "Background not found.", Status = 400, TraceId = HttpContext.TraceIdentifier });
             status.Background = SnCloudFileReferenceObject.FromProtoValue(file);
         }
 
@@ -89,7 +89,7 @@ public class AccountEventController(
     [AskPermission("accounts.statuses.create")]
     public async Task<ActionResult<SnAccountStatus>> CreateStatus([FromBody] AccountController.StatusRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         if (request is { IsAutomated: true, AppIdentifier: not null })
         {
@@ -173,7 +173,7 @@ public class AccountEventController(
     [HttpDelete("statuses")]
     public async Task<ActionResult> DeleteStatus([FromQuery] string? app)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var now = SystemClock.Instance.GetCurrentInstant();
         var queryable = db.AccountStatuses
@@ -187,7 +187,7 @@ public class AccountEventController(
 
         var status = await queryable
             .FirstOrDefaultAsync();
-        if (status is null) return NotFound();
+        if (status is null) return NotFound(new ApiError { Code = "PASSPORT_STATUS_NOT_FOUND", Message = "Status not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
         await events.ClearStatus(currentUser, status);
         return NoContent();
@@ -196,7 +196,7 @@ public class AccountEventController(
     [HttpGet("check-in")]
     public async Task<ActionResult<SnCheckInResult>> GetCheckInResult([FromQuery] int version = 1)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         var userId = currentUser.Id;
 
         var now = SystemClock.Instance.GetCurrentInstant();
@@ -225,7 +225,7 @@ public class AccountEventController(
         [FromQuery] int version = 1
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         if (backdated is null)
         {
@@ -233,7 +233,7 @@ public class AccountEventController(
             if (!isAvailable)
                 return BadRequest(new ApiError
                 {
-                    Code = "BAD_REQUEST",
+                    Code = "PASSPORT_CHECK_IN_NOT_AVAILABLE",
                     Message = "Check-in is not available for today.",
                     Status = 400,
                     TraceId = HttpContext.TraceIdentifier
@@ -253,7 +253,7 @@ public class AccountEventController(
             if (!isAvailable)
                 return BadRequest(new ApiError
                 {
-                    Code = "BAD_REQUEST",
+                    Code = "PASSPORT_CHECK_IN_BACKDATED_NOT_AVAILABLE",
                     Message = "Check-in is not available for this date.",
                     Status = 400,
                     TraceId = HttpContext.TraceIdentifier
@@ -269,7 +269,7 @@ public class AccountEventController(
                     return StatusCode(423,
                         new ApiError
                         {
-                            Code = "CAPTCHA_REQUIRED",
+                            Code = "PASSPORT_CAPTCHA_REQUIRED",
                             Message = "Captcha is required for this check-in.",
                             Status = 423,
                             TraceId = HttpContext.TraceIdentifier
@@ -294,7 +294,7 @@ public class AccountEventController(
         {
             return BadRequest(new ApiError
             {
-                Code = "BAD_REQUEST",
+                Code = "PASSPORT_CHECK_IN_FAILED",
                 Message = "Check-in failed.",
                 Detail = ex.Message,
                 Status = 400,
@@ -309,8 +309,9 @@ public class AccountEventController(
         [FromQuery] int? year,
         [FromQuery] bool includeNotableDays = false,
         [FromServices] NotableDaysService? notableDaysService = null)
+    )
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var currentDate = SystemClock.Instance.GetCurrentInstant().InUtc().Date;
         month ??= currentDate.Month;
@@ -367,7 +368,7 @@ public class AccountEventController(
         [FromQuery] int? year,
         [FromServices] NotableDaysService? notableDaysService = null)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var currentDate = SystemClock.Instance.GetCurrentInstant().InUtc().Date;
         month ??= currentDate.Month;
@@ -406,7 +407,7 @@ public class AccountEventController(
     [ProducesResponseType<List<string>>(StatusCodes.Status200OK)]
     public async Task<ActionResult<List<string>>> GetCalendarTags()
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         return Ok(await events.GetCalendarEventTagsAsync(currentUser.Id));
     }
 
@@ -421,7 +422,7 @@ public class AccountEventController(
         [FromQuery] int offset = 0,
         [FromQuery] int take = 50)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var (userEvents, totalCount) = await events.GetAccessibleCalendarEventsAsync(
             currentUser.Id,
@@ -442,7 +443,7 @@ public class AccountEventController(
     [ProducesResponseType<ApiError>(StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<SnUserCalendarEvent>> CreateCalendarEvent([FromBody] CreateCalendarEventRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         try
         {
@@ -484,7 +485,7 @@ public class AccountEventController(
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<SnUserCalendarEvent>> GetCalendarEvent(Guid id)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var calendarEvent = await events.GetCalendarEventAsync(id, currentUser.Id);
 
@@ -502,7 +503,7 @@ public class AccountEventController(
         Guid id,
         [FromBody] UpdateCalendarEventRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         try
         {
@@ -548,7 +549,7 @@ public class AccountEventController(
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult> DeleteCalendarEvent(Guid id)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var deleted = await events.DeleteCalendarEventAsync(currentUser.Id, id);
 
@@ -563,7 +564,7 @@ public class AccountEventController(
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<NotableDay>> GetGeneratedNotableDay(string occurrenceKey, [FromServices] NotableDaysService notableDaysService)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var notableDay = await notableDaysService.GetGeneratedNotableDayAsync(occurrenceKey);
         if (notableDay == null)
@@ -585,7 +586,7 @@ public class AccountEventController(
         [FromQuery] int offset = 0,
         [FromQuery] int take = 50)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var regionCode = string.IsNullOrWhiteSpace(region) ? currentUser.Region : region;
         if (string.IsNullOrWhiteSpace(regionCode)) regionCode = "us";
@@ -626,7 +627,7 @@ public class AccountEventController(
         [FromQuery] string? tag = null,
         [FromServices] NotableDaysService? notableDaysService = null)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         // Use user's region with fallback to "us"
         var regionCode = currentUser.Region;
@@ -660,7 +661,7 @@ public class AccountEventController(
     [ProducesResponseType<List<Guid>>(StatusCodes.Status200OK)]
     public async Task<ActionResult<List<Guid>>> GetEventSubscriptions()
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var subscriptions = await events.GetCalendarEventSubscriptionsAsync(currentUser.Id);
         return Ok(subscriptions);
@@ -671,7 +672,7 @@ public class AccountEventController(
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<SnCalendarEventSubscription>> SubscribeToEvents(Guid accountId)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         try
         {
@@ -693,7 +694,7 @@ public class AccountEventController(
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult> UnsubscribeFromEvents(Guid accountId)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var removed = await events.UnsubscribeFromCalendarEventsAsync(currentUser.Id, accountId);
         if (!removed)
@@ -707,7 +708,7 @@ public class AccountEventController(
     [ProducesResponseType<List<Guid>>(StatusCodes.Status200OK)]
     public async Task<ActionResult<List<Guid>>> GetEventSubscribers()
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var subscribers = await events.GetCalendarEventSubscribersAsync(currentUser.Id);
         return Ok(subscribers);

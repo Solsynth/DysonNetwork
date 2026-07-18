@@ -1,5 +1,6 @@
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Models.Embed;
+using DysonNetwork.Shared.Networking;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -14,14 +15,14 @@ public class WebReaderController(WebReaderService reader, ILogger<WebReaderContr
     public async Task<ActionResult<LinkEmbed>> ScrapLink([FromQuery] string url)
     {
         if (string.IsNullOrEmpty(url))
-            return BadRequest(new { error = "URL parameter is required" });
+            return BadRequest(new ApiError { Code = "SCRAP_URL_REQUIRED", Message = "URL parameter is required.", Status = 400 });
 
         try
         {
             var decodedUrl = UrlDecoder.Decode(url);
 
             if (!Uri.TryCreate(decodedUrl, UriKind.Absolute, out _))
-                return BadRequest(new { error = "Invalid URL format" });
+                return BadRequest(new ApiError { Code = "SCRAP_URL_INVALID_FORMAT", Message = "Invalid URL format.", Status = 400 });
 
             var linkEmbed = await reader.GetLinkPreviewAsync(decodedUrl);
             return Ok(linkEmbed);
@@ -29,14 +30,14 @@ public class WebReaderController(WebReaderService reader, ILogger<WebReaderContr
         catch (WebReaderException ex)
         {
             logger.LogWarning(ex, "Error scraping link: {Url}", url);
-            return BadRequest(new { error = ex.Message });
+            return BadRequest(new ApiError { Code = "SCRAP_LINK_ERROR", Message = ex.Message, Status = 400 });
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Unexpected error scraping link: {Url}", url);
             return StatusCode(
                 StatusCodes.Status500InternalServerError,
-                new { error = "An unexpected error occurred while processing the link" }
+                new ApiError { Code = "SCRAP_UNEXPECTED_ERROR", Message = "An unexpected error occurred while processing the link.", Status = 500 }
             );
         }
     }
@@ -47,7 +48,7 @@ public class WebReaderController(WebReaderService reader, ILogger<WebReaderContr
     public async Task<IActionResult> InvalidateCache([FromQuery] string url)
     {
         if (string.IsNullOrEmpty(url))
-            return BadRequest(new { error = "URL parameter is required" });
+            return BadRequest(new ApiError { Code = "SCRAP_URL_REQUIRED", Message = "URL parameter is required.", Status = 400 });
 
         await reader.InvalidateCacheForUrlAsync(url);
         return Ok(new { message = "Cache invalidated for URL" });

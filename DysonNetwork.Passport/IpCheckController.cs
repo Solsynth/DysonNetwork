@@ -1,5 +1,6 @@
 using DysonNetwork.Shared.Extensions;
 using DysonNetwork.Shared.Geometry;
+using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Auth;
 using Microsoft.AspNetCore.Mvc;
 
@@ -46,10 +47,10 @@ public class IpCheckController(GeoService geoService) : ControllerBase
         var clientIp = HttpContext.GetClientIpAddress();
         var geo = geoService.GetFromIp(clientIp);
         if (geo is null)
-            return NotFound(new { code = "GEO_NOT_FOUND", message = "Could not resolve geo location for client IP." });
+            return NotFound(new ApiError { Code = "PASSPORT_IP_GEO_NOT_FOUND", Message = "Could not resolve geo location for client IP.", Status = 404 });
 
         if (geo.Location is not { HasCoordinates: true })
-            return NotFound(new { code = "GEO_NO_COORDINATES", message = "Geo location has no coordinates." });
+            return NotFound(new ApiError { Code = "PASSPORT_IP_GEO_NO_COORDINATES", Message = "Geo location has no coordinates.", Status = 404 });
 
         return Ok(ToGeoResponse(geo));
     }

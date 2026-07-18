@@ -1,4 +1,5 @@
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Networking;
 using Microsoft.AspNetCore.Mvc;
 
 namespace DysonNetwork.Develop.Identity;
@@ -11,11 +12,11 @@ public class BotAccountPublicController(BotAccountService botService, DeveloperS
     public async Task<ActionResult<SnBotAccount>> GetBotTransparentInfo([FromRoute] Guid botId)
     {
         var bot = await botService.GetBotByIdAsync(botId);
-        if (bot is null) return NotFound("Bot not found");
+        if (bot is null) return NotFound(new ApiError { Code = "DEV_BOT_ACCOUNT_NOT_FOUND", Message = "Bot not found", Status = 404 });
         bot = await botService.LoadBotAccountAsync(bot);
 
         var developer = await developerService.GetDeveloperById(bot!.Project.DeveloperId);
-        if (developer is null) return NotFound("Developer not found");
+        if (developer is null) return NotFound(new ApiError { Code = "DEV_BOT_ACCOUNT_DEVELOPER_NOT_FOUND", Message = "Developer not found", Status = 404 });
         bot.Developer = await developerService.LoadDeveloperPublisher(developer);
 
         return Ok(bot);
@@ -25,10 +26,10 @@ public class BotAccountPublicController(BotAccountService botService, DeveloperS
     public async Task<ActionResult<SnDeveloper>> GetBotDeveloper([FromRoute] Guid botId)
     {
         var bot = await botService.GetBotByIdAsync(botId);
-        if (bot is null) return NotFound("Bot not found");
-        
+        if (bot is null) return NotFound(new ApiError { Code = "DEV_BOT_ACCOUNT_NOT_FOUND", Message = "Bot not found", Status = 404 });
+
         var developer = await developerService.GetDeveloperById(bot!.Project.DeveloperId);
-        if (developer is null) return NotFound("Developer not found");
+        if (developer is null) return NotFound(new ApiError { Code = "DEV_BOT_ACCOUNT_DEVELOPER_NOT_FOUND", Message = "Developer not found", Status = 404 });
         developer = await developerService.LoadDeveloperPublisher(developer);
 
         return Ok(developer);
@@ -38,7 +39,7 @@ public class BotAccountPublicController(BotAccountService botService, DeveloperS
     public async Task<ActionResult<SnBotChatConfig>> GetBotChatConfig([FromRoute] Guid botId)
     {
         var bot = await botService.GetBotByIdAsync(botId);
-        if (bot is null) return NotFound("Bot not found");
+        if (bot is null) return NotFound(new ApiError { Code = "DEV_BOT_ACCOUNT_NOT_FOUND", Message = "Bot not found", Status = 404 });
 
         var config = await botService.GetChatConfigOrNullAsync(botId);
         if (config is null)
@@ -61,7 +62,7 @@ public class BotAccountPublicController(BotAccountService botService, DeveloperS
     public async Task<ActionResult<List<SnBotCommand>>> GetBotCommands([FromRoute] Guid botId)
     {
         var bot = await botService.GetBotByIdAsync(botId);
-        if (bot is null) return NotFound("Bot not found");
+        if (bot is null) return NotFound(new ApiError { Code = "DEV_BOT_ACCOUNT_NOT_FOUND", Message = "Bot not found", Status = 404 });
 
         var config = await botService.GetChatConfigOrNullAsync(botId);
         return Ok(config?.Commands ?? []);

@@ -1,5 +1,6 @@
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Networking;
 using DysonNetwork.Sphere.Models;
 using DysonNetwork.Sphere.ActivityPub.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -43,7 +44,7 @@ public class FediverseModerationController(
     {
         var rule = await db.FediverseModerationRules.FindAsync(id);
         if (rule is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "FEDIVERSE_RULE_NOT_FOUND", Message = "Rule not found.", Status = 404 });
 
         return Ok(rule);
     }
@@ -88,10 +89,10 @@ public class FediverseModerationController(
     {
         var rule = await db.FediverseModerationRules.FindAsync(id);
         if (rule is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "FEDIVERSE_RULE_NOT_FOUND", Message = "Rule not found.", Status = 404 });
 
         if (rule.IsSystemRule)
-            return BadRequest(new { error = "Cannot modify system rules" });
+            return BadRequest(new ApiError { Code = "FEDIVERSE_RULE_SYSTEM_NOT_MODIFIABLE", Message = "Cannot modify system rules.", Status = 400 });
 
         if (!string.IsNullOrEmpty(request.Name))
             rule.Name = request.Name;
@@ -128,10 +129,10 @@ public class FediverseModerationController(
     {
         var rule = await db.FediverseModerationRules.FindAsync(id);
         if (rule is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "FEDIVERSE_RULE_NOT_FOUND", Message = "Rule not found.", Status = 404 });
 
         if (rule.IsSystemRule)
-            return BadRequest(new { error = "Cannot delete system rules" });
+            return BadRequest(new ApiError { Code = "FEDIVERSE_RULE_SYSTEM_NOT_DELETABLE", Message = "Cannot delete system rules.", Status = 400 });
 
         db.FediverseModerationRules.Remove(rule);
         await db.SaveChangesAsync();
@@ -146,10 +147,10 @@ public class FediverseModerationController(
     {
         var rule = await db.FediverseModerationRules.FindAsync(id);
         if (rule is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "FEDIVERSE_RULE_NOT_FOUND", Message = "Rule not found.", Status = 404 });
 
         if (rule.IsSystemRule)
-            return BadRequest(new { error = "Cannot toggle system rules" });
+            return BadRequest(new ApiError { Code = "FEDIVERSE_RULE_SYSTEM_NOT_TOGGLABLE", Message = "Cannot toggle system rules.", Status = 400 });
 
         rule.IsEnabled = request.Enabled;
         rule.UpdatedAt = SystemClock.Instance.GetCurrentInstant();

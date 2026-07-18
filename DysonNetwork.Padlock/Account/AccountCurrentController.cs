@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Auth;
 using Microsoft.AspNetCore.Authorization;
@@ -33,8 +34,7 @@ public class AccountCurrentController(
     [AskPermission(PermissionKeys.AccountsManage)]
     public async Task<ActionResult<SnAccount>> UpdateBasicInfo([FromBody] BasicInfoRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
-
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         var updatedAccount = await accounts.UpdateBasicInfo(
             currentUser,
             request.Nick,
@@ -48,14 +48,13 @@ public class AccountCurrentController(
     [HttpGet]
     public async Task<ActionResult<SnAccount>> GetCurrentAccount()
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
-
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         var account = await db.Accounts
             .Include(a => a.Profile)
             .Include(a => a.Badges)
             .FirstOrDefaultAsync(a => a.Id == currentUser.Id);
 
-        if (account is null) return NotFound();
+        if (account is null) return NotFound(new ApiError { Code = "PADLOCK_ACCOUNT_NOT_FOUND", Message = "Account not found.", Status = 404 });
 
         return Ok(account);
     }
@@ -63,8 +62,7 @@ public class AccountCurrentController(
     [HttpGet("pin-status")]
     public async Task<ActionResult<PinStatusResponse>> GetPinStatus()
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
-
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         var hasPin = await db.AccountAuthFactors
             .Where(f => f.AccountId == currentUser.Id)
             .Where(f => f.Type == AccountAuthFactorType.PinCode)

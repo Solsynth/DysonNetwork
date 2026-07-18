@@ -48,7 +48,7 @@ public class AccountController(
             return BadRequest(
                 new ApiError
                 {
-                    Code = "NOT_FOUND",
+                    Code = "PASSPORT_ACCOUNT_NOT_FOUND",
                     Message = "Unable to find the account.",
                     Detail = request.Account,
                     Status = 400,
@@ -66,7 +66,7 @@ public class AccountController(
             return BadRequest(
                 new ApiError
                 {
-                    Code = "NO_CONTACT_METHOD",
+                    Code = "PASSPORT_ACCOUNT_NO_CONTACT_METHOD",
                     Message = "This account has no email contact available for password reset.",
                     Status = 400,
                     TraceId = HttpContext.TraceIdentifier,
@@ -78,7 +78,7 @@ public class AccountController(
             return BadRequest(
                 new ApiError
                 {
-                    Code = "TOO_MANY_REQUESTS",
+                    Code = "PASSPORT_PASSWORD_RESET_TOO_MANY_REQUESTS",
                     Message = "You already requested password reset within 24 hours.",
                     Status = 400,
                     TraceId = HttpContext.TraceIdentifier,
@@ -121,7 +121,7 @@ public class AccountController(
             return BadRequest(
                 new ApiError
                 {
-                    Code = "NOT_FOUND",
+                    Code = "PASSPORT_ACCOUNT_NOT_FOUND",
                     Message = "Account not found.",
                     Detail = name,
                     Status = 400,
@@ -172,7 +172,7 @@ public class AccountController(
             return BadRequest(
                 new ApiError
                 {
-                    Code = "not_found",
+                    Code = "PASSPORT_ACCOUNT_NOT_FOUND",
                     Message = "Account not found.",
                     Detail = name,
                     Status = 400,
@@ -262,7 +262,7 @@ public class AccountController(
             return BadRequest(
                 new ApiError
                 {
-                    Code = "not_found",
+                    Code = "PASSPORT_ACCOUNT_NOT_FOUND",
                     Message = "Account not found.",
                     Detail = name,
                     Status = 400,
@@ -309,7 +309,7 @@ public class AccountController(
             return BadRequest(
                 new ApiError
                 {
-                    Code = "not_found",
+                    Code = "PASSPORT_ACCOUNT_NOT_FOUND",
                     Message = "Account not found.",
                     Detail = name,
                     Status = 400,
@@ -365,7 +365,7 @@ public class AccountController(
             return BadRequest(
                 new ApiError
                 {
-                    Code = "NOT_FOUND",
+                    Code = "PASSPORT_ACCOUNT_NOT_FOUND",
                     Message = "Account not found.",
                     Detail = name,
                     Status = 400,
@@ -393,7 +393,7 @@ public class AccountController(
             return BadRequest(
                 new ApiError
                 {
-                    Code = "NOT_FOUND",
+                    Code = "PASSPORT_ACCOUNT_NOT_FOUND",
                     Message = "Account not found.",
                     Detail = name,
                     Status = 400,
@@ -436,7 +436,7 @@ public class AccountController(
             return BadRequest(
                 new ApiError
                 {
-                    Code = "NOT_FOUND",
+                    Code = "PASSPORT_ACCOUNT_NOT_FOUND",
                     Message = "Account not found.",
                     Detail = name,
                     Status = 400,

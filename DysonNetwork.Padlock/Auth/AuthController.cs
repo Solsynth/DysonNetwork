@@ -86,7 +86,7 @@ public class AuthController(
     public async Task<ActionResult<SnAuthChallenge>> CreateChallenge([FromBody] ChallengeRequest request)
     {
         var account = await accounts.LookupAccount(request.Account);
-        if (account is null) return NotFound("Account was not found.");
+        if (account is null) return NotFound(new ApiError { Code = "AUTH_ACCOUNT_NOT_FOUND", Message = "Account was not found.", Status = 404 });
 
         var punishment = await accounts.GetActivePunishmentOverview(account.Id);
         if (punishment is { Type: PunishmentType.DisableAccount or PunishmentType.BlockLogin })
@@ -161,7 +161,7 @@ public class AuthController(
         if (challenge is not null) return challenge;
         logger.LogWarning("GetChallenge: challenge not found (challengeId={ChallengeId}, ip={IpAddress})",
             id, HttpContext.GetClientIpAddress());
-        return NotFound("Auth challenge was not found.");
+        return NotFound(new ApiError { Code = "AUTH_CHALLENGE_NOT_FOUND", Message = "Auth challenge was not found.", Status = 404 });
     }
 
     [HttpGet("challenge/{id:guid}/factors")]
@@ -173,7 +173,7 @@ public class AuthController(
             .Where(e => e.Id == id)
             .FirstOrDefaultAsync();
         return challenge is null
-            ? NotFound("Auth challenge was not found.")
+            ? NotFound(new ApiError { Code = "AUTH_CHALLENGE_NOT_FOUND", Message = "Auth challenge was not found.", Status = 404 })
             : challenge.Account.AuthFactors
                 .Where(e => e is { EnabledAt: not null, Trustworthy: >= 1 }
                          && e.Type != AccountAuthFactorType.RecoveryCode
@@ -187,12 +187,12 @@ public class AuthController(
         var challenge = await db.AuthChallenges
             .Include(e => e.Account)
             .Where(e => e.Id == id).FirstOrDefaultAsync();
-        if (challenge is null) return NotFound("Auth challenge was not found.");
+        if (challenge is null) return NotFound(new ApiError { Code = "AUTH_CHALLENGE_NOT_FOUND", Message = "Auth challenge was not found.", Status = 404 });
 
         var factor = await db.AccountAuthFactors
             .Where(e => e.Id == factorId)
             .Where(e => e.AccountId == challenge.AccountId).FirstOrDefaultAsync();
-        if (factor is null) return NotFound("Auth factor was not found.");
+        if (factor is null) return NotFound(new ApiError { Code = "AUTH_FACTOR_NOT_FOUND", Message = "Auth factor was not found.", Status = 404 });
 
         try
         {
@@ -200,7 +200,7 @@ public class AuthController(
         }
         catch (Exception ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new ApiError { Code = "AUTH_FACTOR_SEND_FAILED", Message = ex.Message, Status = 400 });
         }
 
         return Ok();
@@ -236,24 +236,24 @@ public class AuthController(
         var challenge = await db.AuthChallenges
             .Include(e => e.Account)
             .FirstOrDefaultAsync(e => e.Id == id);
-        if (challenge is null) return NotFound("Auth challenge was not found.");
+        if (challenge is null) return NotFound(new ApiError { Code = "AUTH_CHALLENGE_NOT_FOUND", Message = "Auth challenge was not found.", Status = 404 });
 
         var factor = await db.AccountAuthFactors
             .Where(f => f.Id == request.FactorId)
             .Where(f => f.AccountId == challenge.AccountId)
             .FirstOrDefaultAsync();
-        if (factor is null) return NotFound("Auth factor was not found.");
-        if (factor.EnabledAt is null) return BadRequest("Auth factor is not enabled.");
-        if (factor.Trustworthy <= 0) return BadRequest("Auth factor is not trustworthy.");
+        if (factor is null) return NotFound(new ApiError { Code = "AUTH_FACTOR_NOT_FOUND", Message = "Auth factor was not found.", Status = 404 });
+        if (factor.EnabledAt is null) return BadRequest(new ApiError { Code = "AUTH_FACTOR_NOT_ENABLED", Message = "Auth factor is not enabled.", Status = 400 });
+        if (factor.Trustworthy <= 0) return BadRequest(new ApiError { Code = "AUTH_FACTOR_NOT_TRUSTWORTHY", Message = "Auth factor is not trustworthy.", Status = 400 });
 
         if (challenge.StepRemain == 0) return challenge;
 
         var now = SystemClock.Instance.GetCurrentInstant();
         if (challenge.ExpiredAt.HasValue && now > challenge.ExpiredAt.Value)
-            return BadRequest();
+            return BadRequest(new ApiError { Code = "AUTH_CHALLENGE_EXPIRED", Message = "Auth challenge has expired.", Status = 400 });
 
         if (challenge.BlacklistFactors.Contains(factor.Id))
-            return BadRequest("Auth factor already used.");
+            return BadRequest(new ApiError { Code = "AUTH_FACTOR_ALREADY_USED", Message = "Auth factor already used.", Status = 400 });
 
         var isFirstFactor = challenge.BlacklistFactors.Count == 0;
 
@@ -283,7 +283,7 @@ public class AuthController(
                 HttpContext.GetClientIpAddress(),
                 HttpContext.Request.Headers.UserAgent.ToString().Length);
 
-            return BadRequest("Invalid password.");
+            return BadRequest(new ApiError { Code = "AUTH_INVALID_PASSWORD", Message = "Invalid password.", Status = 400 });
         }
 
         if (isFirstFactor && challenge.StepRemain > 0)
@@ -344,23 +344,23 @@ public class AuthController(
             .Include(e => e.Account)
             .Include(e => e.Account.AuthFactors)
             .FirstOrDefaultAsync(e => e.Id == id);
-        if (challenge is null) return NotFound("Auth challenge was not found.");
+        if (challenge is null) return NotFound(new ApiError { Code = "AUTH_CHALLENGE_NOT_FOUND", Message = "Auth challenge was not found.", Status = 404 });
 
         var factor = challenge.Account.AuthFactors
             .FirstOrDefault(f => f.Type == AccountAuthFactorType.Passkey && f.EnabledAt != null && f.Trustworthy > 0 && !challenge.BlacklistFactors.Contains(f.Id));
-        if (factor is null) return BadRequest("No available passkey factor was found.");
+        if (factor is null) return BadRequest(new ApiError { Code = "AUTH_PASSKEY_FACTOR_NOT_AVAILABLE", Message = "No available passkey factor was found.", Status = 400 });
 
-        if (challenge.StepRemain == 0) return BadRequest("Auth challenge already completed.");
+        if (challenge.StepRemain == 0) return BadRequest(new ApiError { Code = "AUTH_CHALLENGE_ALREADY_COMPLETED", Message = "Auth challenge already completed.", Status = 400 });
 
         var now = SystemClock.Instance.GetCurrentInstant();
         if (challenge.ExpiredAt.HasValue && now > challenge.ExpiredAt.Value)
-            return BadRequest("Auth challenge has expired.");
+            return BadRequest(new ApiError { Code = "AUTH_CHALLENGE_EXPIRED", Message = "Auth challenge has expired.", Status = 400 });
 
         var passkeyCredentials = await db.AccountPasskeys
             .Where(p => p.AccountId == challenge.AccountId)
             .ToListAsync();
         if (passkeyCredentials.Count == 0)
-            return BadRequest("No passkeys are registered for this account.");
+            return BadRequest(new ApiError { Code = "AUTH_NO_PASSKEYS_REGISTERED", Message = "No passkeys are registered for this account.", Status = 400 });
 
         var rpId = GetPasskeyRpId();
         var assertionChallenge = await accounts.GeneratePasskeyAssertionChallengeAsync(challenge.Id);
@@ -385,33 +385,33 @@ public class AuthController(
         var challenge = await db.AuthChallenges
             .Include(e => e.Account)
             .FirstOrDefaultAsync(e => e.Id == id);
-        if (challenge is null) return NotFound("Auth challenge was not found.");
+        if (challenge is null) return NotFound(new ApiError { Code = "AUTH_CHALLENGE_NOT_FOUND", Message = "Auth challenge was not found.", Status = 404 });
 
         var factor = await db.AccountAuthFactors
             .Where(f => f.AccountId == challenge.AccountId)
             .Where(f => f.Type == AccountAuthFactorType.Passkey)
             .FirstOrDefaultAsync();
-        if (factor is null) return BadRequest("Passkey factor is not enabled.");
-        if (factor.EnabledAt is null) return BadRequest("Auth factor is not enabled.");
-        if (factor.Trustworthy <= 0) return BadRequest("Auth factor is not trustworthy.");
+        if (factor is null) return BadRequest(new ApiError { Code = "AUTH_PASSKEY_FACTOR_NOT_ENABLED", Message = "Passkey factor is not enabled.", Status = 400 });
+        if (factor.EnabledAt is null) return BadRequest(new ApiError { Code = "AUTH_FACTOR_NOT_ENABLED", Message = "Auth factor is not enabled.", Status = 400 });
+        if (factor.Trustworthy <= 0) return BadRequest(new ApiError { Code = "AUTH_FACTOR_NOT_TRUSTWORTHY", Message = "Auth factor is not trustworthy.", Status = 400 });
 
         if (challenge.StepRemain == 0) return challenge;
 
         var now = SystemClock.Instance.GetCurrentInstant();
         if (challenge.ExpiredAt.HasValue && now > challenge.ExpiredAt.Value)
-            return BadRequest("Auth challenge has expired.");
+            return BadRequest(new ApiError { Code = "AUTH_CHALLENGE_EXPIRED", Message = "Auth challenge has expired.", Status = 400 });
 
         if (challenge.BlacklistFactors.Contains(factor.Id))
-            return BadRequest("Auth factor already used.");
+            return BadRequest(new ApiError { Code = "AUTH_FACTOR_ALREADY_USED", Message = "Auth factor already used.", Status = 400 });
 
         if (!AccountService.TryNormalizePasskeyCredentialId(request.CredentialId, out var credentialId))
-            return BadRequest("Passkey credential ID is invalid.");
+            return BadRequest(new ApiError { Code = "AUTH_PASSKEY_CREDENTIAL_INVALID", Message = "Passkey credential ID is invalid.", Status = 400 });
 
         var passkey = await db.AccountPasskeys
             .FirstOrDefaultAsync(p => p.AccountId == challenge.AccountId && p.CredentialId == credentialId);
-        if (passkey is null) return BadRequest("Passkey is not registered for this account.");
+        if (passkey is null) return BadRequest(new ApiError { Code = "AUTH_PASSKEY_NOT_REGISTERED", Message = "Passkey is not registered for this account.", Status = 400 });
         var credential = accounts.GetPasskeyCredential(passkey.Credential);
-        if (credential is null) return BadRequest("Passkey is invalid.");
+        if (credential is null) return BadRequest(new ApiError { Code = "AUTH_PASSKEY_INVALID", Message = "Passkey is invalid.", Status = 400 });
 
         var isFirstFactor = challenge.BlacklistFactors.Count == 0;
 
@@ -448,7 +448,7 @@ public class AuthController(
                 HttpContext.GetClientIpAddress(),
                 HttpContext.Request.Headers.UserAgent.ToString().Length);
 
-            return BadRequest("Invalid passkey assertion.");
+            return BadRequest(new ApiError { Code = "AUTH_INVALID_PASSKEY_ASSERTION", Message = "Invalid passkey assertion.", Status = 400 });
         }
 
         if (isFirstFactor && challenge.StepRemain > 0)
@@ -556,25 +556,25 @@ public class AuthController(
     )
     {
         var challenge = await db.AuthChallenges.FirstOrDefaultAsync(e => e.Id == id);
-        if (challenge is null) return NotFound("Auth challenge was not found.");
+        if (challenge is null) return NotFound(new ApiError { Code = "AUTH_CHALLENGE_NOT_FOUND", Message = "Auth challenge was not found.", Status = 404 });
         if (challenge.AccountId != Guid.Empty || challenge.StepRemain == 0)
-            return BadRequest("Auth challenge is no longer pending.");
+            return BadRequest(new ApiError { Code = "AUTH_CHALLENGE_NOT_PENDING", Message = "Auth challenge is no longer pending.", Status = 400 });
         if (challenge.ExpiredAt.HasValue && SystemClock.Instance.GetCurrentInstant() > challenge.ExpiredAt.Value)
-            return BadRequest("Auth challenge has expired.");
+            return BadRequest(new ApiError { Code = "AUTH_CHALLENGE_EXPIRED", Message = "Auth challenge has expired.", Status = 400 });
 
         if (!AccountService.TryNormalizePasskeyCredentialId(request.CredentialId, out var credentialId))
-            return BadRequest("Passkey credential ID is invalid.");
+            return BadRequest(new ApiError { Code = "AUTH_PASSKEY_CREDENTIAL_INVALID", Message = "Passkey credential ID is invalid.", Status = 400 });
 
         var passkey = await db.AccountPasskeys
             .FirstOrDefaultAsync(p => p.CredentialId == credentialId);
-        if (passkey is null) return BadRequest("Passkey was not found.");
+        if (passkey is null) return BadRequest(new ApiError { Code = "AUTH_PASSKEY_NOT_FOUND", Message = "Passkey was not found.", Status = 400 });
 
         var factor = await db.AccountAuthFactors
             .FirstOrDefaultAsync(f => f.AccountId == passkey.AccountId && f.Type == AccountAuthFactorType.Passkey && f.EnabledAt != null && f.Trustworthy > 0);
-        if (factor is null) return BadRequest("Passkey factor is not enabled for this account.");
+        if (factor is null) return BadRequest(new ApiError { Code = "AUTH_PASSKEY_FACTOR_NOT_ENABLED", Message = "Passkey factor is not enabled for this account.", Status = 400 });
 
         var credential = accounts.GetPasskeyCredential(passkey.Credential);
-        if (credential is null) return BadRequest("Passkey is invalid.");
+        if (credential is null) return BadRequest(new ApiError { Code = "AUTH_PASSKEY_INVALID", Message = "Passkey is invalid.", Status = 400 });
         if (!await accounts.VerifyPasskeyAssertionAsync(
                 credential,
                 challenge.Id,
@@ -583,7 +583,7 @@ public class AuthController(
                 request.AuthenticatorData,
                 request.Signature
             ))
-            return BadRequest("Invalid passkey assertion.");
+            return BadRequest(new ApiError { Code = "AUTH_INVALID_PASSKEY_ASSERTION", Message = "Invalid passkey assertion.", Status = 400 });
 
         challenge.AccountId = passkey.AccountId;
         challenge.StepRemain = 0;
@@ -597,7 +597,7 @@ public class AuthController(
     public async Task<ActionResult<List<SnAuthChallenge>>> GetPendingChallenges()
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount user)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "AUTH_UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var now = SystemClock.Instance.GetCurrentInstant();
         var challenges = await db.AuthChallenges
@@ -617,22 +617,22 @@ public class AuthController(
     public async Task<IActionResult> ApproveChallenge([FromRoute] Guid id, [FromBody] SudoRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount user)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "AUTH_UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         if (HttpContext.Items["CurrentSession"] is not SnAuthSession session)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "AUTH_SESSION_REQUIRED", Message = "A valid session is required.", Status = 401 });
 
         var valid = await auth.ValidateSudoMode(session, request.PinCode);
-        if (!valid) return BadRequest(new { error = "Invalid PIN code" });
+        if (!valid) return BadRequest(new ApiError { Code = "AUTH_INVALID_PIN", Message = "Invalid PIN code.", Status = 400 });
 
         var challenge = await db.AuthChallenges
             .FirstOrDefaultAsync(c => c.Id == id && c.AccountId == user.Id);
-        if (challenge is null) return NotFound("Auth challenge was not found.");
+        if (challenge is null) return NotFound(new ApiError { Code = "AUTH_CHALLENGE_NOT_FOUND", Message = "Auth challenge was not found.", Status = 404 });
 
         var now = SystemClock.Instance.GetCurrentInstant();
         if (challenge.ExpiredAt.HasValue && now > challenge.ExpiredAt.Value)
-            return BadRequest("Auth challenge has expired.");
-        if (challenge.ApprovedAt is not null) return BadRequest("Challenge already approved.");
-        if (challenge.DeclinedAt is not null) return BadRequest("Challenge already declined.");
+            return BadRequest(new ApiError { Code = "AUTH_CHALLENGE_EXPIRED", Message = "Auth challenge has expired.", Status = 400 });
+        if (challenge.ApprovedAt is not null) return BadRequest(new ApiError { Code = "AUTH_CHALLENGE_ALREADY_APPROVED", Message = "Challenge already approved.", Status = 400 });
+        if (challenge.DeclinedAt is not null) return BadRequest(new ApiError { Code = "AUTH_CHALLENGE_ALREADY_DECLINED", Message = "Challenge already declined.", Status = 400 });
 
         challenge.StepRemain = 0;
         challenge.ApprovedAt = now;
@@ -674,22 +674,22 @@ public class AuthController(
     public async Task<IActionResult> DeclineChallenge([FromRoute] Guid id, [FromBody] SudoRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount user)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "AUTH_UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         if (HttpContext.Items["CurrentSession"] is not SnAuthSession session)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "AUTH_SESSION_REQUIRED", Message = "A valid session is required.", Status = 401 });
 
         var valid = await auth.ValidateSudoMode(session, request.PinCode);
-        if (!valid) return BadRequest(new { error = "Invalid PIN code" });
+        if (!valid) return BadRequest(new ApiError { Code = "AUTH_INVALID_PIN", Message = "Invalid PIN code.", Status = 400 });
 
         var challenge = await db.AuthChallenges
             .FirstOrDefaultAsync(c => c.Id == id && c.AccountId == user.Id);
-        if (challenge is null) return NotFound("Auth challenge was not found.");
+        if (challenge is null) return NotFound(new ApiError { Code = "AUTH_CHALLENGE_NOT_FOUND", Message = "Auth challenge was not found.", Status = 404 });
 
         var now = SystemClock.Instance.GetCurrentInstant();
         if (challenge.ExpiredAt.HasValue && now > challenge.ExpiredAt.Value)
-            return BadRequest("Auth challenge has expired.");
-        if (challenge.ApprovedAt is not null) return BadRequest("Challenge already approved.");
-        if (challenge.DeclinedAt is not null) return BadRequest("Challenge already declined.");
+            return BadRequest(new ApiError { Code = "AUTH_CHALLENGE_EXPIRED", Message = "Auth challenge has expired.", Status = 400 });
+        if (challenge.ApprovedAt is not null) return BadRequest(new ApiError { Code = "AUTH_CHALLENGE_ALREADY_APPROVED", Message = "Challenge already approved.", Status = 400 });
+        if (challenge.DeclinedAt is not null) return BadRequest(new ApiError { Code = "AUTH_CHALLENGE_ALREADY_DECLINED", Message = "Challenge already declined.", Status = 400 });
 
         challenge.DeclinedAt = now;
         db.Update(challenge);
@@ -746,14 +746,14 @@ public class AuthController(
             case "authorization_code":
                 var challengeId = Guid.TryParse(request.Code, out var parsedChallengeId) ? parsedChallengeId : Guid.Empty;
                 if (challengeId == Guid.Empty)
-                    return BadRequest("Invalid or missing authorization code.");
+                    return BadRequest(new ApiError { Code = "AUTH_INVALID_CODE", Message = "Invalid or missing authorization code.", Status = 400 });
 
                 var challenge = await db.AuthChallenges
                     .Include(e => e.Account)
                     .Where(e => e.Id == challengeId)
                     .FirstOrDefaultAsync();
                 if (challenge is null)
-                    return BadRequest("Authorization code not found or expired.");
+                    return BadRequest(new ApiError { Code = "AUTH_CHALLENGE_NOT_FOUND", Message = "Authorization code not found or expired.", Status = 400 });
 
                 var punishment = await accounts.GetActivePunishmentOverview(challenge.AccountId);
                 if (punishment is { Type: PunishmentType.DisableAccount or PunishmentType.BlockLogin })
@@ -782,14 +782,14 @@ public class AuthController(
                 }
                 catch (ArgumentException ex)
                 {
-                    return BadRequest(ex.Message);
+                    return BadRequest(new ApiError { Code = "AUTH_CREATE_SESSION_FAILED", Message = ex.Message, Status = 400 });
                 }
             case "refresh_token":
                 var submittedRefresh = request.RefreshToken;
                 if (string.IsNullOrWhiteSpace(submittedRefresh))
                     Request.Cookies.TryGetValue(AuthConstants.RefreshCookieTokenName, out submittedRefresh);
                 if (string.IsNullOrWhiteSpace(submittedRefresh))
-                    return BadRequest("Missing refresh token.");
+                    return BadRequest(new ApiError { Code = "AUTH_REFRESH_TOKEN_REQUIRED", Message = "Missing refresh token.", Status = 400 });
 
                 try
                 {
@@ -807,10 +807,10 @@ public class AuthController(
                 }
                 catch (ArgumentException ex)
                 {
-                    return BadRequest(ex.Message);
+                    return BadRequest(new ApiError { Code = "AUTH_REFRESH_FAILED", Message = ex.Message, Status = 400 });
                 }
             default:
-                return BadRequest("Unsupported grant type.");
+                return BadRequest(new ApiError { Code = "AUTH_UNSUPPORTED_GRANT_TYPE", Message = "Unsupported grant type.", Status = 400 });
         }
     }
 
@@ -819,7 +819,7 @@ public class AuthController(
     {
         if (!Request.Cookies.TryGetValue(AuthConstants.RefreshCookieTokenName, out var refreshToken) ||
             string.IsNullOrWhiteSpace(refreshToken))
-            return BadRequest("Missing refresh token.");
+            return BadRequest(new ApiError { Code = "AUTH_REFRESH_TOKEN_REQUIRED", Message = "Missing refresh token.", Status = 400 });
 
         try
         {
@@ -837,7 +837,7 @@ public class AuthController(
         }
         catch (ArgumentException ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new ApiError { Code = "AUTH_REFRESH_FAILED", Message = ex.Message, Status = 400 });
         }
     }
 
@@ -931,7 +931,7 @@ public class AuthController(
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount ||
             HttpContext.Items["CurrentSession"] is not SnAuthSession currentSession)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "AUTH_UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         try
         {
@@ -957,7 +957,7 @@ public class AuthController(
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new ApiError { Code = "AUTH_CREATE_SESSION_FAILED", Message = ex.Message, Status = 400 });
         }
     }
 
@@ -968,7 +968,7 @@ public class AuthController(
     {
         var user = HttpContext.Items["CurrentUser"] as SnAccount;
         var session = HttpContext.Items["CurrentSession"] as SnAuthSession;
-        if (user is null || session is null) return Unauthorized();
+        if (user is null || session is null) return Unauthorized(new ApiError { Code = "AUTH_UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         return Ok(new
         {
@@ -990,10 +990,10 @@ public class AuthController(
     public async Task<IActionResult> EnableSudoMode([FromBody] SudoRequest request)
     {
         var session = HttpContext.Items["CurrentSession"] as SnAuthSession;
-        if (session is null) return Unauthorized();
+        if (session is null) return Unauthorized(new ApiError { Code = "AUTH_SESSION_REQUIRED", Message = "A valid session is required.", Status = 401 });
 
         var valid = await auth.ValidateSudoMode(session, request.PinCode);
-        if (!valid) return BadRequest(new { error = "Invalid PIN code" });
+        if (!valid) return BadRequest(new ApiError { Code = "AUTH_INVALID_PIN", Message = "Invalid PIN code.", Status = 400 });
 
         return Ok();
     }

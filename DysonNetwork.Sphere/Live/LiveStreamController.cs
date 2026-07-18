@@ -1,12 +1,13 @@
 using System.Globalization;
 using DysonNetwork.Sphere.Models;
 using System.Text.Json;
+using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Extensions;
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
-using DysonNetwork.Shared.Auth;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -54,7 +55,7 @@ public class LiveStreamController(
         [FromQuery(Name = "pub")] string? pubName
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var accountId = Guid.Parse(currentUser.Id);
 
@@ -64,7 +65,7 @@ public class LiveStreamController(
             var userPublishers = await pub.GetUserPublishers(accountId);
             if (userPublishers.Count == 0)
             {
-                return BadRequest("You need to be a member of a publisher to create live streams.");
+                return BadRequest(new ApiError { Code = "LIVE_STREAM_NO_PUBLISHER_MEMBERSHIP", Message = "You need to be a member of a publisher to create live streams.", Status = 400 });
             }
 
             publisher = userPublishers.First();
@@ -73,9 +74,9 @@ public class LiveStreamController(
         {
             publisher = await pub.GetPublisherByName(pubName);
             if (publisher is null)
-                return BadRequest("Publisher not found.");
+                return BadRequest(new ApiError { Code = "PUBLISHER_NOT_FOUND", Message = "Publisher not found.", Status = 400 });
             if (!await pub.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.Editor))
-                return StatusCode(403, "You need at least be an editor to create live streams for this publisher.");
+                return StatusCode(403, ApiError.Unauthorized("You need at least be an editor to create live streams for this publisher.", forbidden: true));
         }
 
         SnCloudFileReferenceObject? thumbnail = null;
@@ -83,7 +84,7 @@ public class LiveStreamController(
         {
             var file = await files.GetFileAsync(new DyGetFileRequest { Id = request.ThumbnailId });
             if (file is null)
-                return BadRequest("Thumbnail not found.");
+                return BadRequest(new ApiError { Code = "LIVE_STREAM_THUMBNAIL_NOT_FOUND", Message = "Thumbnail not found.", Status = 400 });
             thumbnail = SnCloudFileReferenceObject.FromProtoValue(file);
         }
 
@@ -175,10 +176,10 @@ public class LiveStreamController(
     {
         var liveStream = await liveStreamService.GetByIdAsync(id);
         if (liveStream == null)
-            return NotFound(new { error = "LiveStream not found" });
+            return NotFound(new ApiError { Code = "LIVE_STREAM_NOT_FOUND", Message = "LiveStream not found", Status = 404 });
 
         if (liveStream.Status != LiveStreamStatus.Active)
-            return BadRequest(new { error = "LiveStream is not active" });
+            return BadRequest(new ApiError { Code = "LIVE_STREAM_NOT_ACTIVE", Message = "LiveStream is not active", Status = 400 });
 
         string identity;
         string? name;
@@ -200,7 +201,7 @@ public class LiveStreamController(
         }
         else
         {
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         }
 
         if (isTool)
@@ -234,16 +235,16 @@ public class LiveStreamController(
     [AskPermission(PermissionKeys.LiveStreamsStart)]
     public async Task<IActionResult> StartStreaming(Guid id, [FromBody] StartStreamingRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var liveStream = await liveStreamService.GetByIdAsync(id);
         if (liveStream == null)
-            return NotFound(new { error = "LiveStream not found" });
+            return NotFound(new ApiError { Code = "LIVE_STREAM_NOT_FOUND", Message = "LiveStream not found", Status = 404 });
 
         var accountId = Guid.Parse(currentUser.Id);
         if (!await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId, PublisherMemberRole.Editor))
         {
-            return StatusCode(403, "You need to be an editor of this publisher to start the live stream.");
+            return StatusCode(403, ApiError.Unauthorized("You need to be an editor of this publisher to start the live stream.", forbidden: true));
         }
 
         var identity = $"streamer_{accountId:N}_ingress";
@@ -287,23 +288,23 @@ public class LiveStreamController(
     [AskPermission(PermissionKeys.LiveStreamsEgress)]
     public async Task<IActionResult> StartEgress(Guid id, [FromBody] StartEgressRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var liveStream = await liveStreamService.GetByIdAsync(id);
         if (liveStream == null)
         {
-            return NotFound(new { error = "LiveStream not found" });
+            return NotFound(new ApiError { Code = "LIVE_STREAM_NOT_FOUND", Message = "LiveStream not found", Status = 404 });
         }
 
         var accountId = Guid.Parse(currentUser.Id);
         if (!await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId, PublisherMemberRole.Editor))
         {
-            return StatusCode(403, "You need to be an editor of this publisher to manage egress.");
+            return StatusCode(403, ApiError.Unauthorized("You need to be an editor of this publisher to manage egress.", forbidden: true));
         }
 
         if (!currentUser.IsSuperuser)
         {
-            return StatusCode(403, "Egress settings can only be configured by administrators.");
+            return StatusCode(403, ApiError.Unauthorized("Egress settings can only be configured by administrators.", forbidden: true));
         }
 
         var egressResult = await liveStreamService.StartEgressAsync(
@@ -319,19 +320,19 @@ public class LiveStreamController(
     [AskPermission(PermissionKeys.LiveStreamsEgress)]
     public async Task<IActionResult> StopEgress(Guid id)
     {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var liveStream = await liveStreamService.GetByIdAsync(id);
         if (liveStream == null)
         {
-            return NotFound(new { error = "LiveStream not found" });
+            return NotFound(new ApiError { Code = "LIVE_STREAM_NOT_FOUND", Message = "LiveStream not found", Status = 404 });
         }
 
         var accountId = Guid.Parse(currentUser.Id);
         if (!await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId,
                 PublisherMemberRole.Editor))
         {
-            return StatusCode(403, "You need to be an editor of this publisher to manage egress.");
+            return StatusCode(403, ApiError.Unauthorized("You need to be an editor of this publisher to manage egress.", forbidden: true));
         }
 
         await liveStreamService.StopEgressAsync(id);
@@ -344,24 +345,24 @@ public class LiveStreamController(
     [AskPermission(PermissionKeys.LiveStreamsHls)]
     public async Task<IActionResult> StartHlsEgress(Guid id, [FromBody] StartHlsEgressRequest? request)
     {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var liveStream = await liveStreamService.GetByIdAsync(id);
         if (liveStream == null)
         {
-            return NotFound(new { error = "LiveStream not found" });
+            return NotFound(new ApiError { Code = "LIVE_STREAM_NOT_FOUND", Message = "LiveStream not found", Status = 404 });
         }
 
         var accountId = Guid.Parse(currentUser.Id);
         if (!await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId,
                 PublisherMemberRole.Editor))
         {
-            return StatusCode(403, "You need to be an editor of this publisher to manage HLS egress.");
+            return StatusCode(403, ApiError.Unauthorized("You need to be an editor of this publisher to manage HLS egress.", forbidden: true));
         }
 
         if (!currentUser.IsSuperuser)
         {
-            return StatusCode(403, "HLS egress settings can only be configured by administrators.");
+            return StatusCode(403, ApiError.Unauthorized("HLS egress settings can only be configured by administrators.", forbidden: true));
         }
 
         var playlistName = request?.PlaylistName ?? "playlist.m3u8";
@@ -395,19 +396,19 @@ public class LiveStreamController(
     [AskPermission(PermissionKeys.LiveStreamsHls)]
     public async Task<IActionResult> StopHlsEgress(Guid id)
     {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var liveStream = await liveStreamService.GetByIdAsync(id);
         if (liveStream == null)
         {
-            return NotFound(new { error = "LiveStream not found" });
+            return NotFound(new ApiError { Code = "LIVE_STREAM_NOT_FOUND", Message = "LiveStream not found", Status = 404 });
         }
 
         var accountId = Guid.Parse(currentUser.Id);
         if (!await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId,
                 PublisherMemberRole.Editor))
         {
-            return StatusCode(403, "You need to be an editor of this publisher to manage HLS egress.");
+            return StatusCode(403, ApiError.Unauthorized("You need to be an editor of this publisher to manage HLS egress.", forbidden: true));
         }
 
         await liveStreamService.StopHlsEgressAsync(id);
@@ -420,19 +421,19 @@ public class LiveStreamController(
     [AskPermission(PermissionKeys.LiveStreamsEnd)]
     public async Task<IActionResult> End(Guid id)
     {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var liveStream = await liveStreamService.GetByIdAsync(id);
         if (liveStream == null)
         {
-            return NotFound(new { error = "LiveStream not found" });
+            return NotFound(new ApiError { Code = "LIVE_STREAM_NOT_FOUND", Message = "LiveStream not found", Status = 404 });
         }
 
         var accountId = Guid.Parse(currentUser.Id);
         if (!await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId,
                 PublisherMemberRole.Editor))
         {
-            return StatusCode(403, "You need to be an editor of this publisher to end the live stream.");
+            return StatusCode(403, ApiError.Unauthorized("You need to be an editor of this publisher to end the live stream.", forbidden: true));
         }
 
         await liveStreamService.EndAsync(id);
@@ -445,19 +446,19 @@ public class LiveStreamController(
     [AskPermission(PermissionKeys.LiveStreamsUpdate)]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateLiveStreamRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var liveStream = await liveStreamService.GetByIdAsync(id);
         if (liveStream == null)
         {
-            return NotFound(new { error = "LiveStream not found" });
+            return NotFound(new ApiError { Code = "LIVE_STREAM_NOT_FOUND", Message = "LiveStream not found", Status = 404 });
         }
 
         var accountId = Guid.Parse(currentUser.Id);
         if (!await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId,
                 PublisherMemberRole.Editor))
         {
-            return StatusCode(403, "You need to be an editor of this publisher to update the live stream.");
+            return StatusCode(403, ApiError.Unauthorized("You need to be an editor of this publisher to update the live stream.", forbidden: true));
         }
 
         if (request.Title is not null)
@@ -511,19 +512,19 @@ public class LiveStreamController(
     [AskPermission(PermissionKeys.LiveStreamsDelete)]
     public async Task<IActionResult> Delete(Guid id)
     {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var liveStream = await liveStreamService.GetByIdAsync(id);
         if (liveStream == null)
         {
-            return NotFound(new { error = "LiveStream not found" });
+            return NotFound(new ApiError { Code = "LIVE_STREAM_NOT_FOUND", Message = "LiveStream not found", Status = 404 });
         }
 
         var accountId = Guid.Parse(currentUser.Id);
         if (!await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId,
                 PublisherMemberRole.Editor))
         {
-            return StatusCode(403, "You need to be an editor of this publisher to delete the live stream.");
+            return StatusCode(403, ApiError.Unauthorized("You need to be an editor of this publisher to delete the live stream.", forbidden: true));
         }
 
         await liveStreamService.DeleteAsync(id);
@@ -549,13 +550,13 @@ public class LiveStreamController(
         var liveStream = await liveStreamService.GetByIdAsync(id);
         if (liveStream == null)
         {
-            return NotFound();
+            return NotFound(new ApiError { Code = "LIVE_STREAM_NOT_FOUND", Message = "LiveStream not found", Status = 404 });
         }
 
         var details = await liveKitService.GetRoomDetailsAsync(liveStream.RoomName);
         if (details == null)
         {
-            return NotFound();
+            return NotFound(new ApiError { Code = "LIVE_STREAM_ROOM_NOT_FOUND", Message = "LiveStream room not found", Status = 404 });
         }
 
         return Ok(new
@@ -571,26 +572,26 @@ public class LiveStreamController(
     [AskPermission(PermissionKeys.LiveStreamsThumbnail)]
     public async Task<IActionResult> UpdateThumbnail(Guid id, [FromBody] UpdateThumbnailRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var liveStream = await liveStreamService.GetByIdAsync(id);
         if (liveStream == null)
         {
-            return NotFound();
+            return NotFound(new ApiError { Code = "LIVE_STREAM_NOT_FOUND", Message = "LiveStream not found", Status = 404 });
         }
 
         var accountId = Guid.Parse(currentUser.Id);
         if (!await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId,
                 PublisherMemberRole.Editor))
         {
-            return StatusCode(403, "You need to be an editor of this publisher to update the thumbnail.");
+            return StatusCode(403, ApiError.Unauthorized("You need to be an editor of this publisher to update the thumbnail.", forbidden: true));
         }
 
         if (request.ThumbnailId is not null)
         {
             var file = await files.GetFileAsync(new DyGetFileRequest { Id = request.ThumbnailId });
             if (file is null)
-                return BadRequest("Thumbnail not found.");
+                return BadRequest(new ApiError { Code = "LIVE_STREAM_THUMBNAIL_NOT_FOUND", Message = "Thumbnail not found.", Status = 400 });
 
             liveStream.Thumbnail = SnCloudFileReferenceObject.FromProtoValue(file);
         }
@@ -610,7 +611,7 @@ public class LiveStreamController(
     {
         var liveStream = await liveStreamService.GetByIdAsync(id);
         if (liveStream == null)
-            return NotFound(new { error = "LiveStream not found" });
+            return NotFound(new ApiError { Code = "LIVE_STREAM_NOT_FOUND", Message = "LiveStream not found", Status = 404 });
 
         var messages = await db.LiveStreamChatMessages
             .Where(m => m.LiveStreamId == id && m.DeletedAt == null)
@@ -637,14 +638,14 @@ public class LiveStreamController(
     [AskPermission(PermissionKeys.LiveStreamsPin)]
     public async Task<IActionResult> SendChatMessage(Guid id, [FromBody] SendChatMessageRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var liveStream = await liveStreamService.GetByIdAsync(id);
         if (liveStream == null)
-            return NotFound(new { error = "LiveStream not found" });
+            return NotFound(new ApiError { Code = "LIVE_STREAM_NOT_FOUND", Message = "LiveStream not found", Status = 404 });
 
         if (liveStream.Status != LiveStreamStatus.Active)
-            return BadRequest(new { error = "Stream is not active" });
+            return BadRequest(new ApiError { Code = "LIVE_STREAM_NOT_ACTIVE", Message = "Stream is not active", Status = 400 });
 
         var accountId = Guid.Parse(currentUser.Id);
 
@@ -655,7 +656,7 @@ public class LiveStreamController(
 
         if (isTimeout)
         {
-            return StatusCode(403, new { error = "You are temporarily muted" });
+            return StatusCode(403, ApiError.Unauthorized("You are temporarily muted", forbidden: true));
         }
 
         var message = new SnLiveStreamChatMessage
@@ -686,19 +687,19 @@ public class LiveStreamController(
     [AskPermission(PermissionKeys.LiveStreamsChatModerate)]
     public async Task<IActionResult> DeleteChatMessage(Guid id, Guid messageId)
     {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var liveStream = await liveStreamService.GetByIdAsync(id);
         if (liveStream == null)
-            return NotFound(new { error = "LiveStream not found" });
+            return NotFound(new ApiError { Code = "LIVE_STREAM_NOT_FOUND", Message = "LiveStream not found", Status = 404 });
 
         var accountId = Guid.Parse(currentUser.Id);
         if (!await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId, PublisherMemberRole.Editor))
-            return StatusCode(403, "You need to be an editor of this publisher to moderate chat.");
+            return StatusCode(403, ApiError.Unauthorized("You need to be an editor of this publisher to moderate chat.", forbidden: true));
 
         var message = await db.LiveStreamChatMessages.FindAsync(messageId);
         if (message == null || message.LiveStreamId != id)
-            return NotFound(new { error = "Message not found" });
+            return NotFound(new ApiError { Code = "LIVE_STREAM_MESSAGE_NOT_FOUND", Message = "Message not found", Status = 404 });
 
         message.DeletedAt = SystemClock.Instance.GetCurrentInstant();
         await db.SaveChangesAsync();
@@ -711,21 +712,21 @@ public class LiveStreamController(
     [AskPermission(PermissionKeys.LiveStreamsChatModerate)]
     public async Task<IActionResult> TimeoutUser(Guid id, Guid messageId, [FromBody] TimeoutRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var liveStream = await liveStreamService.GetByIdAsync(id);
         if (liveStream == null)
-            return NotFound(new { error = "LiveStream not found" });
+            return NotFound(new ApiError { Code = "LIVE_STREAM_NOT_FOUND", Message = "LiveStream not found", Status = 404 });
 
         var accountId = Guid.Parse(currentUser.Id);
         if (!await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId, PublisherMemberRole.Editor))
         {
-            return StatusCode(403, "You need to be an editor of this publisher to timeout users.");
+            return StatusCode(403, ApiError.Unauthorized("You need to be an editor of this publisher to timeout users.", forbidden: true));
         }
 
         var message = await db.LiveStreamChatMessages.FindAsync(messageId);
         if (message == null || message.LiveStreamId != id)
-            return NotFound(new { error = "Message not found" });
+            return NotFound(new ApiError { Code = "LIVE_STREAM_MESSAGE_NOT_FOUND", Message = "Message not found", Status = 404 });
 
         var durationMinutes = request.DurationMinutes ?? 10;
         message.TimeoutUntil = SystemClock.Instance.GetCurrentInstant().Plus(Duration.FromMinutes(durationMinutes));
@@ -755,7 +756,7 @@ public class LiveStreamController(
     {
         var liveStream = await liveStreamService.GetByIdAsync(id);
         if (liveStream == null)
-            return NotFound(new { error = "LiveStream not found" });
+            return NotFound(new ApiError { Code = "LIVE_STREAM_NOT_FOUND", Message = "LiveStream not found", Status = 404 });
 
         var query = db.LiveStreamAwards.Where(a => a.LiveStreamId == id);
 
@@ -778,7 +779,7 @@ public class LiveStreamController(
     {
         var liveStream = await liveStreamService.GetByIdAsync(id);
         if (liveStream == null)
-            return NotFound(new { error = "LiveStream not found" });
+            return NotFound(new ApiError { Code = "LIVE_STREAM_NOT_FOUND", Message = "LiveStream not found", Status = 404 });
 
         var now = SystemClock.Instance.GetCurrentInstant();
 
@@ -812,7 +813,7 @@ public class LiveStreamController(
     {
         var liveStream = await liveStreamService.GetByIdAsync(id);
         if (liveStream == null)
-            return NotFound(new { error = "LiveStream not found" });
+            return NotFound(new ApiError { Code = "LIVE_STREAM_NOT_FOUND", Message = "LiveStream not found", Status = 404 });
 
         var leaderboard = await db.LiveStreamAwards
             .Where(a => a.LiveStreamId == id)
@@ -865,11 +866,11 @@ public class LiveStreamController(
     )
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var liveStream = await liveStreamService.GetByIdAsync(id);
         if (liveStream == null)
-            return NotFound(new { error = "LiveStream not found" });
+            return NotFound(new ApiError { Code = "LIVE_STREAM_NOT_FOUND", Message = "LiveStream not found", Status = 404 });
 
         var accountId = Guid.Parse(currentUser.Id);
 

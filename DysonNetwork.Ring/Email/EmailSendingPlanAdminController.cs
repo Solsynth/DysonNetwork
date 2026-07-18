@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Proto;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -35,15 +36,15 @@ public class EmailSendingPlanAdminController(EmailSendingPlanService plans) : Co
     )
     {
         if (!request.BroadcastToAll && !request.AccountId.HasValue && request.AccountIds is not { Count: > 0 })
-            return BadRequest("Provide account_id, account_ids, or set broadcast_to_all=true.");
+            return BadRequest(new ApiError { Code = "EMAIL_PLAN_TARGETING_REQUIRED", Message = "Provide account_id, account_ids, or set broadcast_to_all=true.", Status = 400 });
         if (string.IsNullOrWhiteSpace(request.Subject))
-            return BadRequest("Subject is required.");
+            return BadRequest(new ApiError { Code = "EMAIL_PLAN_SUBJECT_REQUIRED", Message = "Subject is required.", Status = 400 });
         if (string.IsNullOrWhiteSpace(request.HtmlBody))
-            return BadRequest("Html body is required.");
+            return BadRequest(new ApiError { Code = "EMAIL_PLAN_HTML_BODY_REQUIRED", Message = "Html body is required.", Status = 400 });
         if (request.MaxEmailsPerDay.HasValue && request.MaxEmailsPerDay.Value < request.MaxEmailsPerInterval)
-            return BadRequest("max_emails_per_day must be greater than or equal to max_emails_per_interval.");
+            return BadRequest(new ApiError { Code = "EMAIL_PLAN_MAX_EMAILS_PER_DAY_INVALID", Message = "max_emails_per_day must be greater than or equal to max_emails_per_interval.", Status = 400 });
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Status = 401 });
 
         try
         {
@@ -67,11 +68,11 @@ public class EmailSendingPlanAdminController(EmailSendingPlanService plans) : Co
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new ApiError { Code = "EMAIL_PLAN_VALIDATION_ERROR", Message = ex.Message, Status = 400 });
         }
         catch (DbUpdateException)
         {
-            return Conflict("The sending plan key already exists.");
+            return Conflict(ApiError.Conflict("The sending plan key already exists.", code: "EMAIL_PLAN_KEY_CONFLICT"));
         }
     }
 
@@ -100,7 +101,9 @@ public class EmailSendingPlanAdminController(EmailSendingPlanService plans) : Co
     )
     {
         var plan = await plans.GetPlanAsync(planId, cancellationToken: cancellationToken);
-        return plan is null ? NotFound() : Ok(plan);
+        return plan is null
+            ? NotFound(new ApiError { Code = "EMAIL_PLAN_NOT_FOUND", Message = "The requested email sending plan was not found.", Status = 404 })
+            : Ok(plan);
     }
 
     [HttpPost("{planId:guid}/pause")]
@@ -116,11 +119,11 @@ public class EmailSendingPlanAdminController(EmailSendingPlanService plans) : Co
         }
         catch (KeyNotFoundException)
         {
-            return NotFound();
+            return NotFound(new ApiError { Code = "EMAIL_PLAN_NOT_FOUND", Message = "The requested email sending plan was not found.", Status = 404 });
         }
         catch (InvalidOperationException ex)
         {
-            return Conflict(ex.Message);
+            return Conflict(ApiError.Conflict(ex.Message, code: "EMAIL_PLAN_PAUSE_CONFLICT"));
         }
     }
 
@@ -137,11 +140,11 @@ public class EmailSendingPlanAdminController(EmailSendingPlanService plans) : Co
         }
         catch (KeyNotFoundException)
         {
-            return NotFound();
+            return NotFound(new ApiError { Code = "EMAIL_PLAN_NOT_FOUND", Message = "The requested email sending plan was not found.", Status = 404 });
         }
         catch (InvalidOperationException ex)
         {
-            return Conflict(ex.Message);
+            return Conflict(ApiError.Conflict(ex.Message, code: "EMAIL_PLAN_RESUME_CONFLICT"));
         }
     }
 
@@ -158,11 +161,11 @@ public class EmailSendingPlanAdminController(EmailSendingPlanService plans) : Co
         }
         catch (KeyNotFoundException)
         {
-            return NotFound();
+            return NotFound(new ApiError { Code = "EMAIL_PLAN_NOT_FOUND", Message = "The requested email sending plan was not found.", Status = 404 });
         }
         catch (InvalidOperationException ex)
         {
-            return Conflict(ex.Message);
+            return Conflict(ApiError.Conflict(ex.Message, code: "EMAIL_PLAN_ADVANCE_CONFLICT"));
         }
     }
 }

@@ -1,3 +1,4 @@
+using DysonNetwork.Shared.Networking;
 using DysonNetwork.Sphere.ActivityPub.Services;
 using DysonNetwork.Sphere.Models;
 using Microsoft.AspNetCore.Authorization;
@@ -70,7 +71,7 @@ public class FediverseKeyAdminController(
             .FirstOrDefaultAsync(a => a.Id == actorId);
 
         if (actor == null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "FEDIVERSE_ACTOR_NOT_FOUND", Message = "Actor not found.", Status = 404 });
 
         var key = await db.FediverseKeys
             .FirstOrDefaultAsync(k => k.ActorId == actorId);
@@ -94,14 +95,14 @@ public class FediverseKeyAdminController(
     {
         var actor = await db.FediverseActors.FindAsync(actorId);
         if (actor == null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "FEDIVERSE_ACTOR_NOT_FOUND", Message = "Actor not found.", Status = 404 });
 
         if (!actor.PublisherId.HasValue)
-            return BadRequest("Cannot regenerate key for actor without publisher");
+            return BadRequest(new ApiError { Code = "FEDIVERSE_KEY_ACTOR_NO_PUBLISHER", Message = "Cannot regenerate key for actor without publisher.", Status = 400 });
 
         var success = await keyMigrationService.EnsureKeyExistsForActorAsync(actorId);
         if (!success)
-            return BadRequest("Failed to regenerate key");
+            return BadRequest(new ApiError { Code = "FEDIVERSE_KEY_REGENERATE_FAILED", Message = "Failed to regenerate key.", Status = 400 });
 
         return Ok(new { message = "Key regenerated successfully" });
     }

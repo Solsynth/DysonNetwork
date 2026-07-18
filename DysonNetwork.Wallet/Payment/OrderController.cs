@@ -107,14 +107,14 @@ public class OrderController(
     public async Task<ActionResult<SnWalletOrder>> CreateOrder([FromBody] CreateOrderRequest request)
     {
         var client = await ValidateClientAsync(request.ClientId, request.ClientSecret);
-        if (client is null) return BadRequest("Invalid client credentials");
+        if (client is null) return BadRequest(new ApiError { Code = "WALLET_ORDER_INVALID_CLIENT", Message = "Invalid client credentials.", Status = 400 });
 
         Guid? payeeWalletId = null;
         if (request.PayeeWalletId.HasValue)
         {
             var walletExists = await db.Wallets.AnyAsync(w => w.Id == request.PayeeWalletId.Value);
             if (!walletExists)
-                return BadRequest("Payee wallet was not found.");
+                return BadRequest(new ApiError { Code = "WALLET_NOT_FOUND", Message = "Payee wallet was not found.", Status = 400 });
 
             payeeWalletId = request.PayeeWalletId.Value;
         }
@@ -122,7 +122,7 @@ public class OrderController(
         {
             payeeWalletId = await ResolveMerchantWalletIdAsync(client);
             if (!payeeWalletId.HasValue)
-                return BadRequest("Merchant payout wallet was not configured.");
+                return BadRequest(new ApiError { Code = "WALLET_MERCHANT_NO_PAYOUT_WALLET", Message = "Merchant payout wallet was not configured.", Status = 400 });
         }
 
         // New: order with product line items
@@ -138,7 +138,7 @@ public class OrderController(
             foreach (var item in request.Items)
             {
                 if (item.Quantity <= 0)
-                    return BadRequest("Item quantity must be greater than zero.");
+                    return BadRequest(new ApiError { Code = "WALLET_ORDER_INVALID_QUANTITY", Message = "Item quantity must be greater than zero.", Status = 400 });
 
                 var productResp = await customApps.GetAppProductAsync(new DyGetAppProductRequest
                 {
@@ -146,20 +146,20 @@ public class OrderController(
                     Identifier = item.ProductIdentifier
                 });
                 if (productResp.Product is null)
-                    return BadRequest($"Product '{item.ProductIdentifier}' not found for this app.");
+                    return BadRequest(new ApiError { Code = "WALLET_ORDER_PRODUCT_NOT_FOUND", Message = $"Product '{item.ProductIdentifier}' not found for this app.", Status = 400 });
 
                 var product = SnAppProduct.FromProto(productResp.Product);
                 if (product.State?.IsEnabled == false)
-                    return BadRequest($"Product '{item.ProductIdentifier}' is not selling right now.");
+                    return BadRequest(new ApiError { Code = "WALLET_ORDER_PRODUCT_NOT_SELLING", Message = $"Product '{item.ProductIdentifier}' is not selling right now.", Status = 400 });
 
                 if (currency is null)
                     currency = product.Currency;
                 else if (currency != product.Currency)
-                    return BadRequest("All items must use the same currency.");
+                    return BadRequest(new ApiError { Code = "WALLET_ORDER_CURRENCY_MISMATCH", Message = "All items must use the same currency.", Status = 400 });
 
                 var stockError = await ValidateStockAsync(client.ResourceIdentifier, item.ProductIdentifier, product, item.Quantity);
                 if (stockError is not null)
-                    return BadRequest(stockError);
+                    return BadRequest(new ApiError { Code = "WALLET_ORDER_STOCK_ERROR", Message = stockError, Status = 400 });
 
                 var unitPrice = product.Price;
                 var lineTotal = unitPrice * item.Quantity;
@@ -182,7 +182,7 @@ public class OrderController(
             }
             catch (InvalidOperationException ex)
             {
-                return BadRequest(ex.Message);
+                return BadRequest(new ApiError { Code = "WALLET_ORDER_FULFILLMENT_META_FAILED", Message = ex.Message, Status = 400 });
             }
             var firstProduct = products[0].Product; // ponytail: single-currency order, recurring metadata follows first product
             if (firstProduct.Recurrence != ProductRecurrence.None)
@@ -307,7 +307,7 @@ public class OrderController(
             .FirstOrDefaultAsync(o => o.Id == id);
 
         if (order is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "WALLET_ORDER_NOT_FOUND", Message = "Order was not found.", Status = 404 });
 
         SnCustomApp? app = null;
         AppDeveloperResponse? developer = null;
@@ -341,7 +341,8 @@ public class OrderController(
     [AskPermission(PermissionKeys.OrdersPay)]
     public async Task<ActionResult<SnWalletOrder>> PayOrder(Guid id, [FromBody] PayOrderRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         try
         {
@@ -349,11 +350,11 @@ public class OrderController(
             var pinCode = string.IsNullOrWhiteSpace(request.PinCode) ? NoPinProvided : request.PinCode;
             var wallet = await ResolveAccessiblePayerWalletAsync(currentAccountId, request.PayerWalletId);
             if (wallet == null)
-                return BadRequest("Wallet was not found.");
+                return BadRequest(new ApiError { Code = "WALLET_NOT_FOUND", Message = "Wallet was not found.", Status = 400 });
 
             var order = await db.PaymentOrders.Include(o => o.Items).FirstOrDefaultAsync(o => o.Id == id);
             if (order is null)
-                return NotFound();
+                return NotFound(new ApiError { Code = "WALLET_ORDER_NOT_FOUND", Message = "Order was not found.", Status = 404 });
 
             await ValidateOrderFulfillmentContactsAsync(currentAccountId, order);
 
@@ -362,7 +363,7 @@ public class OrderController(
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(new { error = ex.Message });
+            return BadRequest(new ApiError { Code = "WALLET_ORDER_PAY_FAILED", Message = ex.Message, Status = 400 });
         }
     }
 
@@ -377,20 +378,20 @@ public class OrderController(
     public async Task<ActionResult<SnWalletOrder>> UpdateOrderStatus(Guid id, [FromBody] UpdateOrderStatusRequest request)
     {
         var client = await ValidateClientAsync(request.ClientId, request.ClientSecret);
-        if (client is null) return BadRequest("Invalid client credentials");
+        if (client is null) return BadRequest(new ApiError { Code = "WALLET_ORDER_INVALID_CLIENT", Message = "Invalid client credentials.", Status = 400 });
 
         var order = await db.PaymentOrders.FindAsync(id);
 
         if (order == null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "WALLET_ORDER_NOT_FOUND", Message = "Order was not found.", Status = 404 });
 
         if (order.AppIdentifier != client.ResourceIdentifier)
         {
-            return BadRequest("Order does not belong to this client.");
+            return BadRequest(new ApiError { Code = "WALLET_ORDER_CLIENT_MISMATCH", Message = "Order does not belong to this client.", Status = 400 });
         }
 
         if (request.Status != Shared.Models.OrderStatus.Finished && request.Status != Shared.Models.OrderStatus.Cancelled)
-            return BadRequest("Invalid status. Available statuses are Finished, Cancelled.");
+            return BadRequest(new ApiError { Code = "WALLET_ORDER_INVALID_STATUS", Message = "Invalid status. Available statuses are Finished, Cancelled.", Status = 400 });
 
         // Handle cancellation: cancel pending settlements and refund payer
         if (request.Status == Shared.Models.OrderStatus.Cancelled)
@@ -429,7 +430,7 @@ public class OrderController(
     public async Task<ActionResult<AppOrderMetricsResponse>> GetAppOrderMetrics([FromBody] AppOrderMetricsRequest request)
     {
         var client = await ValidateClientAsync(request.ClientId, request.ClientSecret);
-        if (client is null) return BadRequest("Invalid client credentials");
+        if (client is null) return BadRequest(new ApiError { Code = "WALLET_ORDER_INVALID_CLIENT", Message = "Invalid client credentials.", Status = 400 });
 
         var query = db.PaymentOrders
             .Where(o => o.AppIdentifier == client.ResourceIdentifier)
@@ -477,24 +478,24 @@ public class OrderController(
     public async Task<ActionResult<SnWalletTransaction>> CreateAppPayout([FromBody] AppPayoutRequest request)
     {
         var client = await ValidateClientAsync(request.ClientId, request.ClientSecret);
-        if (client is null) return BadRequest("Invalid client credentials");
+        if (client is null) return BadRequest(new ApiError { Code = "WALLET_ORDER_INVALID_CLIENT", Message = "Invalid client credentials.", Status = 400 });
 
         var merchantWalletId = await ResolveMerchantWalletIdAsync(client);
         if (!merchantWalletId.HasValue)
-            return BadRequest("Merchant payout wallet was not configured.");
+            return BadRequest(new ApiError { Code = "WALLET_MERCHANT_NO_PAYOUT_WALLET", Message = "Merchant payout wallet was not configured.", Status = 400 });
 
         var payerWallet = await db.Wallets.FirstOrDefaultAsync(w => w.Id == merchantWalletId.Value);
         if (payerWallet is null)
-            return BadRequest("Merchant payout wallet was not found.");
+            return BadRequest(new ApiError { Code = "WALLET_NOT_FOUND", Message = "Merchant payout wallet was not found.", Status = 400 });
 
         if (payerWallet.AccountId == request.PayeeAccountId)
-            return BadRequest("Cannot pay the payout wallet owner.");
+            return BadRequest(new ApiError { Code = "WALLET_PAYOUT_SELF_FORBIDDEN", Message = "Cannot pay the payout wallet owner.", Status = 400 });
 
         try
         {
             var payeeWallet = await db.Wallets.FirstOrDefaultAsync(w => w.AccountId == request.PayeeAccountId);
             if (payeeWallet is null)
-                return BadRequest("Payee wallet was not found.");
+                return BadRequest(new ApiError { Code = "WALLET_NOT_FOUND", Message = "Payee wallet was not found.", Status = 400 });
 
             var transaction = await payment.CreateTransactionAsync(
                 payerWalletId: payerWallet.Id,
@@ -509,7 +510,7 @@ public class OrderController(
         }
         catch (Exception err)
         {
-            return BadRequest(err.Message);
+            return BadRequest(new ApiError { Code = "WALLET_PAYOUT_FAILED", Message = err.Message, Status = 400 });
         }
     }
 

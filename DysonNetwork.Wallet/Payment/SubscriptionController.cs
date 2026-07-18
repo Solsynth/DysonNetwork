@@ -9,6 +9,7 @@ using System.Text.Json;
 using DysonNetwork.Wallet.Payment.PaymentHandlers;
 using DysonNetwork.Shared.Extensions;
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
 using DysonNetwork.Shared.Auth;
@@ -102,7 +103,8 @@ public class SubscriptionController(
         [FromQuery] int take = 20
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var query = db.WalletSubscriptions.AsQueryable()
             .Where(s => s.AccountId == Guid.Parse(currentUser.Id))
@@ -128,7 +130,8 @@ public class SubscriptionController(
         [FromQuery] int take = 20
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var (totalCount, items) = await subscriptions.GetPendingActivationsAsync(
             Guid.Parse(currentUser.Id),
@@ -156,10 +159,11 @@ public class SubscriptionController(
     [Authorize]
     public async Task<ActionResult<SubscriptionGroupStateResponse>> GetSubscriptionGroup(string groupIdentifier)
     {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var definitions = await catalog.ListDefinitionsByGroupAsync(groupIdentifier, HttpContext.RequestAborted);
-        if (definitions.Count == 0) return NotFound($"Subscription group {groupIdentifier} was not found.");
+        if (definitions.Count == 0) return NotFound(new ApiError { Code = "WALLET_SUBSCRIPTION_GROUP_NOT_FOUND", Message = $"Subscription group {groupIdentifier} was not found.", Status = 404 });
 
         var accountId = Guid.Parse(currentUser.Id);
         var identifiers = definitions.Select(x => x.Identifier).ToList();
@@ -208,7 +212,8 @@ public class SubscriptionController(
         [FromBody] ActivateSubscriptionRequest request
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         try
         {
@@ -237,7 +242,7 @@ public class SubscriptionController(
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new ApiError { Code = "WALLET_SUBSCRIPTION_ACTIVATE_FAILED", Message = ex.Message, Status = 400 });
         }
     }
 
@@ -245,10 +250,11 @@ public class SubscriptionController(
     [Authorize]
     public async Task<ActionResult<SnWalletSubscription>> GetActiveSubscriptionInGroup(string groupIdentifier)
     {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var definitions = await catalog.ListDefinitionsByGroupAsync(groupIdentifier, HttpContext.RequestAborted);
-        if (definitions.Count == 0) return NotFound($"Subscription group {groupIdentifier} was not found.");
+        if (definitions.Count == 0) return NotFound(new ApiError { Code = "WALLET_SUBSCRIPTION_GROUP_NOT_FOUND", Message = $"Subscription group {groupIdentifier} was not found.", Status = 404 });
 
         var accountId = Guid.Parse(currentUser.Id);
         var identifiers = definitions.Select(x => x.Identifier).ToList();
@@ -266,7 +272,7 @@ public class SubscriptionController(
             .OrderByDescending(s => s.PerkLevel)
             .ThenByDescending(s => s.BegunAt)
             .FirstOrDefault();
-        if (active is null) return NotFound();
+        if (active is null) return NotFound(new ApiError { Code = "WALLET_SUBSCRIPTION_NOT_FOUND", Message = "No active subscription found in this group.", Status = 404 });
 
         return Ok(active);
     }
@@ -275,10 +281,11 @@ public class SubscriptionController(
     [Authorize]
     public async Task<ActionResult<SnWalletSubscription>> GetSubscription(string identifier)
     {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var subscription = await subscriptions.GetSubscriptionAsync(Guid.Parse(currentUser.Id), identifier);
-        if (subscription is null) return NotFound($"Subscription with identifier {identifier} was not found.");
+        if (subscription is null) return NotFound(new ApiError { Code = "WALLET_SUBSCRIPTION_NOT_FOUND", Message = $"Subscription with identifier {identifier} was not found.", Status = 404 });
 
         return subscription;
     }
@@ -400,7 +407,8 @@ public class SubscriptionController(
         [FromHeader(Name = "X-Noop")] bool noop = false
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         Duration? cycleDuration = null;
         if (request.CycleDurationDays.HasValue)
@@ -437,11 +445,11 @@ public class SubscriptionController(
         }
         catch (ArgumentOutOfRangeException ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new ApiError { Code = "WALLET_SUBSCRIPTION_CREATE_FAILED", Message = ex.Message, Status = 400 });
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new ApiError { Code = "WALLET_SUBSCRIPTION_CREATE_FAILED", Message = ex.Message, Status = 400 });
         }
     }
 
@@ -450,7 +458,8 @@ public class SubscriptionController(
     [AskPermission(PermissionKeys.SubscriptionsCancel)]
     public async Task<ActionResult<SnWalletSubscription>> CancelSubscription(string identifier)
     {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         try
         {
@@ -471,7 +480,7 @@ public class SubscriptionController(
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new ApiError { Code = "WALLET_SUBSCRIPTION_CANCEL_FAILED", Message = ex.Message, Status = 400 });
         }
     }
 
@@ -480,7 +489,8 @@ public class SubscriptionController(
     [AskPermission(PermissionKeys.SubscriptionsOrderManage)]
     public async Task<ActionResult<SnWalletOrder>> CreateSubscriptionOrder(string identifier)
     {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         try
         {
@@ -489,7 +499,7 @@ public class SubscriptionController(
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new ApiError { Code = "WALLET_SUBSCRIPTION_ORDER_CREATE_FAILED", Message = ex.Message, Status = 400 });
         }
     }
 
@@ -527,7 +537,7 @@ public class SubscriptionController(
     public async Task<IActionResult> RestorePurchaseFromAfdian([FromBody] RestorePurchaseRequest request)
     {
         var order = await afdian.GetOrderAsync(request.OrderId);
-        if (order is null) return NotFound($"Order with ID {request.OrderId} was not found.");
+        if (order is null) return NotFound(new ApiError { Code = "WALLET_ORDER_NOT_FOUND", Message = $"Order with ID {request.OrderId} was not found.", Status = 404 });
 
         return Ok(await ApplyRestoredProviderOrderAsync(order));
     }
@@ -537,7 +547,7 @@ public class SubscriptionController(
     public async Task<IActionResult> RestorePurchaseFromPaddle([FromBody] RestorePurchaseRequest request)
     {
         var order = await paddle.GetTransactionAsync(request.OrderId, HttpContext.RequestAborted);
-        if (order is null) return NotFound($"Transaction with ID {request.OrderId} was not found.");
+        if (order is null) return NotFound(new ApiError { Code = "WALLET_TRANSACTION_NOT_FOUND", Message = $"Transaction with ID {request.OrderId} was not found.", Status = 404 });
 
         return Ok(await ApplyRestoredProviderOrderAsync(order));
     }
@@ -546,7 +556,8 @@ public class SubscriptionController(
     [Authorize]
     public async Task<IActionResult> RestorePurchaseFromAppleStore([FromBody] RestoreApplePurchaseRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         AppleAppStoreTransaction transaction;
         try
@@ -555,11 +566,11 @@ public class SubscriptionController(
         }
         catch (Exception ex) when (ex is JsonException or InvalidOperationException or ArgumentException or CryptographicException)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new ApiError { Code = "WALLET_APPLE_TRANSACTION_PARSE_FAILED", Message = ex.Message, Status = 400 });
         }
 
         if (!string.Equals(transaction.AccountId, currentUser.Id, StringComparison.OrdinalIgnoreCase))
-            return BadRequest("Apple transaction account token does not match the current user.");
+            return BadRequest(new ApiError { Code = "WALLET_APPLE_TRANSACTION_ACCOUNT_MISMATCH", Message = "Apple transaction account token does not match the current user.", Status = 400 });
 
         return Ok(await ApplyRestoredProviderOrderAsync(transaction));
     }
@@ -572,7 +583,8 @@ public class SubscriptionController(
         [FromBody] CreatePaddleCheckoutRequest? request = null
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         try
         {
@@ -604,11 +616,11 @@ public class SubscriptionController(
         }
         catch (ArgumentOutOfRangeException ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new ApiError { Code = "WALLET_SUBSCRIPTION_CHECKOUT_FAILED", Message = ex.Message, Status = 400 });
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new ApiError { Code = "WALLET_SUBSCRIPTION_CHECKOUT_FAILED", Message = ex.Message, Status = 400 });
         }
     }
 
@@ -620,7 +632,8 @@ public class SubscriptionController(
         [FromBody] CreatePaddleCheckoutRequest? request = null
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         try
         {
@@ -643,11 +656,11 @@ public class SubscriptionController(
         }
         catch (ArgumentOutOfRangeException ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new ApiError { Code = "WALLET_SUBSCRIPTION_CHECKOUT_FAILED", Message = ex.Message, Status = 400 });
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new ApiError { Code = "WALLET_SUBSCRIPTION_CHECKOUT_FAILED", Message = ex.Message, Status = 400 });
         }
     }
 

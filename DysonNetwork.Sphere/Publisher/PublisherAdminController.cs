@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Extensions;
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
 using Microsoft.AspNetCore.Authorization;
@@ -153,7 +154,7 @@ public class PublisherAdminController(
         {
             var normalized = request.Name.Trim();
             if (string.IsNullOrWhiteSpace(normalized))
-                return BadRequest("Name cannot be empty.");
+                return BadRequest(new ApiError { Code = "PUBLISHER_NAME_REQUIRED", Message = "Name cannot be empty.", Status = 400 });
 
             if (!string.Equals(normalized, publisher.Name, StringComparison.OrdinalIgnoreCase))
             {
@@ -162,7 +163,7 @@ public class PublisherAdminController(
                     HttpContext.RequestAborted
                 );
                 if (exists)
-                    return BadRequest("A publisher with this name already exists.");
+                    return BadRequest(new ApiError { Code = "PUBLISHER_NAME_EXISTS", Message = "A publisher with this name already exists.", Status = 400 });
                 publisher.Name = normalized;
             }
         }
@@ -200,7 +201,7 @@ public class PublisherAdminController(
             return NotFound();
 
         if (request.Reason == PublisherShadowbanReason.None)
-            return BadRequest("Use DELETE to clear a shadowban.");
+            return BadRequest(new ApiError { Code = "PUBLISHER_SHADOWBAN_USE_DELETE", Message = "Use DELETE to clear a shadowban.", Status = 400 });
 
         publisher.ShadowbanReason = request.Reason;
         publisher.ShadowbannedAt = SystemClock.Instance.GetCurrentInstant();

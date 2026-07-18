@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Extensions;
+using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
 using Microsoft.AspNetCore.Authorization;
@@ -135,7 +136,7 @@ public class PostAdminController(
             return NotFound();
 
         if (post.LockedAt is not null)
-            return BadRequest("Post is already locked.");
+            return BadRequest(new ApiError { Code = "POST_ALREADY_LOCKED", Message = "Post is already locked.", Status = 400 });
 
         post.LockedAt = SystemClock.Instance.GetCurrentInstant();
         await db.SaveChangesAsync();
@@ -152,7 +153,7 @@ public class PostAdminController(
             return NotFound();
 
         if (post.LockedAt is null)
-            return BadRequest("Post is not locked.");
+            return BadRequest(new ApiError { Code = "POST_NOT_LOCKED", Message = "Post is not locked.", Status = 400 });
 
         post.LockedAt = null;
         await db.SaveChangesAsync();
@@ -184,7 +185,7 @@ public class PostAdminController(
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new ApiError { Code = "POST_VISIBILITY_UPDATE_FAILED", Message = ex.Message, Status = 400 });
         }
 
         LogPostAction(ActionLogType.PostModerate, post.Id, new Dictionary<string, object>
@@ -208,7 +209,7 @@ public class PostAdminController(
             return NotFound();
 
         if (request.Reason == PostShadowbanReason.None)
-            return BadRequest("Use DELETE to clear a shadowban.");
+            return BadRequest(new ApiError { Code = "POST_SHADOWBAN_USE_DELETE", Message = "Use DELETE to clear a shadowban.", Status = 400 });
 
         post.ShadowbanReason = request.Reason;
         post.ShadowbannedAt = SystemClock.Instance.GetCurrentInstant();
@@ -251,7 +252,7 @@ public class PostAdminController(
     )
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var post = await db.Posts
             .Include(p => p.Publisher)
@@ -259,7 +260,7 @@ public class PostAdminController(
         if (post is null)
             return NotFound();
         if (post.RealmId is null)
-            return BadRequest("This post is not linked to a realm.");
+            return BadRequest(new ApiError { Code = "POST_NOT_IN_REALM", Message = "This post is not linked to a realm.", Status = 400 });
         var realmId = post.RealmId.Value;
 
         var existingLog = await db.RealmPostModerationLogs
@@ -268,7 +269,7 @@ public class PostAdminController(
                 HttpContext.RequestAborted
             );
         if (existingLog)
-            return BadRequest("This post has already been removed from the realm.");
+            return BadRequest(new ApiError { Code = "POST_ALREADY_REMOVED_FROM_REALM", Message = "This post has already been removed from the realm.", Status = 400 });
 
         db.RealmPostModerationLogs.Add(new SnRealmPostModerationLog
         {

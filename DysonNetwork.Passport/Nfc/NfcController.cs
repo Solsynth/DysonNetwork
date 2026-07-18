@@ -291,7 +291,7 @@ public class NfcController(
         {
             return StatusCode(403, new ApiError
             {
-                Code = "TAG_UNCLAIMED",
+                Code = "PASSPORT_NFC_TAG_UNCLAIMED",
                 Message = "This tag is not yet associated with an account. Please sign in to claim it.",
                 Status = 403
             });
@@ -313,7 +313,7 @@ public class NfcController(
         {
             return StatusCode(403, new ApiError
             {
-                Code = "TAG_PRE_ASSIGNED",
+                Code = "PASSPORT_NFC_TAG_PRE_ASSIGNED",
                 Message = "This tag is assigned to a different account.",
                 Status = 403
             });
@@ -429,7 +429,7 @@ public class NfcController(
         CancellationToken cancellationToken)
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var tags = await nfc.ListTagsAsync(currentUser.Id, cancellationToken);
 
@@ -457,7 +457,7 @@ public class NfcController(
         CancellationToken cancellationToken)
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         try
         {
@@ -481,12 +481,7 @@ public class NfcController(
         }
         catch (InvalidOperationException ex)
         {
-            return Conflict(new ApiError
-            {
-                Code = "NFC_TAG_EXISTS",
-                Message = ex.Message,
-                Status = 409
-            });
+            return Conflict(ApiError.Conflict(ex.Message, code: "PASSPORT_NFC_TAG_EXISTS"));
         }
     }
 
@@ -505,12 +500,12 @@ public class NfcController(
         if (request.Uid == null && request.RecordId == null)
             return BadRequest(new ApiError
             {
-                Code = "BAD_REQUEST",
-                Message = "Uid or RecordId must provided one of them",
+                Code = "PASSPORT_NFC_CLAIM_ID_REQUIRED",
+                Message = "Uid or RecordId must be provided.",
                 Status = 400
             });
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         try
         {
@@ -542,7 +537,7 @@ public class NfcController(
         {
             return BadRequest(new ApiError
             {
-                Code = "TAG_CLAIM_FAILED",
+                Code = "PASSPORT_NFC_TAG_CLAIM_FAILED",
                 Message = ex.Message,
                 Status = 400
             });
@@ -561,7 +556,7 @@ public class NfcController(
         CancellationToken cancellationToken)
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var tag = await nfc.UpdateTagAsync(
             currentUser.Id,
@@ -597,7 +592,7 @@ public class NfcController(
         CancellationToken cancellationToken)
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var tag = await nfc.LockTagAsync(currentUser.Id, tagId, cancellationToken);
 
@@ -628,7 +623,7 @@ public class NfcController(
         CancellationToken cancellationToken)
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var deleted = await nfc.UnregisterTagAsync(currentUser.Id, tagId, cancellationToken);
         if (!deleted)

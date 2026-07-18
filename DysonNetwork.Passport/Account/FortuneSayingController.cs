@@ -1,3 +1,4 @@
+using DysonNetwork.Shared.Networking;
 using Microsoft.AspNetCore.Mvc;
 
 namespace DysonNetwork.Passport.Account;
@@ -131,7 +132,7 @@ public class FortuneSayingController : ControllerBase
             : Sayings.Where(s => s.Language.Equals(language, StringComparison.OrdinalIgnoreCase)).ToArray();
 
         if (filteredSayings.Length == 0)
-            return NotFound("No fortunes found for the specified language.");
+            return NotFound(new ApiError { Code = "PASSPORT_FORTUNE_NOT_FOUND", Message = "No fortunes found for the specified language.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
         var random = new Random();
         var randomSaying = filteredSayings[random.Next(filteredSayings.Length)];

@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Proto;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -36,7 +37,7 @@ public class SopNotificationController(
         HttpContext.Items.TryGetValue("CurrentSession", out var currentSessionValue);
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
         if (currentUserValue is not DyAccount currentUser || currentSessionValue is not DyAuthSession currentSession)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Status = 401 });
 
         var sopDeviceId = $"{currentSession.ClientId}:sop";
         var (token, subscription) = await nty.RegisterSopToken(sopDeviceId, request.DeviceName, currentUser, request.AppId);
@@ -56,10 +57,12 @@ public class SopNotificationController(
     )
     {
         var token = ExtractSopToken(Request);
-        if (string.IsNullOrWhiteSpace(token)) return Unauthorized();
+        if (string.IsNullOrWhiteSpace(token))
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Status = 401 });
 
         var sopSub = await nty.GetSopSubscriptionByToken(token);
-        if (sopSub is null) return Unauthorized();
+        if (sopSub is null)
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Status = 401 });
 
         var (notifications, totalCount) = await nty.ListSopNotifications(
             sopSub.AccountId,
@@ -79,10 +82,12 @@ public class SopNotificationController(
     public async Task<ActionResult> StreamNotificationsBySopToken()
     {
         var token = ExtractSopToken(Request);
-        if (string.IsNullOrWhiteSpace(token)) return Unauthorized();
+        if (string.IsNullOrWhiteSpace(token))
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Status = 401 });
 
         var sopSub = await nty.GetSopSubscriptionByToken(token);
-        if (sopSub is null) return Unauthorized();
+        if (sopSub is null)
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Status = 401 });
 
         Response.Headers.Append("Content-Type", "text/event-stream");
         Response.Headers.Append("Cache-Control", "no-cache");

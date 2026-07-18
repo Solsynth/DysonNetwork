@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Extensions;
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
 using Microsoft.AspNetCore.Authorization;
@@ -101,14 +102,14 @@ public class PostCategoryAdminController(
     {
         var normalizedSlug = NormalizeSlug(request.Slug);
         if (string.IsNullOrWhiteSpace(normalizedSlug))
-            return BadRequest("Slug is required.");
+            return BadRequest(new ApiError { Code = "CATEGORY_SLUG_REQUIRED", Message = "Slug is required.", Status = 400 });
 
         var exists = await db.PostCategories.AnyAsync(
             c => c.Slug.ToLower() == normalizedSlug,
             HttpContext.RequestAborted
         );
         if (exists)
-            return BadRequest("A category with this slug already exists.");
+            return BadRequest(new ApiError { Code = "CATEGORY_SLUG_EXISTS", Message = "A category with this slug already exists.", Status = 400 });
 
         var category = new SnPostCategory
         {
@@ -143,7 +144,7 @@ public class PostCategoryAdminController(
         {
             var normalizedSlug = NormalizeSlug(request.Slug);
             if (string.IsNullOrWhiteSpace(normalizedSlug))
-                return BadRequest("Slug cannot be empty.");
+                return BadRequest(new ApiError { Code = "CATEGORY_SLUG_REQUIRED", Message = "Slug cannot be empty.", Status = 400 });
 
             if (normalizedSlug != category.Slug)
             {
@@ -152,7 +153,7 @@ public class PostCategoryAdminController(
                     HttpContext.RequestAborted
                 );
                 if (exists)
-                    return BadRequest("A category with this slug already exists.");
+                    return BadRequest(new ApiError { Code = "CATEGORY_SLUG_EXISTS", Message = "A category with this slug already exists.", Status = 400 });
                 category.Slug = normalizedSlug;
             }
         }

@@ -1,3 +1,4 @@
+using DysonNetwork.Shared.Networking;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using DysonNetwork.Padlock.Auth;
@@ -16,11 +17,11 @@ public class CaptchaController(
     public async Task<IActionResult> Verify([FromBody] CaptchaVerifyRequest request, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(request.Token))
-            return BadRequest(new { error = "Token is required" });
+            return BadRequest(new ApiError { Code = "PADLOCK_CAPTCHA_TOKEN_REQUIRED", Message = "Token is required.", Status = 400 });
 
         var valid = await auth.ValidateCaptcha(request.Token);
         if (!valid)
-            return BadRequest(new { error = "Invalid captcha" });
+            return BadRequest(new ApiError { Code = "PADLOCK_CAPTCHA_INVALID", Message = "Invalid captcha.", Status = 400 });
 
         return Ok(new { success = true });
     }

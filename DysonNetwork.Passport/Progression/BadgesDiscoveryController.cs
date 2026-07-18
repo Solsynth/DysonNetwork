@@ -1,3 +1,4 @@
+using DysonNetwork.Shared.Networking;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 
@@ -38,16 +39,16 @@ public class BadgesDiscoveryController(
     {
         var iconsPath = options.Value.IconsPath;
         if (string.IsNullOrWhiteSpace(iconsPath))
-            return NotFound();
+            return NotFound(new ApiError { Code = "PASSPORT_BADGE_ICON_NOT_FOUND", Message = "Badge icon not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
         var fullPath = Path.GetFullPath(Path.Combine(iconsPath, $"{iconName}.svg"));
         var rootPath = Path.GetFullPath(iconsPath);
 
         if (!fullPath.StartsWith(rootPath, StringComparison.Ordinal))
-            return BadRequest();
+            return BadRequest(new ApiError { Code = "PASSPORT_BADGE_ICON_INVALID_PATH", Message = "Invalid icon path.", Status = 400, TraceId = HttpContext.TraceIdentifier });
 
         if (!System.IO.File.Exists(fullPath))
-            return NotFound();
+            return NotFound(new ApiError { Code = "PASSPORT_BADGE_ICON_NOT_FOUND", Message = "Badge icon not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
         var bytes = System.IO.File.ReadAllBytes(fullPath);
         return File(bytes, "image/svg+xml");

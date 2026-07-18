@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Networking;
 using DysonNetwork.Wallet.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -101,7 +102,7 @@ public class SubscriptionAdminController(
     {
         var definition = await catalog.GetDefinitionAsync(identifier, HttpContext.RequestAborted);
         if (definition is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "WALLET_SUBSCRIPTION_DEFINITION_NOT_FOUND", Message = "Subscription definition was not found.", Status = 404 });
 
         return Ok(definition);
     }
@@ -145,7 +146,7 @@ public class SubscriptionAdminController(
     {
         var deleted = await catalog.DeleteDefinitionAsync(identifier, HttpContext.RequestAborted);
         if (!deleted)
-            return NotFound();
+            return NotFound(new ApiError { Code = "WALLET_SUBSCRIPTION_DEFINITION_NOT_FOUND", Message = "Subscription definition was not found.", Status = 404 });
 
         return NoContent();
     }

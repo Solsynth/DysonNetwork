@@ -1,4 +1,5 @@
 using System.Text.Json;
+using DysonNetwork.Shared.Networking;
 using DysonNetwork.Sphere.ActivityPub.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -30,7 +31,7 @@ public class ServerActorController(
         if (publicKey == null)
         {
             Response.StatusCode = 404;
-            await Response.WriteAsJsonAsync(new { error = "Server key not initialized" });
+            await Response.WriteAsJsonAsync(new ApiError { Code = "ACTOR_KEY_NOT_INITIALIZED", Message = "Server key not initialized.", Status = 404 });
             return;
         }
 
@@ -112,7 +113,7 @@ public class ServerActorController(
         if (publicKey == null)
         {
             Response.StatusCode = 404;
-            await Response.WriteAsJsonAsync(new { error = "Server key not initialized" });
+            await Response.WriteAsJsonAsync(new ApiError { Code = "ACTOR_KEY_NOT_INITIALIZED", Message = "Server key not initialized.", Status = 404 });
             return;
         }
 

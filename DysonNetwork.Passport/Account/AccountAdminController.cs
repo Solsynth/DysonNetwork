@@ -5,6 +5,7 @@ using DysonNetwork.Passport.Account.Presences;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Proto;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -217,7 +218,7 @@ public class AccountAdminController(
     {
         var account = await LookupAccountAsync(identifier);
         if (account is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PASSPORT_ACCOUNT_NOT_FOUND", Message = "Account not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
         var status = await accountEventService.GetStatus(account.Id);
         var activities = await accountEventService.GetActiveActivities(account.Id);
@@ -259,7 +260,7 @@ public class AccountAdminController(
     {
         var account = await LookupAccountAsync(identifier);
         if (account is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PASSPORT_ACCOUNT_NOT_FOUND", Message = "Account not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
         var contacts = await accountGrpc.ListContactsAsync(new DyListContactsRequest
         {
@@ -277,7 +278,7 @@ public class AccountAdminController(
     {
         var account = await LookupAccountAsync(identifier);
         if (account is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PASSPORT_ACCOUNT_NOT_FOUND", Message = "Account not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
         return Ok(await db.MagicSpells
             .AsNoTracking()
@@ -295,11 +296,11 @@ public class AccountAdminController(
     {
         var account = await LookupAccountAsync(identifier);
         if (account is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PASSPORT_ACCOUNT_NOT_FOUND", Message = "Account not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
         if (!request.Type.HasValue || !Enum.IsDefined(request.Type.Value))
-            return BadRequest("A supported magic spell type is required.");
+            return BadRequest(new ApiError { Code = "PASSPORT_SPELL_TYPE_REQUIRED", Message = "A supported magic spell type is required.", Status = 400, TraceId = HttpContext.TraceIdentifier });
         if (request.Type == MagicSpellType.AccountDeactivation)
-            return BadRequest("Account deactivation magic spells cannot be sent by email.");
+            return BadRequest(new ApiError { Code = "PASSPORT_SPELL_DEACTIVATION_NO_EMAIL", Message = "Account deactivation magic spells cannot be sent by email.", Status = 400, TraceId = HttpContext.TraceIdentifier });
 
         var spell = await magicSpells.CreateMagicSpell(
             account,
@@ -326,14 +327,14 @@ public class AccountAdminController(
     {
         var account = await LookupAccountAsync(identifier);
         if (account is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PASSPORT_ACCOUNT_NOT_FOUND", Message = "Account not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
         var spell = await db.MagicSpells
             .FirstOrDefaultAsync(candidate => candidate.Id == spellId && candidate.AccountId == account.Id);
         if (spell is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PASSPORT_SPELL_NOT_FOUND", Message = "Magic spell not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
         if (spell.Type == MagicSpellType.AccountDeactivation)
-            return BadRequest("Account deactivation magic spells cannot be sent by email.");
+            return BadRequest(new ApiError { Code = "PASSPORT_SPELL_DEACTIVATION_NO_EMAIL", Message = "Account deactivation magic spells cannot be sent by email.", Status = 400, TraceId = HttpContext.TraceIdentifier });
 
         await magicSpells.ResendMagicSpell(spell, request?.BypassVerify ?? true);
         return NoContent();
@@ -345,12 +346,12 @@ public class AccountAdminController(
     {
         var account = await LookupAccountAsync(identifier);
         if (account is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PASSPORT_ACCOUNT_NOT_FOUND", Message = "Account not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
         var spell = await db.MagicSpells
             .FirstOrDefaultAsync(candidate => candidate.Id == spellId && candidate.AccountId == account.Id);
         if (spell is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PASSPORT_SPELL_NOT_FOUND", Message = "Magic spell not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
         db.MagicSpells.Remove(spell);
         await db.SaveChangesAsync();
@@ -363,7 +364,7 @@ public class AccountAdminController(
     {
         var account = await LookupAccountAsync(identifier);
         if (account is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PASSPORT_ACCOUNT_NOT_FOUND", Message = "Account not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
         var factors = await accountGrpc.ListAuthFactorsAsync(new DyListAuthFactorsRequest
         {
@@ -383,7 +384,7 @@ public class AccountAdminController(
     {
         var account = await LookupAccountAsync(identifier);
         if (account is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PASSPORT_ACCOUNT_NOT_FOUND", Message = "Account not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
         var profile = await accountService.GetOrCreateAccountProfileAsync(account.Id);
         profile.Verification = new SnVerificationMark
@@ -405,7 +406,7 @@ public class AccountAdminController(
     {
         var account = await LookupAccountAsync(identifier);
         if (account is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PASSPORT_ACCOUNT_NOT_FOUND", Message = "Account not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
         var profile = await accountService.GetOrCreateAccountProfileAsync(account.Id);
         profile.Verification = null;
@@ -421,7 +422,7 @@ public class AccountAdminController(
     {
         var account = await LookupAccountAsync(identifier);
         if (account is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PASSPORT_ACCOUNT_NOT_FOUND", Message = "Account not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
         var badges = await db.Badges
             .AsNoTracking()
@@ -440,7 +441,7 @@ public class AccountAdminController(
     {
         var account = await LookupAccountAsync(identifier);
         if (account is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PASSPORT_ACCOUNT_NOT_FOUND", Message = "Account not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
         var badge = await accountService.GrantBadge(account, new SnAccountBadge
         {
@@ -461,7 +462,7 @@ public class AccountAdminController(
     {
         var account = await LookupAccountAsync(identifier);
         if (account is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PASSPORT_ACCOUNT_NOT_FOUND", Message = "Account not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
         await accountService.ActiveBadge(account, badgeId);
         return Ok();
@@ -473,7 +474,7 @@ public class AccountAdminController(
     {
         var account = await LookupAccountAsync(identifier);
         if (account is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PASSPORT_ACCOUNT_NOT_FOUND", Message = "Account not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
         await accountService.RevokeBadge(account, badgeId);
         return NoContent();
@@ -519,7 +520,7 @@ public class AccountAdminController(
     {
         var account = await LookupAccountAsync(identifier);
         if (account is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PASSPORT_ACCOUNT_NOT_FOUND", Message = "Account not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
         return Ok(await boardService.GetBoardAsync(account.Id));
     }
@@ -533,7 +534,7 @@ public class AccountAdminController(
     {
         var account = await LookupAccountAsync(identifier);
         if (account is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PASSPORT_ACCOUNT_NOT_FOUND", Message = "Account not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
         try
         {
@@ -542,7 +543,7 @@ public class AccountAdminController(
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new ApiError { Code = "PASSPORT_BOARD_REPLACE_FAILED", Message = ex.Message, Status = 400, TraceId = HttpContext.TraceIdentifier });
         }
     }
 
@@ -556,7 +557,7 @@ public class AccountAdminController(
     {
         var account = await LookupAccountAsync(identifier);
         if (account is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PASSPORT_ACCOUNT_NOT_FOUND", Message = "Account not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
         try
         {
@@ -566,11 +567,11 @@ public class AccountAdminController(
         }
         catch (KeyNotFoundException ex)
         {
-            return NotFound(ex.Message);
+            return NotFound(new ApiError { Code = "PASSPORT_BOARD_ITEM_NOT_FOUND", Message = ex.Message, Status = 404, TraceId = HttpContext.TraceIdentifier });
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new ApiError { Code = "PASSPORT_BOARD_UPDATE_FAILED", Message = ex.Message, Status = 400, TraceId = HttpContext.TraceIdentifier });
         }
     }
 
@@ -580,13 +581,13 @@ public class AccountAdminController(
     {
         var account = await LookupAccountAsync(identifier);
         if (account is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PASSPORT_ACCOUNT_NOT_FOUND", Message = "Account not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
         var item = await db.AccountBoardItems
             .Where(x => x.Id == itemId && x.AccountId == account.Id)
             .FirstOrDefaultAsync();
         if (item is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PASSPORT_BOARD_ITEM_NOT_FOUND", Message = "Board item not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
         db.AccountBoardItems.Remove(item);
         await db.SaveChangesAsync();
@@ -620,7 +621,7 @@ public class AccountAdminController(
             ? await accountService.GetAccount(accountId)
             : await accountService.LookupAccount(identifier);
         if (account is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PASSPORT_ACCOUNT_NOT_FOUND", Message = "Account not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
         var result = await steamPresenceService.ScanAndUpdatePresencesAsync([account.Id]);
         return Ok(result);
@@ -643,7 +644,7 @@ public class AccountAdminController(
     )
     {
         if (!Enum.TryParse<PresenceUpdateStage>(stage, true, out var parsedStage))
-            return BadRequest("Invalid stage. Expected one of: active, maybe, cold");
+            return BadRequest(new ApiError { Code = "PASSPORT_INVALID_STAGE", Message = "Invalid stage. Expected one of: active, maybe, cold.", Status = 400, TraceId = HttpContext.TraceIdentifier });
 
         var userIds = await GetSteamPresenceUsersForStageAsync(parsedStage);
         var result = await steamPresenceService.ScanAndUpdatePresencesAsync(userIds);

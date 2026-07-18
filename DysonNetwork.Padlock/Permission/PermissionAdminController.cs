@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Networking;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -101,7 +102,7 @@ public class PermissionAdminController(
     public async Task<ActionResult<PermissionGroupDetailResponse>> GetGroup(Guid groupId)
     {
         var group = await db.PermissionGroups.AsNoTracking().FirstOrDefaultAsync(g => g.Id == groupId);
-        if (group is null) return NotFound(new { error = "Permission group not found" });
+        if (group is null) return NotFound(new ApiError { Code = "PERMISSION_GROUP_NOT_FOUND", Message = "Permission group not found.", Status = 404 });
 
         var response = new PermissionGroupDetailResponse
         {
@@ -123,9 +124,9 @@ public class PermissionAdminController(
     public async Task<ActionResult<SnPermissionGroup>> CreateGroup([FromBody] CreatePermissionGroupRequest request)
     {
         var key = request.Key.Trim();
-        if (string.IsNullOrWhiteSpace(key)) return BadRequest(new { error = "Group key cannot be empty" });
+        if (string.IsNullOrWhiteSpace(key)) return BadRequest(new ApiError { Code = "PERMISSION_GROUP_KEY_EMPTY", Message = "Group key cannot be empty.", Status = 400 });
         if (await db.PermissionGroups.AnyAsync(g => g.Key == key))
-            return Conflict(new { error = "A permission group with this key already exists" });
+            return Conflict(ApiError.Conflict("A permission group with this key already exists.", code: "PERMISSION_GROUP_KEY_CONFLICT"));
 
         var group = new SnPermissionGroup { Key = key };
         db.PermissionGroups.Add(group);
@@ -138,14 +139,14 @@ public class PermissionAdminController(
     public async Task<ActionResult<SnPermissionGroup>> UpdateGroup(Guid groupId, [FromBody] UpdatePermissionGroupRequest request)
     {
         var group = await db.PermissionGroups.FirstOrDefaultAsync(g => g.Id == groupId);
-        if (group is null) return NotFound(new { error = "Permission group not found" });
+        if (group is null) return NotFound(new ApiError { Code = "PERMISSION_GROUP_NOT_FOUND", Message = "Permission group not found.", Status = 404 });
 
         var key = request.Key.Trim();
-        if (string.IsNullOrWhiteSpace(key)) return BadRequest(new { error = "Group key cannot be empty" });
+        if (string.IsNullOrWhiteSpace(key)) return BadRequest(new ApiError { Code = "PERMISSION_GROUP_KEY_EMPTY", Message = "Group key cannot be empty.", Status = 400 });
         if (group.Key == "default" && key != "default")
-            return BadRequest(new { error = "The default permission group cannot be renamed" });
+            return BadRequest(new ApiError { Code = "PERMISSION_GROUP_DEFAULT_RENAME", Message = "The default permission group cannot be renamed.", Status = 400 });
         if (await db.PermissionGroups.AnyAsync(g => g.Id != groupId && g.Key == key))
-            return Conflict(new { error = "A permission group with this key already exists" });
+            return Conflict(ApiError.Conflict("A permission group with this key already exists.", code: "PERMISSION_GROUP_KEY_CONFLICT"));
 
         group.Key = key;
         var nodes = await db.PermissionNodes.Where(n => n.GroupId == groupId).ToListAsync();
@@ -160,8 +161,8 @@ public class PermissionAdminController(
     public async Task<IActionResult> DeleteGroup(Guid groupId)
     {
         var group = await db.PermissionGroups.FirstOrDefaultAsync(g => g.Id == groupId);
-        if (group is null) return NotFound(new { error = "Permission group not found" });
-        if (group.Key == "default") return BadRequest(new { error = "The default permission group cannot be deleted" });
+        if (group is null) return NotFound(new ApiError { Code = "PERMISSION_GROUP_NOT_FOUND", Message = "Permission group not found.", Status = 404 });
+        if (group.Key == "default") return BadRequest(new ApiError { Code = "PERMISSION_GROUP_DEFAULT_DELETE", Message = "The default permission group cannot be deleted.", Status = 400 });
 
         var actors = await GetGroupMemberActorsAsync(groupId);
         var nodes = await db.PermissionNodes.Where(n => n.GroupId == groupId).ToListAsync();
@@ -183,9 +184,9 @@ public class PermissionAdminController(
         [FromBody] UpsertGroupPermissionRequest request)
     {
         var group = await db.PermissionGroups.FirstOrDefaultAsync(g => g.Id == groupId);
-        if (group is null) return NotFound(new { error = "Permission group not found" });
+        if (group is null) return NotFound(new ApiError { Code = "PERMISSION_GROUP_NOT_FOUND", Message = "Permission group not found.", Status = 404 });
         if (!PermissionService.IsValidPermissionPattern(key))
-            return BadRequest(new { error = "Permission key contains invalid characters or wildcards" });
+            return BadRequest(new ApiError { Code = "PERMISSION_KEY_INVALID_PATTERN", Message = "Permission key contains invalid characters or wildcards.", Status = 400 });
 
         var node = await db.PermissionNodes.FirstOrDefaultAsync(n => n.GroupId == groupId && n.Key == key);
         if (node is null)
@@ -217,7 +218,7 @@ public class PermissionAdminController(
     public async Task<IActionResult> DeleteGroupPermission(Guid groupId, string key)
     {
         var node = await db.PermissionNodes.FirstOrDefaultAsync(n => n.GroupId == groupId && n.Key == key);
-        if (node is null) return NotFound(new { error = "Permission node not found" });
+        if (node is null) return NotFound(new ApiError { Code = "PERMISSION_NODE_NOT_FOUND", Message = "Permission node not found.", Status = 404 });
 
         db.PermissionNodes.Remove(node);
         await db.SaveChangesAsync();
@@ -233,8 +234,8 @@ public class PermissionAdminController(
         [FromBody] GroupMembershipRequest request)
     {
         var groupExists = await db.PermissionGroups.AnyAsync(g => g.Id == groupId);
-        if (!groupExists) return NotFound(new { error = "Permission group not found" });
-        if (string.IsNullOrWhiteSpace(actor)) return BadRequest(new { error = "Actor cannot be empty" });
+        if (!groupExists) return NotFound(new ApiError { Code = "PERMISSION_GROUP_NOT_FOUND", Message = "Permission group not found.", Status = 404 });
+        if (string.IsNullOrWhiteSpace(actor)) return BadRequest(new ApiError { Code = "PERMISSION_ACTOR_EMPTY", Message = "Actor cannot be empty.", Status = 400 });
 
         var member = await db.PermissionGroupMembers.FirstOrDefaultAsync(m => m.GroupId == groupId && m.Actor == actor);
         if (member is null)
@@ -258,7 +259,7 @@ public class PermissionAdminController(
     public async Task<IActionResult> DeleteGroupMember(Guid groupId, string actor)
     {
         var member = await db.PermissionGroupMembers.FirstOrDefaultAsync(m => m.GroupId == groupId && m.Actor == actor);
-        if (member is null) return NotFound(new { error = "Actor is not in this group" });
+        if (member is null) return NotFound(new ApiError { Code = "PERMISSION_ACTOR_NOT_IN_GROUP", Message = "Actor is not in this group.", Status = 404 });
 
         db.PermissionGroupMembers.Remove(member);
         await db.SaveChangesAsync();
@@ -271,7 +272,7 @@ public class PermissionAdminController(
     [AskPermission("permissions.groups.check")]
     public async Task<ActionResult<AdminActorPermissionsResponse>> GetActorPermissions(string actor)
     {
-        if (string.IsNullOrWhiteSpace(actor)) return BadRequest(new { error = "Actor cannot be empty" });
+        if (string.IsNullOrWhiteSpace(actor)) return BadRequest(new ApiError { Code = "PERMISSION_ACTOR_EMPTY", Message = "Actor cannot be empty.", Status = 400 });
         return Ok(new AdminActorPermissionsResponse
         {
             Actor = actor,

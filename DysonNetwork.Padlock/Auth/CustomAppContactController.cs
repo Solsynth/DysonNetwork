@@ -1,5 +1,6 @@
 using DysonNetwork.Padlock.Models;
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Proto;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -25,7 +26,7 @@ public class CustomAppContactController(
     {
         var secret = ExtractApiKey(Request.Headers["X-Api-Key"].ToString());
         if (string.IsNullOrWhiteSpace(secret))
-            return Unauthorized("Missing app API key.");
+            return Unauthorized(new ApiError { Code = "APP_API_KEY_REQUIRED", Message = "Missing app API key.", Status = 401 });
 
         var secretCheck = await customApps.CheckCustomAppSecretAsync(new DyCheckCustomAppSecretRequest
         {
@@ -34,7 +35,7 @@ public class CustomAppContactController(
             IsOidc = false,
         }, cancellationToken: ct);
         if (!secretCheck.Valid)
-            return Unauthorized("Invalid app API key.");
+            return Unauthorized(new ApiError { Code = "APP_API_KEY_INVALID", Message = "Invalid app API key.", Status = 401 });
 
         var authorized = await db.AuthorizedApps
             .AsNoTracking()
@@ -45,7 +46,7 @@ public class CustomAppContactController(
             .Where(x => x.Scopes.Contains(RequiredScope))
             .AnyAsync(ct);
         if (!authorized)
-            return StatusCode(403, $"Missing required scope: {RequiredScope}");
+            return StatusCode(403, ApiError.Unauthorized($"Missing required scope: {RequiredScope}", forbidden: true));
 
         var query = db.AccountContacts
             .AsNoTracking()

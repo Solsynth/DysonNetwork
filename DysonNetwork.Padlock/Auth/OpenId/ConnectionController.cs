@@ -7,6 +7,7 @@ using DysonNetwork.Shared.Cache;
 using Microsoft.AspNetCore.WebUtilities;
 using NodaTime;
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Networking;
 
 namespace DysonNetwork.Padlock.Auth.OpenId;
 
@@ -38,7 +39,7 @@ public class ConnectionController(
     public async Task<ActionResult<List<SnAccountConnection>>> GetConnections()
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "AUTH_UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var connections = await db.AccountConnections
             .Where(c => c.AccountId == currentUser.Id)
@@ -62,13 +63,13 @@ public class ConnectionController(
     public async Task<ActionResult> RemoveConnection(Guid id)
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "AUTH_UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var connection = await db.AccountConnections
             .Where(c => c.Id == id && c.AccountId == currentUser.Id)
             .FirstOrDefaultAsync();
         if (connection == null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "CONNECTION_NOT_FOUND", Message = "Account connection was not found.", Status = 404 });
 
         db.AccountConnections.Remove(connection);
         await db.SaveChangesAsync();
@@ -83,12 +84,12 @@ public class ConnectionController(
     )
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "AUTH_UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var connection = await db.AccountConnections
             .FirstOrDefaultAsync(c => c.Id == id && c.AccountId == currentUser.Id);
         if (connection is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "CONNECTION_NOT_FOUND", Message = "Account connection was not found.", Status = 404 });
 
         connection.IsPublic = request.IsPublic;
         await db.SaveChangesAsync();
@@ -100,10 +101,10 @@ public class ConnectionController(
     public async Task<ActionResult> ConnectAppleMobile([FromBody] AppleMobileConnectRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "AUTH_UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         if (GetOidcService("apple") is not AppleOidcService appleService)
-            return StatusCode(503, "Apple OIDC service not available");
+            return StatusCode(503, new ApiError { Code = "OIDC_APPLE_UNAVAILABLE", Message = "Apple OIDC service not available.", Status = 503 });
 
         var callbackData = new OidcCallbackData
         {
@@ -118,7 +119,7 @@ public class ConnectionController(
         }
         catch (Exception ex)
         {
-            return BadRequest($"Error processing Apple token: {ex.Message}");
+            return BadRequest(new ApiError { Code = "OIDC_APPLE_TOKEN_PROCESS_FAILED", Message = $"Error processing Apple token: {ex.Message}", Status = 400 });
         }
 
         var existingConnection = await db.AccountConnections
@@ -128,8 +129,12 @@ public class ConnectionController(
 
         if (existingConnection != null)
         {
-            return BadRequest(
-                $"This Apple account is already linked to {(existingConnection.AccountId == currentUser.Id ? "your account" : "another user")}.");
+            return BadRequest(new ApiError
+            {
+                Code = "OIDC_APPLE_ALREADY_LINKED",
+                Message = $"This Apple account is already linked to {(existingConnection.AccountId == currentUser.Id ? "your account" : "another user")}.",
+                Status = 400
+            });
         }
 
         db.AccountConnections.Add(new SnAccountConnection
@@ -174,11 +179,11 @@ public class ConnectionController(
     {
         var oidcService = GetOidcService(provider);
         if (oidcService == null)
-            return BadRequest($"Provider '{provider}' is not supported.");
+            return BadRequest(new ApiError { Code = "OIDC_PROVIDER_NOT_SUPPORTED", Message = $"Provider '{provider}' is not supported.", Status = 400 });
 
         var callbackData = await ExtractCallbackData(Request);
         if (callbackData.State == null)
-            return BadRequest("State parameter is missing.");
+            return BadRequest(new ApiError { Code = "OIDC_STATE_MISSING", Message = "State parameter is missing.", Status = 400 });
         var stateToken = callbackData.State;
 
         // Get the state from the cache
@@ -194,7 +199,7 @@ public class ConnectionController(
             if (string.IsNullOrEmpty(stateValue) || !OidcState.TryParse(stateValue, out oidcState) || oidcState == null)
             {
                 logger.LogWarning("Invalid or expired OIDC state: {State}", stateToken);
-                return BadRequest("Invalid or expired state parameter");
+                return BadRequest(new ApiError { Code = "OIDC_STATE_INVALID", Message = "Invalid or expired state parameter.", Status = 400 });
             }
         }
         
@@ -244,7 +249,7 @@ public class ConnectionController(
             );
         }
 
-        return BadRequest("Unsupported flow type");
+        return BadRequest(new ApiError { Code = "OIDC_UNSUPPORTED_FLOW_TYPE", Message = "Unsupported flow type.", Status = 400 });
     }
 
     private async Task<IActionResult> HandleManualConnection(
@@ -265,12 +270,12 @@ public class ConnectionController(
         catch (Exception ex)
         {
             logger.LogError(ex, "Error processing OIDC callback for provider {Provider} during connection flow", provider);
-            return BadRequest($"Error processing {provider} authentication: {ex.Message}");
+            return BadRequest(new ApiError { Code = "OIDC_CALLBACK_PROCESS_FAILED", Message = $"Error processing {provider} authentication: {ex.Message}", Status = 400 });
         }
 
         if (string.IsNullOrEmpty(userInfo.UserId))
         {
-            return BadRequest($"{provider} did not return a valid user identifier.");
+            return BadRequest(new ApiError { Code = "OIDC_MISSING_USER_ID", Message = $"{provider} did not return a valid user identifier.", Status = 400 });
         }
 
         // Check if this provider account is already connected to any user
@@ -282,7 +287,7 @@ public class ConnectionController(
         // If it's connected to a different user, return error
         if (existingConnection != null && existingConnection.AccountId != accountId)
         {
-            return BadRequest($"This {provider} account is already linked to another user.");
+            return BadRequest(new ApiError { Code = "OIDC_ACCOUNT_ALREADY_LINKED", Message = $"This {provider} account is already linked to another user.", Status = 400 });
         }
 
         // Check if the current user already has this provider connected
@@ -329,7 +334,7 @@ public class ConnectionController(
         catch (DbUpdateException ex)
         {
             logger.LogError(ex, "Failed to save OIDC connection for provider {Provider}", provider);
-            return StatusCode(500, $"Failed to save {provider} connection. Please try again.");
+            return StatusCode(500, new ApiError { Code = "OIDC_SAVE_CONNECTION_FAILED", Message = $"Failed to save {provider} connection. Please try again.", Status = 500 });
         }
 
         if (!userHasProvider)
@@ -371,12 +376,12 @@ public class ConnectionController(
         catch (Exception ex)
         {
             logger.LogError(ex, "Error processing OIDC callback for provider {Provider} during login/registration flow", provider);
-            return BadRequest($"Error processing callback: {ex.Message}");
+            return BadRequest(new ApiError { Code = "OIDC_CALLBACK_PROCESS_FAILED", Message = $"Error processing callback: {ex.Message}", Status = 400 });
         }
 
         if (string.IsNullOrEmpty(userInfo.Email) || string.IsNullOrEmpty(userInfo.UserId))
         {
-            return BadRequest($"Email or user ID is missing from {provider}'s response");
+            return BadRequest(new ApiError { Code = "OIDC_MISSING_EMAIL_OR_USER_ID", Message = $"Email or user ID is missing from {provider}'s response.", Status = 400 });
         }
         
         // Retrieve and clean up the return URL

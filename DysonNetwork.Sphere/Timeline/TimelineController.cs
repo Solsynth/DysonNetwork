@@ -1,4 +1,5 @@
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Proto;
 using Microsoft.AspNetCore.Mvc;
 using NodaTime;
@@ -42,13 +43,13 @@ public class ActivityController(TimelineService acts) : ControllerBase
             }
             catch
             {
-                return BadRequest("Invalid cursor format");
+                return BadRequest(new ApiError { Code = "TIMELINE_INVALID_CURSOR", Message = "Invalid cursor format", Status = 400 });
             }
         }
 
         var timelineMode = ParseTimelineMode(mode);
         if (timelineMode == null)
-            return BadRequest("Invalid mode. Expected personalized, top, or latest.");
+            return BadRequest(new ApiError { Code = "TIMELINE_INVALID_MODE", Message = "Invalid mode. Expected personalized, top, or latest.", Status = 400 });
 
         TimelineService.TimelineFeedScope scope;
         try
@@ -57,13 +58,13 @@ public class ActivityController(TimelineService acts) : ControllerBase
         }
         catch (ArgumentException ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new ApiError { Code = "TIMELINE_INVALID_SCOPE", Message = ex.Message, Status = 400 });
         }
 
         if (scope.RequestedPublisherName is not null && scope.Publisher is null)
-            return NotFound("Publisher not found.");
+            return NotFound(new ApiError { Code = "PUBLISHER_NOT_FOUND", Message = "Publisher not found.", Status = 404 });
         if (scope.RequestedCollectionSlug is not null && scope.Collection is null)
-            return NotFound("Collection not found.");
+            return NotFound(new ApiError { Code = "COLLECTION_NOT_FOUND", Message = "Collection not found.", Status = 404 });
 
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
         var anonymousViewerKey = $"anon:{HttpContext.Connection.RemoteIpAddress}:{Request.Headers.UserAgent}";

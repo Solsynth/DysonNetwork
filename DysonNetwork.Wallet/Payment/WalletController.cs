@@ -3,6 +3,7 @@ using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Extensions;
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
 using Microsoft.AspNetCore.Authorization;
@@ -37,7 +38,8 @@ public class WalletController(
     [Authorize]
     public async Task<ActionResult<SnWallet>> CreateWallet([FromBody] CreateWalletRequest? request = null)
     {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         try
         {
@@ -47,9 +49,9 @@ public class WalletController(
         {
             var publisher = (await publishers.ListPublishers(realmId: request.RealmId.Value.ToString())).FirstOrDefault();
             if (publisher is null)
-                return NotFound("Realm publisher was not found.");
+                return NotFound(new ApiError { Code = "WALLET_REALM_PUBLISHER_NOT_FOUND", Message = "Realm publisher was not found.", Status = 404 });
             if (!await publishers.IsMemberWithRole(publisher.Id, currentAccountId, PublisherMemberRole.Editor))
-                return StatusCode(403, "You must be an editor of the realm publisher to create a realm wallet.");
+                return StatusCode(403, ApiError.Unauthorized("You must be an editor of the realm publisher to create a realm wallet.", forbidden: true));
 
                 var realmWallet = await ws.CreateWalletAsync(realmId: request.RealmId.Value, name: request.Name);
                 return Ok(realmWallet);
@@ -67,12 +69,12 @@ public class WalletController(
                 userAgent: Request.Headers.UserAgent,
                 ipAddress: Request.GetClientIpAddress()
             );
-            
+
             return Ok(wallet);
         }
         catch (Exception err)
         {
-            return BadRequest(err.Message);
+            return BadRequest(new ApiError { Code = "WALLET_CREATE_FAILED", Message = err.Message, Status = 400 });
         }
     }
 
@@ -80,10 +82,11 @@ public class WalletController(
     [Authorize]
     public async Task<ActionResult<SnWallet>> GetWallet()
     {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var wallet = await ws.GetAccountWalletAsync(Guid.Parse(currentUser.Id));
-        if (wallet is null) return NotFound("Wallet was not found, please create one first.");
+        if (wallet is null) return NotFound(new ApiError { Code = "WALLET_NOT_FOUND", Message = "Wallet was not found, please create one first.", Status = 404 });
         return Ok(wallet);
     }
 
@@ -91,7 +94,8 @@ public class WalletController(
     [Authorize]
     public async Task<ActionResult<List<SnWallet>>> GetWallets()
     {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var currentAccountId = Guid.Parse(currentUser.Id);
         var wallets = await ws.GetAccountWalletsAsync(currentAccountId);
@@ -115,10 +119,11 @@ public class WalletController(
     [Authorize]
     public async Task<ActionResult<SnWallet>> GetWalletById(Guid id)
     {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var wallet = await ws.GetWalletAsync(id);
-        if (wallet is null) return NotFound();
+        if (wallet is null) return NotFound(new ApiError { Code = "WALLET_NOT_FOUND", Message = "Wallet was not found.", Status = 404 });
 
         if (wallet.AccountId == Guid.Parse(currentUser.Id))
             return Ok(wallet);
@@ -127,12 +132,12 @@ public class WalletController(
         {
             var publisher = (await publishers.ListPublishers(realmId: wallet.RealmId.Value.ToString())).FirstOrDefault();
             if (publisher is null)
-                return NotFound("Realm publisher was not found.");
+                return NotFound(new ApiError { Code = "WALLET_REALM_PUBLISHER_NOT_FOUND", Message = "Realm publisher was not found.", Status = 404 });
             if (await publishers.IsMemberWithRole(publisher.Id, Guid.Parse(currentUser.Id), PublisherMemberRole.Viewer))
                 return Ok(wallet);
         }
 
-        return StatusCode(403);
+        return StatusCode(403, ApiError.Unauthorized("You do not have permission to perform this action.", forbidden: true));
     }
 
     public class WalletStats
@@ -156,12 +161,13 @@ public class WalletController(
         [FromQuery] List<string>? currencies = null
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var currentAccountId = Guid.Parse(currentUser.Id);
         var resolvedWallets = await ResolveAccessibleWalletsAsync(currentAccountId, wallets);
         if (resolvedWallets is null || resolvedWallets.Count == 0)
-            return NotFound("Wallet was not found, please create one first.");
+            return NotFound(new ApiError { Code = "WALLET_NOT_FOUND", Message = "Wallet was not found, please create one first.", Status = 404 });
 
         var resolvedWalletIds = resolvedWallets.Select(w => w.Id).ToHashSet();
         var currencyFilters = NormalizeFilters(currencies, "points");
@@ -274,11 +280,12 @@ public class WalletController(
         [FromQuery] int take = 20
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var currentAccountId = Guid.Parse(currentUser.Id);
         var targetWallet = await ResolveAccessibleWalletAsync(currentAccountId, wallet);
-        if (targetWallet is null) return NotFound();
+        if (targetWallet is null) return NotFound(new ApiError { Code = "WALLET_NOT_FOUND", Message = "Wallet was not found.", Status = 404 });
 
         var query = db.PaymentTransactions
             .Where(t => t.PayeeWalletId == targetWallet.Id || t.PayerWalletId == targetWallet.Id)
@@ -299,7 +306,7 @@ public class WalletController(
                     query = query.Where(t => t.PayerWalletId == targetWallet.Id);
                     break;
                 default:
-                    return BadRequest("Invalid direction. Use income or outcome.");
+                    return BadRequest(new ApiError { Code = "WALLET_INVALID_DIRECTION", Message = "Invalid direction. Use income or outcome.", Status = 400 });
             }
         }
 
@@ -353,7 +360,8 @@ public class WalletController(
     [Authorize]
     public async Task<ActionResult<SnWalletTransaction>> GetTransactionById(Guid id)
     {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var currentAccountId = Guid.Parse(currentUser.Id);
         var transaction = await db.PaymentTransactions
@@ -362,7 +370,7 @@ public class WalletController(
             .FirstOrDefaultAsync(t => t.Id == id);
 
         if (transaction is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "WALLET_TRANSACTION_NOT_FOUND", Message = "Transaction was not found.", Status = 404 });
 
         var accessibleWalletIds = new List<Guid>();
         if (transaction.PayerWalletId.HasValue)
@@ -381,7 +389,7 @@ public class WalletController(
 
         if (!accessibleWalletIds.Contains(transaction.PayerWalletId ?? Guid.Empty) &&
             !accessibleWalletIds.Contains(transaction.PayeeWalletId ?? Guid.Empty))
-            return NotFound();
+            return NotFound(new ApiError { Code = "WALLET_TRANSACTION_NOT_FOUND", Message = "Transaction was not found.", Status = 404 });
 
         var accountIds = new[] { transaction.PayerWallet?.AccountId, transaction.PayeeWallet?.AccountId }
             .Where(accountId => accountId.HasValue)
@@ -421,11 +429,12 @@ public class WalletController(
         [FromQuery] int take = 20
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var currentAccountId = Guid.Parse(currentUser.Id);
         var targetWallet = await ResolveAccessibleWalletAsync(currentAccountId, wallet);
-        if (targetWallet is null) return NotFound();
+        if (targetWallet is null) return NotFound(new ApiError { Code = "WALLET_NOT_FOUND", Message = "Wallet was not found.", Status = 404 });
 
         var query = db.PaymentOrders.AsQueryable()
             .Include(o => o.Transaction)
@@ -448,7 +457,7 @@ public class WalletController(
                     query = query.Where(o => o.Transaction != null && o.Transaction.PayerWalletId == targetWallet.Id);
                     break;
                 default:
-                    return BadRequest("Invalid direction. Use income or outcome.");
+                    return BadRequest(new ApiError { Code = "WALLET_INVALID_DIRECTION", Message = "Invalid direction. Use income or outcome.", Status = 400 });
             }
         }
 
@@ -579,12 +588,12 @@ public class WalletController(
     public async Task<ActionResult<SnWalletTransaction>> ModifyWalletBalance([FromBody] WalletBalanceRequest request)
     {
         if (request.WalletId is null && request.AccountId is null)
-            return BadRequest("You must specify either WalletId or AccountId.");
+            return BadRequest(new ApiError { Code = "WALLET_MISSING_TARGET", Message = "You must specify either WalletId or AccountId.", Status = 400 });
 
         var wallet = request.AccountId is not null
             ? await ws.GetAccountWalletAsync(request.AccountId.Value)
             : await ws.GetWalletAsync(request.WalletId!.Value);
-        if (wallet is null) return NotFound("Wallet was not found.");
+        if (wallet is null) return NotFound(new ApiError { Code = "WALLET_NOT_FOUND", Message = "Wallet was not found.", Status = 404 });
 
         var transaction = request.Amount >= 0
             ? await payment.CreateTransactionAsync(
@@ -612,7 +621,8 @@ public class WalletController(
     [AskPermission(PermissionKeys.WalletsTransactionsManage)]
     public async Task<ActionResult<SnWalletTransaction>> Transfer([FromBody] WalletTransferRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var currentAccountId = Guid.Parse(currentUser.Id);
         var pinCode = string.IsNullOrWhiteSpace(request.PinCode) ? NoPinProvided : request.PinCode;
@@ -631,13 +641,13 @@ public class WalletController(
                 {
                     var publisher = (await publishers.ListPublishers(realmId: payerWallet.RealmId.Value.ToString())).FirstOrDefault();
                     if (publisher is null)
-                        return NotFound("Realm publisher was not found.");
+                        return NotFound(new ApiError { Code = "WALLET_REALM_PUBLISHER_NOT_FOUND", Message = "Realm publisher was not found.", Status = 404 });
                     if (!await publishers.IsMemberWithRole(publisher.Id, currentAccountId, PublisherMemberRole.Editor))
-                        return StatusCode(403, "You must be an editor of the realm publisher to spend from this wallet.");
+                        return StatusCode(403, ApiError.Unauthorized("You must be an editor of the realm publisher to spend from this wallet.", forbidden: true));
                 }
                 else
                 {
-                    return StatusCode(403);
+                    return StatusCode(403, ApiError.Unauthorized("You do not have permission to perform this action.", forbidden: true));
                 }
             }
             else
@@ -681,17 +691,17 @@ public class WalletController(
             else if (request.PayeeAccountId.HasValue)
             {
                 if (currentAccountId == request.PayeeAccountId.Value)
-                    return BadRequest("Cannot transfer to yourself.");
+                    return BadRequest(new ApiError { Code = "WALLET_TRANSFER_SELF_FORBIDDEN", Message = "Cannot transfer to yourself.", Status = 400 });
 
                 payeeWallet = await ws.GetAccountWalletAsync(request.PayeeAccountId.Value) ?? throw new InvalidOperationException("Payee wallet not found.");
             }
             else
             {
-                return BadRequest("You must specify payee_account_id, payee_wallet_id, or payee_public_id.");
+                return BadRequest(new ApiError { Code = "WALLET_TRANSFER_MISSING_PAYEE", Message = "You must specify payee_account_id, payee_wallet_id, or payee_public_id.", Status = 400 });
             }
 
             if (payerWallet.Id == payeeWallet.Id)
-                return BadRequest("Cannot transfer to the same wallet.");
+                return BadRequest(new ApiError { Code = "WALLET_TRANSFER_SAME_WALLET", Message = "Cannot transfer to the same wallet.", Status = 400 });
 
             var transaction = await payment.TransferBetweenWalletsAsync(
                 payerWallet.Id,
@@ -709,9 +719,9 @@ public class WalletController(
             return Ok(transaction);
         }
         catch (Exception err)
-        {
-            return BadRequest(err.Message);
-        }
+            {
+                return BadRequest(new ApiError { Code = "WALLET_TRANSFER_FAILED", Message = err.Message, Status = 400 });
+            }
     }
 
     [HttpPost("transfer/requests")]
@@ -721,17 +731,18 @@ public class WalletController(
         [FromBody] CreateWalletTransferRequestRequest request
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         try
         {
             if (request.ExpirationHours <= 0 || request.ExpirationHours > 24 * 7)
-                return BadRequest("ExpirationHours must be between 1 and 168.");
+                return BadRequest(new ApiError { Code = "WALLET_TRANSFER_REQUEST_INVALID_EXPIRATION", Message = "ExpirationHours must be between 1 and 168.", Status = 400 });
 
             var currentAccountId = Guid.Parse(currentUser.Id);
             var wallet = await ResolveAccessibleWalletAsync(currentAccountId, request.WalletId);
             if (wallet is null)
-                return NotFound("Wallet not found.");
+                return NotFound(new ApiError { Code = "WALLET_NOT_FOUND", Message = "Wallet not found.", Status = 404 });
 
             if (wallet.AccountId == currentAccountId)
             {
@@ -740,13 +751,13 @@ public class WalletController(
             {
                 var publisher = (await publishers.ListPublishers(realmId: wallet.RealmId.Value.ToString())).FirstOrDefault();
                 if (publisher is null)
-                    return NotFound("Realm publisher was not found.");
+                    return NotFound(new ApiError { Code = "WALLET_REALM_PUBLISHER_NOT_FOUND", Message = "Realm publisher was not found.", Status = 404 });
                 if (!await publishers.IsMemberWithRole(publisher.Id, currentAccountId, PublisherMemberRole.Editor))
-                    return StatusCode(403, "You must be an editor of the realm publisher to create transfer requests for this wallet.");
+                    return StatusCode(403, ApiError.Unauthorized("You must be an editor of the realm publisher to create transfer requests for this wallet.", forbidden: true));
             }
 
             if (string.IsNullOrWhiteSpace(wallet.PublicId))
-                return BadRequest("Wallet public ID is not enabled.");
+                return BadRequest(new ApiError { Code = "WALLET_PUBLIC_ID_NOT_ENABLED", Message = "Wallet public ID is not enabled.", Status = 400 });
 
             var transferRequest = await payment.CreateTransferRequestAsync(
                 currentAccountId,
@@ -764,7 +775,7 @@ public class WalletController(
         }
         catch (Exception err)
         {
-            return BadRequest(err.Message);
+            return BadRequest(new ApiError { Code = "WALLET_TRANSFER_REQUEST_CREATE_FAILED", Message = err.Message, Status = 400 });
         }
     }
 
@@ -773,9 +784,9 @@ public class WalletController(
     public async Task<ActionResult<WalletTransferRequestResponse>> GetTransferRequest(Guid id)
     {
         var request = await payment.GetTransferRequestAsync(id);
-        if (request is null) return NotFound();
-        if (request.Status != WalletTransferRequestStatus.Active) return NotFound();
-        if (request.ExpiresAt < SystemClock.Instance.GetCurrentInstant()) return NotFound();
+        if (request is null) return NotFound(new ApiError { Code = "WALLET_TRANSFER_REQUEST_NOT_FOUND", Message = "Transfer request was not found.", Status = 404 });
+        if (request.Status != WalletTransferRequestStatus.Active) return NotFound(new ApiError { Code = "WALLET_TRANSFER_REQUEST_NOT_FOUND", Message = "Transfer request is no longer active.", Status = 404 });
+        if (request.ExpiresAt < SystemClock.Instance.GetCurrentInstant()) return NotFound(new ApiError { Code = "WALLET_TRANSFER_REQUEST_NOT_FOUND", Message = "Transfer request has expired.", Status = 404 });
 
         return Ok(MapTransferRequest(request));
     }
@@ -785,11 +796,13 @@ public class WalletController(
     [AskPermission(PermissionKeys.WalletsManage)]
     public async Task<ActionResult<SnWallet>> SetDefaultWallet(Guid id)
     {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var wallet = await ws.GetWalletAsync(id);
-        if (wallet is null) return NotFound();
-        if (wallet.AccountId != Guid.Parse(currentUser.Id)) return StatusCode(403);
+        if (wallet is null) return NotFound(new ApiError { Code = "WALLET_NOT_FOUND", Message = "Wallet was not found.", Status = 404 });
+        if (wallet.AccountId != Guid.Parse(currentUser.Id))
+            return StatusCode(403, ApiError.Unauthorized("You do not have permission to perform this action.", forbidden: true));
 
         return Ok(await ws.SetPrimaryWalletAsync(id));
     }
@@ -799,10 +812,11 @@ public class WalletController(
     [AskPermission(PermissionKeys.WalletsPublicIdManage)]
     public async Task<ActionResult<SnWallet>> EnablePublicId(Guid id)
     {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var wallet = await ws.GetWalletAsync(id);
-        if (wallet is null) return NotFound();
+        if (wallet is null) return NotFound(new ApiError { Code = "WALLET_NOT_FOUND", Message = "Wallet was not found.", Status = 404 });
 
         if (wallet.AccountId == Guid.Parse(currentUser.Id))
             return Ok(await ws.EnablePublicIdAsync(id));
@@ -811,12 +825,12 @@ public class WalletController(
         {
             var publisher = (await publishers.ListPublishers(realmId: wallet.RealmId.Value.ToString())).FirstOrDefault();
             if (publisher is null)
-                return NotFound("Realm publisher was not found.");
+                return NotFound(new ApiError { Code = "WALLET_REALM_PUBLISHER_NOT_FOUND", Message = "Realm publisher was not found.", Status = 404 });
             if (await publishers.IsMemberWithRole(publisher.Id, Guid.Parse(currentUser.Id), PublisherMemberRole.Editor))
                 return Ok(await ws.EnablePublicIdAsync(id));
         }
 
-        return StatusCode(403);
+        return StatusCode(403, ApiError.Unauthorized("You do not have permission to perform this action.", forbidden: true));
     }
 
     [HttpPost("{id:guid}/public-id/disable")]
@@ -824,10 +838,11 @@ public class WalletController(
     [AskPermission(PermissionKeys.WalletsPublicIdManage)]
     public async Task<ActionResult<SnWallet>> DisablePublicId(Guid id)
     {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var wallet = await ws.GetWalletAsync(id);
-        if (wallet is null) return NotFound();
+        if (wallet is null) return NotFound(new ApiError { Code = "WALLET_NOT_FOUND", Message = "Wallet was not found.", Status = 404 });
 
         if (wallet.AccountId == Guid.Parse(currentUser.Id))
             return Ok(await ws.DisablePublicIdAsync(id));
@@ -836,12 +851,12 @@ public class WalletController(
         {
             var publisher = (await publishers.ListPublishers(realmId: wallet.RealmId.Value.ToString())).FirstOrDefault();
             if (publisher is null)
-                return NotFound("Realm publisher was not found.");
+                return NotFound(new ApiError { Code = "WALLET_REALM_PUBLISHER_NOT_FOUND", Message = "Realm publisher was not found.", Status = 404 });
             if (await publishers.IsMemberWithRole(publisher.Id, Guid.Parse(currentUser.Id), PublisherMemberRole.Editor))
                 return Ok(await ws.DisablePublicIdAsync(id));
         }
 
-        return StatusCode(403);
+        return StatusCode(403, ApiError.Unauthorized("You do not have permission to perform this action.", forbidden: true));
     }
 
     public class CreateFundRequest
@@ -869,7 +884,8 @@ public class WalletController(
     [AskPermission(PermissionKeys.WalletsFundsManage)]
     public async Task<ActionResult<SnWalletFund>> CreateFund([FromBody] CreateFundRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         try
         {
@@ -916,7 +932,7 @@ public class WalletController(
         }
         catch (Exception err)
         {
-            return BadRequest(err.Message);
+            return BadRequest(new ApiError { Code = "WALLET_FUND_CREATE_FAILED", Message = err.Message, Status = 400 });
         }
     }
 
@@ -928,7 +944,8 @@ public class WalletController(
         [FromQuery] Shared.Models.FundStatus? status = null
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var currentUserId = Guid.Parse(currentUser.Id);
         var query = db.WalletFunds
@@ -961,7 +978,7 @@ public class WalletController(
             .FirstOrDefaultAsync(f => f.Id == id);
 
         if (fund is null)
-            return NotFound("Fund not found");
+            return NotFound(new ApiError { Code = "WALLET_FUND_NOT_FOUND", Message = "Fund not found.", Status = 404 });
 
         // Load recipient account data
         var recipientAccountIds = fund.Recipients
@@ -987,7 +1004,8 @@ public class WalletController(
     [AskPermission(PermissionKeys.WalletsFundsManage)]
     public async Task<ActionResult<SnWalletTransaction>> ReceiveFund(Guid id)
     {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         try
         {
@@ -1001,7 +1019,7 @@ public class WalletController(
         catch (Exception err)
         {
             logger.LogError(err, "Failed to receive fund...");
-            return BadRequest(err.Message);
+            return BadRequest(new ApiError { Code = "WALLET_FUND_RECEIVE_FAILED", Message = err.Message, Status = 400 });
         }
     }
 
@@ -1012,7 +1030,8 @@ public class WalletController(
         [FromQuery] DateTime? endDate = null
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         try
         {
@@ -1026,7 +1045,7 @@ public class WalletController(
         }
         catch (Exception err)
         {
-            return BadRequest(err.Message);
+            return BadRequest(new ApiError { Code = "WALLET_OVERVIEW_FAILED", Message = err.Message, Status = 400 });
         }
     }
 
@@ -1037,7 +1056,8 @@ public class WalletController(
     [AskPermission(PermissionKeys.WalletsTransactionsManage)]
     public async Task<ActionResult<SnWalletTransaction>> ConfirmTransaction(Guid id)
     {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         try
         {
@@ -1046,7 +1066,7 @@ public class WalletController(
         }
         catch (Exception err)
         {
-            return BadRequest(err.Message);
+            return BadRequest(new ApiError { Code = "WALLET_TRANSACTION_CONFIRM_FAILED", Message = err.Message, Status = 400 });
         }
     }
 
@@ -1055,7 +1075,8 @@ public class WalletController(
     [AskPermission(PermissionKeys.WalletsTransactionsManage)]
     public async Task<ActionResult<SnWalletTransaction>> RejectTransaction(Guid id)
     {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         try
         {
@@ -1064,7 +1085,7 @@ public class WalletController(
         }
         catch (Exception err)
         {
-            return BadRequest(err.Message);
+            return BadRequest(new ApiError { Code = "WALLET_TRANSACTION_REJECT_FAILED", Message = err.Message, Status = 400 });
         }
     }
 
@@ -1075,13 +1096,14 @@ public class WalletController(
         [FromQuery] int take = 20
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var currentAccountId = Guid.Parse(currentUser.Id);
 
         // Get user's wallet
         var wallet = await ws.GetAccountWalletAsync(currentAccountId);
-        if (wallet is null) return NotFound("Wallet not found");
+        if (wallet is null) return NotFound(new ApiError { Code = "WALLET_NOT_FOUND", Message = "Wallet not found.", Status = 404 });
 
         // Find pending/frozen transactions where user is the payee
         var query = db.PaymentTransactions
@@ -1134,7 +1156,8 @@ public class WalletController(
     [AskPermission(PermissionKeys.WalletsFundsManage)]
     public async Task<ActionResult<SnWalletTransaction>> ContributeToFund(Guid id, [FromBody] ContributeFundRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         try
         {
@@ -1149,7 +1172,7 @@ public class WalletController(
         catch (Exception err)
         {
             logger.LogError(err, "Failed to contribute to fund...");
-            return BadRequest(err.Message);
+            return BadRequest(new ApiError { Code = "WALLET_FUND_CONTRIBUTE_FAILED", Message = err.Message, Status = 400 });
         }
     }
 
@@ -1161,10 +1184,10 @@ public class WalletController(
             .FirstOrDefaultAsync(f => f.Id == id);
 
         if (fund is null)
-            return NotFound("Fund not found");
+            return NotFound(new ApiError { Code = "WALLET_FUND_NOT_FOUND", Message = "Fund not found.", Status = 404 });
 
         if (!fund.IsRaising)
-            return BadRequest("This fund is not in raising mode");
+            return BadRequest(new ApiError { Code = "WALLET_FUND_NOT_RAISING", Message = "This fund is not in raising mode.", Status = 400 });
 
         // Load contributor account data
         var contributorAccountIds = fund.Recipients

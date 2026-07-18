@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Networking;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -106,7 +107,7 @@ public class NotableDaysController(
             .FirstOrDefaultAsync(n => n.Id == id && n.DeletedAt == null);
 
         if (day is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PASSPORT_NOTABLE_DAY_NOT_FOUND", Message = "Notable day not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
         return Ok(day);
     }
@@ -116,7 +117,7 @@ public class NotableDaysController(
     public async Task<ActionResult<SnNotableDay>> CreateNotableDay([FromBody] NotableDayRequest request)
     {
         if (request.EndDate <= request.StartDate && !request.IsPeriod)
-            return BadRequest("End date must be after start date");
+            return BadRequest(new ApiError { Code = "PASSPORT_NOTABLE_DAY_INVALID_DATE", Message = "End date must be after start date.", Status = 400, TraceId = HttpContext.TraceIdentifier });
 
         var notableDay = new SnNotableDay
         {
@@ -152,7 +153,7 @@ public class NotableDaysController(
             .FirstOrDefaultAsync(n => n.Id == id && n.DeletedAt == null);
 
         if (day is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PASSPORT_NOTABLE_DAY_NOT_FOUND", Message = "Notable day not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
         day.Name = request.Name;
         day.Description = request.Description;
@@ -184,7 +185,7 @@ public class NotableDaysController(
             .FirstOrDefaultAsync(n => n.Id == id && n.DeletedAt == null);
 
         if (day is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PASSPORT_NOTABLE_DAY_NOT_FOUND", Message = "Notable day not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
         day.DeletedAt = SystemClock.Instance.GetCurrentInstant();
         await db.SaveChangesAsync();

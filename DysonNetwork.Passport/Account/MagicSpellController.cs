@@ -1,6 +1,7 @@
-using DysonNetwork.Shared.Models;
-using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Networking;
+using DysonNetwork.Shared.Proto;
 using Grpc.Core;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -20,11 +21,11 @@ public class MagicSpellController(
     [Authorize]
     public async Task<ActionResult> ResendActivationMagicSpell()
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var spell = await db.MagicSpells.FirstOrDefaultAsync(s =>
             s.Type == MagicSpellType.AccountActivation && s.AccountId == currentUser.Id);
-        if (spell is null) return BadRequest("Unable to find activation magic spell.");
+        if (spell is null) return BadRequest(new ApiError { Code = "PASSPORT_SPELL_NOT_FOUND", Message = "Unable to find activation magic spell.", Status = 400, TraceId = HttpContext.TraceIdentifier });
         
         await sp.NotifyMagicSpell(spell, true);
         return Ok();
@@ -35,7 +36,7 @@ public class MagicSpellController(
     {
         var spell = db.MagicSpells.FirstOrDefault(x => x.Id == spellId);
         if (spell == null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PASSPORT_SPELL_NOT_FOUND", Message = "Magic spell not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
         await sp.NotifyMagicSpell(spell, true);
         return Ok();
@@ -49,7 +50,7 @@ public class MagicSpellController(
             .Where(x => x.Spell == word)
             .FirstOrDefaultAsync();
         if (spell is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PASSPORT_SPELL_NOT_FOUND", Message = "Magic spell not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
         if (spell.AccountId.HasValue)
         {
@@ -84,7 +85,7 @@ public class MagicSpellController(
             .Where(x => x.Spell == word)
             .FirstOrDefaultAsync();
         if (spell is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PASSPORT_SPELL_NOT_FOUND", Message = "Magic spell not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
         try
         {
             if (spell.Type == MagicSpellType.AuthPasswordReset && request?.NewPassword is not null)
@@ -94,7 +95,7 @@ public class MagicSpellController(
         }
         catch (Exception ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new ApiError { Code = "PASSPORT_SPELL_APPLY_FAILED", Message = ex.Message, Status = 400, TraceId = HttpContext.TraceIdentifier });
         }
 
         return Ok();

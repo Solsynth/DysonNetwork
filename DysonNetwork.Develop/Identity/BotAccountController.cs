@@ -6,6 +6,7 @@ using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Queue;
 using DysonNetwork.Shared.Registry;
 using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Networking;
 using Grpc.Core;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -86,19 +87,19 @@ public class BotAccountController(
         [FromQuery(Name = "proj")] Guid projectId)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var developer = await ds.GetDeveloperByName(pubName);
         if (developer is null)
-            return NotFound("Developer not found");
+            return NotFound(new ApiError { Code = "BOT_ACCOUNT_DEVELOPER_NOT_FOUND", Message = "Developer not found", Status = 404 });
 
         if (!await ds.IsMemberWithRole(developer.PublisherId, Guid.Parse(currentUser.Id),
                 DyPublisherMemberRole.DyViewer))
-            return StatusCode(403, "You must be an viewer of the developer to list bots");
+            return StatusCode(403, ApiError.Unauthorized("You must be an viewer of the developer to list bots", forbidden: true));
 
         var project = await projectService.GetProjectAsync(projectId, developer.Id);
         if (project is null)
-            return NotFound("Project not found or you don't have access");
+            return NotFound(new ApiError { Code = "BOT_ACCOUNT_PROJECT_NOT_FOUND", Message = "Project not found or you don't have access", Status = 404 });
 
         var bots = await botService.GetBotsByProjectAsync(projectId);
         return Ok(await botService.LoadBotsAccountAsync(bots));
@@ -111,23 +112,23 @@ public class BotAccountController(
         [FromRoute] Guid botId)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var developer = await ds.GetDeveloperByName(pubName);
         if (developer is null)
-            return NotFound("Developer not found");
+            return NotFound(new ApiError { Code = "BOT_ACCOUNT_DEVELOPER_NOT_FOUND", Message = "Developer not found", Status = 404 });
 
         if (!await ds.IsMemberWithRole(developer.PublisherId, Guid.Parse(currentUser.Id),
                 DyPublisherMemberRole.DyViewer))
-            return StatusCode(403, "You must be an viewer of the developer to view bot details");
+            return StatusCode(403, ApiError.Unauthorized("You must be an viewer of the developer to view bot details", forbidden: true));
 
         var project = await projectService.GetProjectAsync(projectId, developer.Id);
         if (project is null)
-            return NotFound("Project not found or you don't have access");
+            return NotFound(new ApiError { Code = "BOT_ACCOUNT_PROJECT_NOT_FOUND", Message = "Project not found or you don't have access", Status = 404 });
 
         var bot = await botService.GetBotByIdAsync(botId);
         if (bot is null || bot.ProjectId != projectId)
-            return NotFound("Bot not found");
+            return NotFound(new ApiError { Code = "BOT_ACCOUNT_NOT_FOUND", Message = "Bot not found", Status = 404 });
 
         return Ok(await botService.LoadBotAccountAsync(bot));
     }
@@ -141,26 +142,26 @@ public class BotAccountController(
     )
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var developer = await ds.GetDeveloperByName(pubName);
         if (developer is null)
-            return NotFound("Developer not found");
+            return NotFound(new ApiError { Code = "BOT_ACCOUNT_DEVELOPER_NOT_FOUND", Message = "Developer not found", Status = 404 });
 
         if (!await ds.IsMemberWithRole(developer.PublisherId, Guid.Parse(currentUser.Id),
                 DyPublisherMemberRole.DyEditor))
-            return StatusCode(403, "You must be an editor of the developer to create a bot");
+            return StatusCode(403, ApiError.Unauthorized("You must be an editor of the developer to create a bot", forbidden: true));
 
         var project = await projectService.GetProjectAsync(projectId, developer.Id);
         if (project is null)
-            return NotFound("Project not found or you don't have access");
+            return NotFound(new ApiError { Code = "BOT_ACCOUNT_PROJECT_NOT_FOUND", Message = "Project not found or you don't have access", Status = 404 });
 
         var hydratedAccount = SnAccount.FromProtoValue(
             await remoteAccounts.GetAccount(Guid.Parse(currentUser.Id))
         );
         var quota = await quotaService.GetQuotaAsync(hydratedAccount);
         if (quota.Used >= quota.Total)
-            return StatusCode(403, $"Bot quota exceeded ({quota.Used}/{quota.Total}).");
+            return StatusCode(403, ApiError.Unauthorized($"Bot quota exceeded ({quota.Used}/{quota.Total}).", forbidden: true));
 
         var now = SystemClock.Instance.GetCurrentInstant();
         var accountId = Guid.NewGuid();
@@ -204,7 +205,7 @@ public class BotAccountController(
         catch (Exception ex)
         {
             logger.LogError(ex, "Error creating bot account");
-            return StatusCode(500, "An error occurred while creating the bot account");
+            return StatusCode(500, new ApiError { Code = "BOT_ACCOUNT_CREATE_ERROR", Message = "An error occurred while creating the bot account", Status = 500 });
         }
     }
 
@@ -218,23 +219,23 @@ public class BotAccountController(
     )
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var developer = await ds.GetDeveloperByName(pubName);
         if (developer is null)
-            return NotFound("Developer not found");
+            return NotFound(new ApiError { Code = "BOT_ACCOUNT_DEVELOPER_NOT_FOUND", Message = "Developer not found", Status = 404 });
 
         if (!await ds.IsMemberWithRole(developer.PublisherId, Guid.Parse(currentUser.Id),
                 DyPublisherMemberRole.DyEditor))
-            return StatusCode(403, "You must be an editor of the developer to update a bot");
+            return StatusCode(403, ApiError.Unauthorized("You must be an editor of the developer to update a bot", forbidden: true));
 
         var project = await projectService.GetProjectAsync(projectId, developer.Id);
         if (project is null)
-            return NotFound("Project not found or you don't have access");
+            return NotFound(new ApiError { Code = "BOT_ACCOUNT_PROJECT_NOT_FOUND", Message = "Project not found or you don't have access", Status = 404 });
 
         var bot = await botService.GetBotByIdAsync(botId);
         if (bot is null || bot.ProjectId != projectId)
-            return NotFound("Bot not found");
+            return NotFound(new ApiError { Code = "BOT_ACCOUNT_NOT_FOUND", Message = "Bot not found", Status = 404 });
 
         var botAccount = await remoteAccounts.GetBotAccount(bot.Id);
 
@@ -268,7 +269,7 @@ public class BotAccountController(
         catch (Exception ex)
         {
             logger.LogError(ex, "Error updating bot account {BotId}", botId);
-            return StatusCode(500, "An error occurred while updating the bot account");
+            return StatusCode(500, new ApiError { Code = "BOT_ACCOUNT_UPDATE_ERROR", Message = "An error occurred while updating the bot account", Status = 500 });
         }
     }
 
@@ -280,23 +281,23 @@ public class BotAccountController(
         [FromRoute] Guid botId)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var developer = await ds.GetDeveloperByName(pubName);
         if (developer is null)
-            return NotFound("Developer not found");
+            return NotFound(new ApiError { Code = "BOT_ACCOUNT_DEVELOPER_NOT_FOUND", Message = "Developer not found", Status = 404 });
 
         if (!await ds.IsMemberWithRole(developer.PublisherId, Guid.Parse(currentUser.Id),
                 DyPublisherMemberRole.DyEditor))
-            return StatusCode(403, "You must be an editor of the developer to delete a bot");
+            return StatusCode(403, ApiError.Unauthorized("You must be an editor of the developer to delete a bot", forbidden: true));
 
         var project = await projectService.GetProjectAsync(projectId, developer.Id);
         if (project is null)
-            return NotFound("Project not found or you don't have access");
+            return NotFound(new ApiError { Code = "BOT_ACCOUNT_PROJECT_NOT_FOUND", Message = "Project not found or you don't have access", Status = 404 });
 
         var bot = await botService.GetBotByIdAsync(botId);
         if (bot is null || bot.ProjectId != projectId)
-            return NotFound("Bot not found");
+            return NotFound(new ApiError { Code = "BOT_ACCOUNT_NOT_FOUND", Message = "Bot not found", Status = 404 });
 
         try
         {
@@ -306,7 +307,7 @@ public class BotAccountController(
         catch (Exception ex)
         {
             logger.LogError(ex, "Error deleting bot {BotId}", botId);
-            return StatusCode(500, "An error occurred while deleting the bot account");
+            return StatusCode(500, new ApiError { Code = "BOT_ACCOUNT_DELETE_ERROR", Message = "An error occurred while deleting the bot account", Status = 500 });
         }
     }
 
@@ -318,13 +319,13 @@ public class BotAccountController(
     )
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var (developer, project, bot) =
             await ValidateBotAccess(pubName, projectId, botId, currentUser, DyPublisherMemberRole.DyViewer);
-        if (developer == null) return NotFound("Developer not found");
-        if (project == null) return NotFound("Project not found or you don't have access");
-        if (bot == null) return NotFound("Bot not found");
+        if (developer == null) return NotFound(new ApiError { Code = "BOT_ACCOUNT_DEVELOPER_NOT_FOUND", Message = "Developer not found", Status = 404 });
+        if (project == null) return NotFound(new ApiError { Code = "BOT_ACCOUNT_PROJECT_NOT_FOUND", Message = "Project not found or you don't have access", Status = 404 });
+        if (bot == null) return NotFound(new ApiError { Code = "BOT_ACCOUNT_NOT_FOUND", Message = "Bot not found", Status = 404 });
 
         var keys = await accountsReceiver.ListApiKeyAsync(new DyListApiKeyRequest
         {
@@ -343,23 +344,23 @@ public class BotAccountController(
         [FromRoute] Guid keyId)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var (developer, project, bot) =
             await ValidateBotAccess(pubName, projectId, botId, currentUser, DyPublisherMemberRole.DyViewer);
-        if (developer == null) return NotFound("Developer not found");
-        if (project == null) return NotFound("Project not found or you don't have access");
-        if (bot == null) return NotFound("Bot not found");
+        if (developer == null) return NotFound(new ApiError { Code = "BOT_ACCOUNT_DEVELOPER_NOT_FOUND", Message = "Developer not found", Status = 404 });
+        if (project == null) return NotFound(new ApiError { Code = "BOT_ACCOUNT_PROJECT_NOT_FOUND", Message = "Project not found or you don't have access", Status = 404 });
+        if (bot == null) return NotFound(new ApiError { Code = "BOT_ACCOUNT_NOT_FOUND", Message = "Bot not found", Status = 404 });
 
         try
         {
             var key = await accountsReceiver.GetApiKeyAsync(new DyGetApiKeyRequest { Id = keyId.ToString() });
-            if (key == null) return NotFound("API key not found");
+            if (key == null) return NotFound(new ApiError { Code = "BOT_ACCOUNT_API_KEY_NOT_FOUND", Message = "API key not found", Status = 404 });
             return Ok(SnApiKey.FromProtoValue(key));
         }
         catch (RpcException ex) when (ex.StatusCode == Grpc.Core.StatusCode.NotFound)
         {
-            return NotFound("API key not found");
+            return NotFound(new ApiError { Code = "BOT_ACCOUNT_API_KEY_NOT_FOUND", Message = "API key not found", Status = 404 });
         }
     }
 
@@ -377,13 +378,13 @@ public class BotAccountController(
         [FromBody] CreateApiKeyRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var (developer, project, bot) =
             await ValidateBotAccess(pubName, projectId, botId, currentUser, DyPublisherMemberRole.DyEditor);
-        if (developer == null) return NotFound("Developer not found");
-        if (project == null) return NotFound("Project not found or you don't have access");
-        if (bot == null) return NotFound("Bot not found");
+        if (developer == null) return NotFound(new ApiError { Code = "BOT_ACCOUNT_DEVELOPER_NOT_FOUND", Message = "Developer not found", Status = 404 });
+        if (project == null) return NotFound(new ApiError { Code = "BOT_ACCOUNT_PROJECT_NOT_FOUND", Message = "Project not found or you don't have access", Status = 404 });
+        if (bot == null) return NotFound(new ApiError { Code = "BOT_ACCOUNT_NOT_FOUND", Message = "Bot not found", Status = 404 });
 
         try
         {
@@ -398,7 +399,7 @@ public class BotAccountController(
         }
         catch (RpcException ex) when (ex.StatusCode == Grpc.Core.StatusCode.InvalidArgument)
         {
-            return BadRequest(ex.Status.Detail);
+            return BadRequest(new ApiError { Code = "DEV_BOT_ACCOUNT_BAD_REQUEST", Message = ex.Status.Detail, Status = 400 });
         }
     }
 
@@ -411,13 +412,13 @@ public class BotAccountController(
         [FromRoute] Guid keyId)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var (developer, project, bot) =
             await ValidateBotAccess(pubName, projectId, botId, currentUser, DyPublisherMemberRole.DyEditor);
-        if (developer == null) return NotFound("Developer not found");
-        if (project == null) return NotFound("Project not found or you don't have access");
-        if (bot == null) return NotFound("Bot not found");
+        if (developer == null) return NotFound(new ApiError { Code = "BOT_ACCOUNT_DEVELOPER_NOT_FOUND", Message = "Developer not found", Status = 404 });
+        if (project == null) return NotFound(new ApiError { Code = "BOT_ACCOUNT_PROJECT_NOT_FOUND", Message = "Project not found or you don't have access", Status = 404 });
+        if (bot == null) return NotFound(new ApiError { Code = "BOT_ACCOUNT_NOT_FOUND", Message = "Bot not found", Status = 404 });
 
         try
         {
@@ -426,7 +427,7 @@ public class BotAccountController(
         }
         catch (RpcException ex) when (ex.StatusCode == Grpc.Core.StatusCode.NotFound)
         {
-            return NotFound("API key not found");
+            return NotFound(new ApiError { Code = "BOT_ACCOUNT_API_KEY_NOT_FOUND", Message = "API key not found", Status = 404 });
         }
     }
 
@@ -439,13 +440,13 @@ public class BotAccountController(
         [FromRoute] Guid keyId)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var (developer, project, bot) =
             await ValidateBotAccess(pubName, projectId, botId, currentUser, DyPublisherMemberRole.DyEditor);
-        if (developer == null) return NotFound("Developer not found");
-        if (project == null) return NotFound("Project not found or you don't have access");
-        if (bot == null) return NotFound("Bot not found");
+        if (developer == null) return NotFound(new ApiError { Code = "BOT_ACCOUNT_DEVELOPER_NOT_FOUND", Message = "Developer not found", Status = 404 });
+        if (project == null) return NotFound(new ApiError { Code = "BOT_ACCOUNT_PROJECT_NOT_FOUND", Message = "Project not found or you don't have access", Status = 404 });
+        if (bot == null) return NotFound(new ApiError { Code = "BOT_ACCOUNT_NOT_FOUND", Message = "Bot not found", Status = 404 });
 
         try
         {
@@ -454,7 +455,7 @@ public class BotAccountController(
         }
         catch (RpcException ex) when (ex.StatusCode == Grpc.Core.StatusCode.NotFound)
         {
-            return NotFound("API key not found");
+            return NotFound(new ApiError { Code = "BOT_ACCOUNT_API_KEY_NOT_FOUND", Message = "API key not found", Status = 404 });
         }
     }
 
@@ -467,13 +468,13 @@ public class BotAccountController(
         [FromRoute] Guid botId)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var (developer, project, bot) =
             await ValidateBotAccess(pubName, projectId, botId, currentUser, DyPublisherMemberRole.DyViewer);
-        if (developer == null) return NotFound("Developer not found");
-        if (project == null) return NotFound("Project not found or you don't have access");
-        if (bot == null) return NotFound("Bot not found");
+        if (developer == null) return NotFound(new ApiError { Code = "BOT_ACCOUNT_DEVELOPER_NOT_FOUND", Message = "Developer not found", Status = 404 });
+        if (project == null) return NotFound(new ApiError { Code = "BOT_ACCOUNT_PROJECT_NOT_FOUND", Message = "Project not found or you don't have access", Status = 404 });
+        if (bot == null) return NotFound(new ApiError { Code = "BOT_ACCOUNT_NOT_FOUND", Message = "Bot not found", Status = 404 });
 
         var config = await botService.GetChatConfigAsync(botId);
         return Ok(config);
@@ -488,13 +489,13 @@ public class BotAccountController(
         [FromBody] SnBotChatConfig request)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var (developer, project, bot) =
             await ValidateBotAccess(pubName, projectId, botId, currentUser, DyPublisherMemberRole.DyEditor);
-        if (developer == null) return NotFound("Developer not found");
-        if (project == null) return NotFound("Project not found or you don't have access");
-        if (bot == null) return NotFound("Bot not found");
+        if (developer == null) return NotFound(new ApiError { Code = "BOT_ACCOUNT_DEVELOPER_NOT_FOUND", Message = "Developer not found", Status = 404 });
+        if (project == null) return NotFound(new ApiError { Code = "BOT_ACCOUNT_PROJECT_NOT_FOUND", Message = "Project not found or you don't have access", Status = 404 });
+        if (bot == null) return NotFound(new ApiError { Code = "BOT_ACCOUNT_NOT_FOUND", Message = "Bot not found", Status = 404 });
 
         var config = await botService.UpdateChatConfigAsync(botId, request);
 
@@ -526,13 +527,13 @@ public class BotAccountController(
         [FromBody] BotManifestRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var (developer, project, bot) =
             await ValidateBotAccess(pubName, projectId, botId, currentUser, DyPublisherMemberRole.DyEditor);
-        if (developer == null) return NotFound("Developer not found");
-        if (project == null) return NotFound("Project not found or you don't have access");
-        if (bot == null) return NotFound("Bot not found");
+        if (developer == null) return NotFound(new ApiError { Code = "BOT_ACCOUNT_DEVELOPER_NOT_FOUND", Message = "Developer not found", Status = 404 });
+        if (project == null) return NotFound(new ApiError { Code = "BOT_ACCOUNT_PROJECT_NOT_FOUND", Message = "Project not found or you don't have access", Status = 404 });
+        if (bot == null) return NotFound(new ApiError { Code = "BOT_ACCOUNT_NOT_FOUND", Message = "Bot not found", Status = 404 });
 
         // Get existing config and merge
         var existingConfig = await botService.GetChatConfigOrNullAsync(botId)

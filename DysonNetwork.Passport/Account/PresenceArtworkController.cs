@@ -1,7 +1,8 @@
-using Microsoft.AspNetCore.Authorization;
 using System.ComponentModel.DataAnnotations;
-using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Networking;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace DysonNetwork.Passport.Account;
@@ -28,7 +29,7 @@ public class PresenceArtworkController(PresenceArtworkService artworkService) : 
     )
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         try
         {
@@ -37,7 +38,7 @@ public class PresenceArtworkController(PresenceArtworkService artworkService) : 
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new ApiError { Code = "PASSPORT_ARTWORK_UPLOAD_FAILED", Message = ex.Message, Status = 400, TraceId = HttpContext.TraceIdentifier });
         }
     }
 
@@ -53,15 +54,15 @@ public class PresenceArtworkController(PresenceArtworkService artworkService) : 
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new ApiError { Code = "PASSPORT_ARTWORK_GET_FAILED", Message = ex.Message, Status = 400, TraceId = HttpContext.TraceIdentifier });
         }
 
         if (artwork is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PASSPORT_ARTWORK_NOT_FOUND", Message = "Artwork not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
         var stream = await artworkService.OpenArtworkAsync(artwork, cancellationToken);
         if (stream is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PASSPORT_ARTWORK_STREAM_NOT_FOUND", Message = "Artwork stream not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
         return File(stream.Stream, artwork.MimeType, enableRangeProcessing: true);
     }

@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
 using Microsoft.AspNetCore.Authorization;
@@ -46,9 +47,9 @@ public class PaymentAdminController(
 
         var walletIds = await ResolveWalletIdsAsync(accountId, walletId, HttpContext.RequestAborted);
         if (accountId.HasValue && walletIds.Count == 0)
-            return NotFound("Wallet was not found for the specified account.");
+            return NotFound(new ApiError { Code = "WALLET_NOT_FOUND", Message = "Wallet was not found for the specified account.", Status = 404 });
         if (walletId.HasValue && walletIds.Count == 0)
-            return NotFound("Wallet was not found.");
+            return NotFound(new ApiError { Code = "WALLET_NOT_FOUND", Message = "Wallet was not found.", Status = 404 });
 
         var query = db.PaymentTransactions
             .AsNoTracking()
@@ -94,7 +95,7 @@ public class PaymentAdminController(
             .FirstOrDefaultAsync(t => t.Id == id, HttpContext.RequestAborted);
 
         if (transaction is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "WALLET_TRANSACTION_NOT_FOUND", Message = "Transaction was not found.", Status = 404 });
 
         await HydrateWalletAccountsAsync([transaction]);
         return Ok(transaction);
@@ -118,9 +119,9 @@ public class PaymentAdminController(
 
         var walletIds = await ResolveWalletIdsAsync(accountId, walletId, HttpContext.RequestAborted);
         if (accountId.HasValue && walletIds.Count == 0)
-            return NotFound("Wallet was not found for the specified account.");
+            return NotFound(new ApiError { Code = "WALLET_NOT_FOUND", Message = "Wallet was not found for the specified account.", Status = 404 });
         if (walletId.HasValue && walletIds.Count == 0)
-            return NotFound("Wallet was not found.");
+            return NotFound(new ApiError { Code = "WALLET_NOT_FOUND", Message = "Wallet was not found.", Status = 404 });
 
         var query = db.PaymentOrders
             .AsNoTracking()
@@ -170,7 +171,7 @@ public class PaymentAdminController(
             .FirstOrDefaultAsync(o => o.Id == id, HttpContext.RequestAborted);
 
         if (order is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "WALLET_ORDER_NOT_FOUND", Message = "Order was not found.", Status = 404 });
 
         return Ok(order);
     }
@@ -180,13 +181,13 @@ public class PaymentAdminController(
     public async Task<ActionResult<SnWalletTransaction>> ModifyWalletBalance([FromBody] AdminWalletBalanceRequest request)
     {
         if (request.WalletId is null && request.AccountId is null)
-            return BadRequest("You must specify either WalletId or AccountId.");
+            return BadRequest(new ApiError { Code = "WALLET_MISSING_TARGET", Message = "You must specify either WalletId or AccountId.", Status = 400 });
 
         var wallet = request.AccountId is not null
             ? await wallets.GetAccountWalletAsync(request.AccountId.Value)
             : await wallets.GetWalletAsync(request.WalletId!.Value);
         if (wallet is null)
-            return NotFound("Wallet was not found.");
+            return NotFound(new ApiError { Code = "WALLET_NOT_FOUND", Message = "Wallet was not found.", Status = 404 });
 
         try
         {
@@ -212,11 +213,11 @@ public class PaymentAdminController(
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new ApiError { Code = "WALLET_BALANCE_MODIFY_FAILED", Message = ex.Message, Status = 400 });
         }
         catch (ArgumentException ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new ApiError { Code = "WALLET_BALANCE_MODIFY_FAILED", Message = ex.Message, Status = 400 });
         }
     }
 

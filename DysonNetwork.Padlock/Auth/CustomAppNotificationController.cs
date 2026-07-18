@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using DysonNetwork.Shared.Networking;
 using System.Text.Json;
 using DysonNetwork.Padlock.Models;
 using DysonNetwork.Shared.Proto;
@@ -42,7 +43,7 @@ public class CustomAppNotificationController(
     {
         var secret = ExtractApiKey(Request.Headers["X-Api-Key"].ToString());
         if (string.IsNullOrWhiteSpace(secret))
-            return Unauthorized("Missing app API key.");
+            return Unauthorized(new ApiError { Code = "PADLOCK_API_KEY_MISSING", Message = "Missing app API key.", Status = 401 });
 
         var secretCheck = await customApps.CheckCustomAppSecretAsync(new DyCheckCustomAppSecretRequest
         {
@@ -51,14 +52,14 @@ public class CustomAppNotificationController(
             IsOidc = false,
         }, cancellationToken: ct);
         if (!secretCheck.Valid)
-            return Unauthorized("Invalid app API key.");
+            return Unauthorized(new ApiError { Code = "PADLOCK_API_KEY_INVALID", Message = "Invalid app API key.", Status = 401 });
 
         var appResponse = await customApps.GetCustomAppAsync(new DyGetCustomAppRequest
         {
             Id = appId.ToString()
         }, cancellationToken: ct);
         if (appResponse.App is null)
-            return NotFound("App not found.");
+            return NotFound(new ApiError { Code = "PADLOCK_APP_NOT_FOUND", Message = "App not found.", Status = 404 });
 
         var appDeveloperResponse = await customApps.GetAppDeveloperAsync(new DyGetAppDeveloperRequest
         {
@@ -73,7 +74,7 @@ public class CustomAppNotificationController(
                 requestedIds.Add(id);
 
         if (!request.BroadcastToAll && requestedIds.Count == 0)
-            return BadRequest("Provide account_id, account_ids, or set broadcast_to_all=true.");
+            return BadRequest(new ApiError { Code = "PADLOCK_NOTIFICATION_TARGET_REQUIRED", Message = "Provide account_id, account_ids, or set broadcast_to_all=true.", Status = 400 });
 
         var authorizedQuery = db.AuthorizedApps
             .AsNoTracking()

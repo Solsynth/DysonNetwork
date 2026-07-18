@@ -1,6 +1,7 @@
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Extensions;
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
 using Grpc.Core;
@@ -24,7 +25,7 @@ public class DeveloperController(
     public async Task<ActionResult<SnDeveloper>> GetDeveloper(string name)
     {
         var developer = await ds.GetDeveloperByName(name);
-        if (developer is null) return NotFound();
+        if (developer is null) return NotFound(new ApiError { Code = "DEV_DEVELOPER_NOT_FOUND", Message = "Developer not found", Status = 404 });
         return Ok(await ds.LoadDeveloperPublisher(developer));
     }
 
@@ -32,7 +33,7 @@ public class DeveloperController(
     public async Task<ActionResult<DeveloperStats>> GetDeveloperStats(string name)
     {
         var developer = await ds.GetDeveloperByName(name);
-        if (developer is null) return NotFound();
+        if (developer is null) return NotFound(new ApiError { Code = "DEV_DEVELOPER_NOT_FOUND", Message = "Developer not found", Status = 404 });
 
         // Get custom apps count
         var customAppsCount = await db.CustomApps
@@ -52,8 +53,8 @@ public class DeveloperController(
     [Authorize]
     public async Task<ActionResult<List<SnDeveloper>>> ListJoinedDevelopers()
     {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
-        
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
+
         var pubResponse = await ps.ListPublishersAsync(new DyListPublishersRequest { AccountId = currentUser.Id });
         var pubIds = pubResponse.Publishers.Select(p => p.Id).Select(Guid.Parse).ToList();
 
@@ -74,7 +75,7 @@ public class DeveloperController(
     [AskPermission("developers.create")]
     public async Task<ActionResult<SnDeveloper>> EnrollDeveloperProgram(string name)
     {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         var accountId = Guid.Parse(currentUser.Id);
 
         SnPublisher? pub;
@@ -84,7 +85,7 @@ public class DeveloperController(
             pub = SnPublisher.FromProtoValue(pubResponse.Publisher);
         } catch (RpcException ex)
         {
-            return NotFound(ex.Status.Detail);
+            return NotFound(new ApiError { Code = "DEV_DEVELOPER_PUBLISHER_NOT_FOUND", Message = ex.Status.Detail, Status = 404 });
         }
 
         // Check if the user is an owner of the publisher
@@ -94,10 +95,10 @@ public class DeveloperController(
             AccountId = currentUser.Id,
             Role = DyPublisherMemberRole.DyOwner
         });
-        if (!permResponse.Valid) return StatusCode(403, "You must be the owner of the publisher to join the developer program");
+        if (!permResponse.Valid) return StatusCode(403, ApiError.Unauthorized("You must be the owner of the publisher to join the developer program", forbidden: true));
 
         var hasDeveloper = await db.Developers.AnyAsync(d => d.PublisherId == pub.Id);
-        if (hasDeveloper) return BadRequest("Publisher is already in the developer program");
+        if (hasDeveloper) return BadRequest(new ApiError { Code = "DEV_DEVELOPER_ALREADY_ENROLLED", Message = "Publisher is already in the developer program", Status = 400 });
         
         var developer = new SnDeveloper
         {

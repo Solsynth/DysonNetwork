@@ -1,7 +1,8 @@
-using DysonNetwork.Shared.Models;
-using DysonNetwork.Sphere.Models;
-using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Networking;
+using DysonNetwork.Shared.Proto;
+using DysonNetwork.Sphere.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -16,7 +17,7 @@ public class TimelineDiscoveryController(TimelineService timeline) : ControllerB
     public async Task<ActionResult<SnDiscoveryProfile>> GetProfile()
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         return Ok(await timeline.GetDiscoveryProfile(currentUser));
     }
@@ -28,11 +29,11 @@ public class TimelineDiscoveryController(TimelineService timeline) : ControllerB
     )
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var kind = ParseKind(request.Kind);
         if (kind == null)
-            return BadRequest("Invalid kind. Expected publisher, realm, or account.");
+            return BadRequest(new ApiError { Code = "DISCOVERY_INVALID_KIND", Message = "Invalid kind. Expected publisher, realm, or account.", Status = 400 });
 
         var preference = await timeline.MarkDiscoveryPreferenceAsync(
             currentUser,
@@ -51,11 +52,11 @@ public class TimelineDiscoveryController(TimelineService timeline) : ControllerB
     )
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var parsedKind = ParseKind(kind);
         if (parsedKind == null)
-            return BadRequest("Invalid kind. Expected publisher, realm, or account.");
+            return BadRequest(new ApiError { Code = "DISCOVERY_INVALID_KIND", Message = "Invalid kind. Expected publisher, realm, or account.", Status = 400 });
 
         var removed = await timeline.RemoveDiscoveryPreferenceAsync(
             currentUser,
@@ -72,14 +73,14 @@ public class TimelineDiscoveryController(TimelineService timeline) : ControllerB
     )
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var feedback = ParseFeedback(request.Feedback);
         if (feedback == null)
-            return BadRequest("Invalid feedback. Expected positive or negative.");
+            return BadRequest(new ApiError { Code = "DISCOVERY_INVALID_FEEDBACK", Message = "Invalid feedback. Expected positive or negative.", Status = 400 });
 
         if (!IsFeedbackKindSupported(request.Kind))
-            return BadRequest("Invalid kind. Expected post, publisher, collection, tag, or category.");
+            return BadRequest(new ApiError { Code = "DISCOVERY_INVALID_KIND", Message = "Invalid kind. Expected post, publisher, collection, tag, or category.", Status = 400 });
 
         var result = await timeline.ApplyRecommendationFeedbackAsync(
             currentUser,
@@ -90,7 +91,7 @@ public class TimelineDiscoveryController(TimelineService timeline) : ControllerB
             request.Suppress
         );
         if (result == null)
-            return NotFound("Referenced content was not found.");
+            return NotFound(new ApiError { Code = "DISCOVERY_CONTENT_NOT_FOUND", Message = "Referenced content was not found.", Status = 404 });
 
         return Ok(result);
     }
@@ -102,11 +103,11 @@ public class TimelineDiscoveryController(TimelineService timeline) : ControllerB
     )
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var kind = ParseInterestKind(request.Kind);
         if (kind == null)
-            return BadRequest("Invalid kind. Expected publisher, collection, tag, or category.");
+            return BadRequest(new ApiError { Code = "DISCOVERY_INVALID_KIND", Message = "Invalid kind. Expected publisher, collection, tag, or category.", Status = 400 });
 
         var profile = await timeline.AdjustRecommendationWeightAsync(
             currentUser,
@@ -124,7 +125,7 @@ public class TimelineDiscoveryController(TimelineService timeline) : ControllerB
     public async Task<ActionResult<int>> ResetInterests()
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var count = await timeline.ResetInterestProfileAsync(currentUser);
         return Ok(count);

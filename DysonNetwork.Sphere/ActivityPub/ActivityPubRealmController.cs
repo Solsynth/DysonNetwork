@@ -1,7 +1,8 @@
 using System.Text.Json;
-using DysonNetwork.Sphere.Models;
-using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Registry;
+using DysonNetwork.Shared.Models;
+using DysonNetwork.Sphere.Models;
 using DysonNetwork.Sphere.ActivityPub.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -129,7 +130,7 @@ public class ActivityPubRealmController(
         if (!IsValidActivityPubContentType(contentType))
         {
             logger.LogWarning("Invalid Content-Type for realm inbox: {ContentType}", contentType);
-            return StatusCode(StatusCodes.Status406NotAcceptable, new { error = $"Content-Type '{contentType}' not acceptable. Accepted types: application/activity+json, application/ld+json" });
+            return StatusCode(StatusCodes.Status406NotAcceptable, ApiError.WithStatus(406, $"Content-Type '{contentType}' not acceptable. Accepted types: application/activity+json, application/ld+json", code: "ACTIVITYPUB_INVALID_CONTENT_TYPE"));
         }
 
         var realm = await realmService.GetRealmBySlug(slug);
@@ -148,19 +149,19 @@ public class ActivityPubRealmController(
         }
         catch
         {
-            return BadRequest(new { error = "Invalid JSON" });
+            return BadRequest(new ApiError { Code = "ACTIVITYPUB_INVALID_JSON", Message = "Invalid JSON", Status = 400 });
         }
 
         if (activity == null)
-            return BadRequest(new { error = "Empty activity" });
+            return BadRequest(new ApiError { Code = "ACTIVITYPUB_EMPTY_ACTIVITY", Message = "Empty activity", Status = 400 });
 
         var activityType = activity.GetValueOrDefault("type")?.ToString();
         if (string.IsNullOrEmpty(activityType))
-            return BadRequest(new { error = "No activity type" });
+            return BadRequest(new ApiError { Code = "ACTIVITYPUB_NO_ACTIVITY_TYPE", Message = "No activity type", Status = 400 });
 
         var senderUri = activity.GetValueOrDefault("actor")?.ToString();
         if (string.IsNullOrEmpty(senderUri))
-            return BadRequest(new { error = "No actor" });
+            return BadRequest(new ApiError { Code = "ACTIVITYPUB_NO_ACTOR", Message = "No actor", Status = 400 });
 
         logger.LogInformation("Received {Type} activity for community {Slug} from {Actor}", activityType, slug, senderUri);
 
@@ -241,7 +242,7 @@ public class ActivityPubRealmController(
     {
         var objectDict = activity.GetValueOrDefault("object") as Dictionary<string, object>;
         if (objectDict == null)
-            return BadRequest(new { error = "No object in undo" });
+            return BadRequest(new ApiError { Code = "ACTIVITYPUB_NO_OBJECT_IN_UNDO", Message = "No object in undo", Status = 400 });
 
         var objectType = objectDict.GetValueOrDefault("type")?.ToString();
         if (objectType != "Follow")

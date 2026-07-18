@@ -5,6 +5,7 @@ using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Extensions;
 using DysonNetwork.Shared.Localization;
+using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
 using Grpc.Core;
@@ -364,7 +365,7 @@ public class ChatRoomController(
             new DyGetAccountRequest { Id = request.RelatedUserId.ToString() }
         );
         if (relatedUser is null)
-            return BadRequest("Related user was not found");
+            return BadRequest(new ApiError { Code = "CHAT_RELATED_USER_NOT_FOUND", Message = "Related user was not found", Status = 400 });
 
         var hasBlocked = await accounts.HasRelationshipAsync(new DyGetRelationshipRequest()
         {
@@ -374,23 +375,15 @@ public class ChatRoomController(
             EitherDirection = true
         });
         if (hasBlocked?.Value ?? false)
-            return StatusCode(403, "You cannot create direct message with a user that you have blocked or who has blocked you.");
+            return StatusCode(403, ApiError.Unauthorized("You cannot create direct message with a user that you have blocked or who has blocked you.", forbidden: true));
 
         // Check if DM already exists between these users in the same encryption mode.
         // This allows one plaintext DM and one encrypted DM to coexist for the same pair.
         var requestedMode = request.EncryptionMode ?? ChatRoomEncryptionMode.None;
         if (!IsEncryptionModeValidForRoomType(ChatRoomType.DirectMessage, requestedMode))
-            return Conflict(new
-            {
-                code = "chat.e2ee_mode_invalid_for_room",
-                error = "Invalid encryption mode for direct message room."
-            });
+            return Conflict(ApiError.Conflict("Invalid encryption mode for direct message room.", code: "CHAT_E2EE_MODE_INVALID_FOR_ROOM"));
         if (!IsNewEncryptedModeAllowed(requestedMode))
-            return Conflict(new
-            {
-                code = "chat.e2ee_legacy_mode_forbidden",
-                error = "Legacy encrypted room modes are not allowed for new rooms. Use E2eeMls."
-            });
+            return Conflict(ApiError.Conflict("Legacy encrypted room modes are not allowed for new rooms. Use E2eeMls.", code: "CHAT_E2EE_LEGACY_MODE_FORBIDDEN"));
 
         var existingDm = await db.ChatRooms
             .Include(c => c.Members)
@@ -401,7 +394,7 @@ public class ChatRoomController(
             .FirstOrDefaultAsync();
 
         if (existingDm != null)
-            return BadRequest("You already have a DM with this user.");
+            return BadRequest(new ApiError { Code = "CHAT_DM_ALREADY_EXISTS", Message = "You already have a DM with this user.", Status = 400 });
 
         // Check if the related user is a bot account
         var isBotAccount = !string.IsNullOrEmpty(relatedUser.AutomatedId);
@@ -411,10 +404,10 @@ public class ChatRoomController(
         {
             var botId = Guid.Parse(relatedUser.AutomatedId);
             botConfig = await botChatConfigService.GetBotChatConfigAsync(botId);
-            
+
             // Check if bot supports chat
             if (botConfig is not null && !botConfig.SupportChat)
-                return StatusCode(403, "This bot does not support chat.");
+                return StatusCode(403, ApiError.Unauthorized("This bot does not support chat.", forbidden: true));
         }
 
         // Create new DM chat room
@@ -540,7 +533,7 @@ public class ChatRoomController(
     public async Task<ActionResult<SnChatRoom>> CreateChatRoom(ChatRoomRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
-        if (request.Name is null) return BadRequest("You cannot create a chat room without a name.");
+        if (request.Name is null) return BadRequest(new ApiError { Code = "CHAT_ROOM_NAME_REQUIRED", Message = "You cannot create a chat room without a name.", Status = 400 });
         var accountId = Guid.Parse(currentUser.Id);
 
         var chatRoom = new SnChatRoom
@@ -564,23 +557,15 @@ public class ChatRoomController(
             }
         };
         if (!IsEncryptionModeValidForRoomType(ChatRoomType.Group, chatRoom.EncryptionMode))
-            return Conflict(new
-            {
-                code = "chat.e2ee_mode_invalid_for_room",
-                error = "Invalid encryption mode for group room."
-            });
+            return Conflict(ApiError.Conflict("Invalid encryption mode for group room.", code: "CHAT_E2EE_MODE_INVALID_FOR_ROOM"));
         if (!IsNewEncryptedModeAllowed(chatRoom.EncryptionMode))
-            return Conflict(new
-            {
-                code = "chat.e2ee_legacy_mode_forbidden",
-                error = "Legacy encrypted room modes are not allowed for new rooms. Use E2eeMls."
-            });
+            return Conflict(ApiError.Conflict("Legacy encrypted room modes are not allowed for new rooms. Use E2eeMls.", code: "CHAT_E2EE_LEGACY_MODE_FORBIDDEN"));
 
         if (request.RealmId is not null)
         {
             if (!await rs.IsMemberWithRole(request.RealmId.Value, Guid.Parse(currentUser.Id),
                     [RealmMemberRole.Moderator]))
-                return StatusCode(403, "You need at least be a moderator to create chat linked to the realm.");
+                return StatusCode(403, ApiError.Unauthorized("You need at least be a moderator to create chat linked to the realm.", forbidden: true));
             chatRoom.RealmId = request.RealmId;
         }
 
@@ -589,12 +574,12 @@ public class ChatRoomController(
             try
             {
                 var fileResponse = await files.GetFileAsync(new DyGetFileRequest { Id = request.PictureId });
-                if (fileResponse == null) return BadRequest("Invalid picture id, unable to find the file on cloud.");
+                if (fileResponse == null) return BadRequest(new ApiError { Code = "CHAT_PICTURE_NOT_FOUND", Message = "Invalid picture id, unable to find the file on cloud.", Status = 400 });
                 chatRoom.Picture = SnCloudFileReferenceObject.FromProtoValue(fileResponse);
             }
             catch (RpcException ex) when (ex.StatusCode == Grpc.Core.StatusCode.NotFound)
             {
-                return BadRequest("Invalid picture id, unable to find the file on cloud.");
+                return BadRequest(new ApiError { Code = "CHAT_PICTURE_NOT_FOUND", Message = "Invalid picture id, unable to find the file on cloud.", Status = 400 });
             }
         }
 
@@ -603,12 +588,12 @@ public class ChatRoomController(
             try
             {
                 var fileResponse = await files.GetFileAsync(new DyGetFileRequest { Id = request.BackgroundId });
-                if (fileResponse == null) return BadRequest("Invalid background id, unable to find the file on cloud.");
+                if (fileResponse == null) return BadRequest(new ApiError { Code = "CHAT_BACKGROUND_NOT_FOUND", Message = "Invalid background id, unable to find the file on cloud.", Status = 400 });
                 chatRoom.Background = SnCloudFileReferenceObject.FromProtoValue(fileResponse);
             }
             catch (RpcException ex) when (ex.StatusCode == Grpc.Core.StatusCode.NotFound)
             {
-                return BadRequest("Invalid background id, unable to find the file on cloud.");
+                return BadRequest(new ApiError { Code = "CHAT_BACKGROUND_NOT_FOUND", Message = "Invalid background id, unable to find the file on cloud.", Status = 400 });
             }
         }
 
@@ -643,7 +628,7 @@ public class ChatRoomController(
         if (chatRoom.RealmId is not null)
         {
             if (!await rs.IsMemberWithRole(chatRoom.RealmId.Value, accountId, [RealmMemberRole.Moderator]))
-                return StatusCode(403, "You need at least be a realm moderator to update this chat.");
+                return StatusCode(403, ApiError.Unauthorized("You need at least be a realm moderator to update this chat.", forbidden: true));
         }
         else
         {
@@ -652,11 +637,11 @@ public class ChatRoomController(
             {
                 case ChatRoomType.DirectMessage:
                     if (!await crs.IsChatMember(chatRoom.Id, accountId))
-                        return StatusCode(403, "You need be part of the DM to update this chat.");
+                        return StatusCode(403, ApiError.Unauthorized("You need be part of the DM to update this chat.", forbidden: true));
                     break;
                 case ChatRoomType.Group:
                     if (chatRoom.AccountId != accountId)
-                        return StatusCode(403, "You need be the owner to update for this chat.");
+                        return StatusCode(403, ApiError.Unauthorized("You need be the owner to update for this chat.", forbidden: true));
                     break;
             }
         }
@@ -673,7 +658,7 @@ public class ChatRoomController(
         {
             if (!await rs.IsMemberWithRole(request.RealmId.Value, Guid.Parse(currentUser.Id),
                     [RealmMemberRole.Moderator]))
-                return StatusCode(403, "You need at least be a moderator to transfer the chat linked to the realm.");
+                return StatusCode(403, ApiError.Unauthorized("You need at least be a moderator to transfer the chat linked to the realm.", forbidden: true));
             chatRoom.RealmId = request.RealmId;
         }
 
@@ -682,13 +667,13 @@ public class ChatRoomController(
             try
             {
                 var fileResponse = await files.GetFileAsync(new DyGetFileRequest { Id = request.PictureId });
-                if (fileResponse == null) return BadRequest("Invalid picture id, unable to find the file on cloud.");
+                if (fileResponse == null) return BadRequest(new ApiError { Code = "CHAT_PICTURE_NOT_FOUND", Message = "Invalid picture id, unable to find the file on cloud.", Status = 400 });
 
                 chatRoom.Picture = SnCloudFileReferenceObject.FromProtoValue(fileResponse);
             }
             catch (RpcException ex) when (ex.StatusCode == Grpc.Core.StatusCode.NotFound)
             {
-                return BadRequest("Invalid picture id, unable to find the file on cloud.");
+                return BadRequest(new ApiError { Code = "CHAT_PICTURE_NOT_FOUND", Message = "Invalid picture id, unable to find the file on cloud.", Status = 400 });
             }
         }
 
@@ -697,13 +682,13 @@ public class ChatRoomController(
             try
             {
                 var fileResponse = await files.GetFileAsync(new DyGetFileRequest { Id = request.BackgroundId });
-                if (fileResponse == null) return BadRequest("Invalid background id, unable to find the file on cloud.");
+                if (fileResponse == null) return BadRequest(new ApiError { Code = "CHAT_BACKGROUND_NOT_FOUND", Message = "Invalid background id, unable to find the file on cloud.", Status = 400 });
 
                 chatRoom.Background = SnCloudFileReferenceObject.FromProtoValue(fileResponse);
             }
             catch (RpcException ex) when (ex.StatusCode == Grpc.Core.StatusCode.NotFound)
             {
-                return BadRequest("Invalid background id, unable to find the file on cloud.");
+                return BadRequest(new ApiError { Code = "CHAT_BACKGROUND_NOT_FOUND", Message = "Invalid background id, unable to find the file on cloud.", Status = 400 });
             }
         }
 
@@ -716,20 +701,12 @@ public class ChatRoomController(
         if (request.IsPublic is not null)
             chatRoom.IsPublic = request.IsPublic.Value;
         if (request.EncryptionMode is not null)
-            return Conflict(new
-            {
-                code = "chat.mls_enable_endpoint_required",
-                error = "Use POST /api/chat/{id}/mls/enable to enable encryption. Encryption cannot be disabled."
-            });
+            return Conflict(ApiError.Conflict("Use POST /api/chat/{id}/mls/enable to enable encryption. Encryption cannot be disabled.", code: "CHAT_MLS_ENABLE_ENDPOINT_REQUIRED"));
         if (request.E2eePolicy is not null)
             chatRoom.E2eePolicy = request.E2eePolicy;
 
         if (!IsEncryptionModeValidForRoomType(chatRoom.Type, chatRoom.EncryptionMode))
-            return Conflict(new
-            {
-                code = "chat.e2ee_mode_invalid_for_room",
-                error = "Invalid encryption mode for this room type."
-            });
+            return Conflict(ApiError.Conflict("Invalid encryption mode for this room type.", code: "CHAT_E2EE_MODE_INVALID_FOR_ROOM"));
 
         db.ChatRooms.Update(chatRoom);
         await db.SaveChangesAsync();
@@ -808,11 +785,7 @@ public class ChatRoomController(
     [Authorize]
     public async Task<ActionResult<SnChatRoom>> EnableE2Ee(Guid id, [FromBody] EnableE2eeRequest? request)
     {
-        return StatusCode(410, new
-        {
-            code = "chat.e2ee_legacy_endpoint_removed",
-            error = "Legacy e2ee/enable endpoint is removed. Use POST /api/chat/{id}/mls/enable."
-        });
+        return StatusCode(410, ApiError.WithStatus(410, "Legacy e2ee/enable endpoint is removed. Use POST /api/chat/{id}/mls/enable.", code: "CHAT_ROOM_E2EE_LEGACY_REMOVED"));
     }
 
     public class EnableMlsRequest
@@ -836,7 +809,7 @@ public class ChatRoomController(
         if (chatRoom.RealmId is not null)
         {
             if (!await rs.IsMemberWithRole(chatRoom.RealmId.Value, accountId, [RealmMemberRole.Moderator]))
-                return StatusCode(403, "You need at least be a realm moderator to enable MLS for this chat.");
+                return StatusCode(403, ApiError.Unauthorized("You need at least be a realm moderator to enable MLS for this chat.", forbidden: true));
         }
         else
         {
@@ -844,21 +817,17 @@ public class ChatRoomController(
             {
                 case ChatRoomType.DirectMessage:
                     if (!await crs.IsChatMember(chatRoom.Id, accountId))
-                        return StatusCode(403, "You need be part of the DM to enable MLS for this chat.");
+                        return StatusCode(403, ApiError.Unauthorized("You need be part of the DM to enable MLS for this chat.", forbidden: true));
                     break;
                 case ChatRoomType.Group:
                     if (chatRoom.AccountId != accountId)
-                        return StatusCode(403, "You need be the owner to enable MLS for this chat.");
+                        return StatusCode(403, ApiError.Unauthorized("You need be the owner to enable MLS for this chat.", forbidden: true));
                     break;
             }
         }
 
         if (chatRoom.EncryptionMode != ChatRoomEncryptionMode.None)
-            return Conflict(new
-            {
-                code = "chat.e2ee_already_enabled",
-                error = "Encryption is already enabled for this room and cannot be disabled."
-            });
+            return Conflict(ApiError.Conflict("Encryption is already enabled for this room and cannot be disabled.", code: "CHAT_E2EE_ALREADY_ENABLED"));
 
         chatRoom.EncryptionMode = ChatRoomEncryptionMode.E2eeMls;
         chatRoom.MlsGroupId = string.IsNullOrWhiteSpace(request?.MlsGroupId)
@@ -913,7 +882,7 @@ public class ChatRoomController(
         if (chatRoom.RealmId is not null)
         {
             if (!await rs.IsMemberWithRole(chatRoom.RealmId.Value, accountId, [RealmMemberRole.Moderator]))
-                return StatusCode(403, "You need at least be a realm moderator to delete for this chat.");
+                return StatusCode(403, ApiError.Unauthorized("You need at least be a realm moderator to delete for this chat.", forbidden: true));
         }
         else
         {
@@ -921,11 +890,11 @@ public class ChatRoomController(
             {
                 case ChatRoomType.DirectMessage:
                     if (!await crs.IsChatMember(chatRoom.Id, accountId))
-                        return StatusCode(403, "You need be part of the DM to delete this chat.");
+                        return StatusCode(403, ApiError.Unauthorized("You need be part of the DM to delete this chat.", forbidden: true));
                     break;
                 case ChatRoomType.Group:
                     if (chatRoom.AccountId != accountId)
-                        return StatusCode(403, "You need be the owner to delete for this chat.");
+                        return StatusCode(403, ApiError.Unauthorized("You need be the owner to delete for this chat.", forbidden: true));
                     break;
             }
         }
@@ -996,7 +965,7 @@ public class ChatRoomController(
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
         if (currentUser.PerkLevel < 2)
-            return StatusCode(403, "Perk level 2 is required to customize chat profile.");
+            return StatusCode(403, ApiError.Unauthorized("Perk level 2 is required to customize chat profile.", forbidden: true));
 
         var member = await db.ChatMembers
             .Where(m => m.AccountId == Guid.Parse(currentUser.Id) && m.ChatRoomId == roomId)
@@ -1051,7 +1020,7 @@ public class ChatRoomController(
                             m.LeaveAt == null)
                 .FirstOrDefaultAsync();
             if (member is null)
-                return StatusCode(403, "You need to be a member to see online count of private chat room.");
+                return StatusCode(403, ApiError.Unauthorized("You need to be a member to see online count of private chat room.", forbidden: true));
         }
 
         var members = await db.ChatMembers
@@ -1129,7 +1098,7 @@ public class ChatRoomController(
             var member = await db.ChatMembers
                 .Where(m => m.ChatRoomId == roomId && m.AccountId == accountId && m.LeaveAt == null)
                 .FirstOrDefaultAsync();
-            if (member is null) return StatusCode(403, "You need to be a member to see members of private chat room.");
+            if (member is null) return StatusCode(403, ApiError.Unauthorized("You need to be a member to see members of private chat room.", forbidden: true));
         }
 
         var query = db.ChatMembers
@@ -1210,7 +1179,7 @@ public class ChatRoomController(
         // Get related user account
         var relatedUser =
             await accounts.GetAccountAsync(new DyGetAccountRequest { Id = request.RelatedUserId.ToString() });
-        if (relatedUser == null) return BadRequest("Related user was not found");
+        if (relatedUser == null) return BadRequest(new ApiError { Code = "CHAT_RELATED_USER_NOT_FOUND", Message = "Related user was not found", Status = 400 });
 
         // Check if either user has blocked the other
         var relationship = await accounts.HasRelationshipAsync(new DyGetRelationshipRequest
@@ -1222,7 +1191,7 @@ public class ChatRoomController(
         });
 
         if (relationship?.Value ?? false)
-            return StatusCode(403, "You cannot invite a user that you have blocked or who has blocked you.");
+            return StatusCode(403, ApiError.Unauthorized("You cannot invite a user that you have blocked or who has blocked you.", forbidden: true));
 
         var chatRoom = await db.ChatRooms
             .Where(p => p.Id == roomId)
@@ -1233,14 +1202,14 @@ public class ChatRoomController(
             .Where(p => p.AccountId == accountId && p.ChatRoomId == chatRoom.Id)
             .FirstOrDefaultAsync();
         if (operatorMember is null)
-            return StatusCode(403, "You need to be a part of chat to invite member to the chat.");
+            return StatusCode(403, ApiError.Unauthorized("You need to be a part of chat to invite member to the chat.", forbidden: true));
 
         // Authorization
         if (chatRoom.RealmId is not null)
         {
             // Realm-owned chat: only moderators can enable E2EE
             if (!await rs.IsMemberWithRole(chatRoom.RealmId.Value, accountId, [RealmMemberRole.Moderator]))
-                return StatusCode(403, "You need at least be a realm moderator to invite member for this chat.");
+                return StatusCode(403, ApiError.Unauthorized("You need at least be a realm moderator to invite member for this chat.", forbidden: true));
         }
         else
         {
@@ -1249,11 +1218,11 @@ public class ChatRoomController(
             {
                 case ChatRoomType.DirectMessage:
                     if (!await crs.IsChatMember(chatRoom.Id, accountId))
-                        return StatusCode(403, "You need be part of the DM to invite member to this chat.");
+                        return StatusCode(403, ApiError.Unauthorized("You need be part of the DM to invite member to this chat.", forbidden: true));
                     break;
                 case ChatRoomType.Group:
                     if (chatRoom.AccountId != accountId)
-                        return StatusCode(403, "You need be the owner to invite member for this chat.");
+                        return StatusCode(403, ApiError.Unauthorized("You need be the owner to invite member for this chat.", forbidden: true));
                     break;
             }
         }
@@ -1265,11 +1234,7 @@ public class ChatRoomController(
                 .Where(m => m.ChatRoomId == roomId && m.JoinedAt != null && m.LeaveAt == null)
                 .CountAsync();
             if (joinedMemberCount >= 2)
-                return Conflict(new
-                {
-                    code = "chat.e2ee_dm_member_limit",
-                    error = "MLS direct-message rooms only support two active members."
-                });
+                return Conflict(ApiError.Conflict("MLS direct-message rooms only support two active members.", code: "CHAT_E2EE_DM_MEMBER_LIMIT"));
         }
 
         // Check if the invited user is a bot and fetch its chat config for auto-approval
@@ -1279,10 +1244,10 @@ public class ChatRoomController(
         {
             var botId = Guid.Parse(relatedUser.AutomatedId);
             botConfig = await botChatConfigService.GetBotChatConfigAsync(botId);
-            
+
             // Check if bot supports chat
             if (botConfig is not null && !botConfig.SupportChat)
-                return StatusCode(403, "This bot does not support chat.");
+                return StatusCode(403, ApiError.Unauthorized("This bot does not support chat.", forbidden: true));
         }
 
         var isGroupAutoApprove = chatRoom.Type == ChatRoomType.Group
@@ -1488,7 +1453,7 @@ public class ChatRoomController(
         var targetMember = await db.ChatMembers
             .Where(m => m.AccountId == accountId && m.ChatRoomId == roomId && m.JoinedAt != null && m.LeaveAt == null)
             .FirstOrDefaultAsync();
-        if (targetMember is null) return BadRequest("You have not joined this chat room.");
+        if (targetMember is null) return BadRequest(new ApiError { Code = "CHAT_NOT_JOINED", Message = "You have not joined this chat room.", Status = 400 });
         if (request.NotifyLevel is not null)
             targetMember.Notify = request.NotifyLevel.Value;
         if (request.BreakUntil is not null)
@@ -1518,7 +1483,7 @@ public class ChatRoomController(
 
         var now = SystemClock.Instance.GetCurrentInstant();
         if (now >= request.TimeoutUntil)
-            return BadRequest("Timeout can only until a time in the future.");
+            return BadRequest(new ApiError { Code = "CHAT_TIMEOUT_FUTURE_REQUIRED", Message = "Timeout can only until a time in the future.", Status = 400 });
 
         var chatRoom = await db.ChatRooms
             .Where(r => r.Id == roomId)
@@ -1527,13 +1492,13 @@ public class ChatRoomController(
 
         var operatorMember = await db.ChatMembers
             .FirstOrDefaultAsync(m => m.AccountId == accountId && m.ChatRoomId == chatRoom.Id);
-        if (operatorMember is null) return BadRequest("You have not joined this chat room.");
+        if (operatorMember is null) return BadRequest(new ApiError { Code = "CHAT_NOT_JOINED", Message = "You have not joined this chat room.", Status = 400 });
 
         // Authorization
         if (chatRoom.RealmId is not null)
         {
             if (!await rs.IsMemberWithRole(chatRoom.RealmId.Value, accountId, [RealmMemberRole.Moderator]))
-                return StatusCode(403, "You need at least be a realm moderator to timeout member for this chat.");
+                return StatusCode(403, ApiError.Unauthorized("You need at least be a realm moderator to timeout member for this chat.", forbidden: true));
         }
         else
         {
@@ -1541,10 +1506,10 @@ public class ChatRoomController(
             switch (chatRoom.Type)
             {
                 case ChatRoomType.DirectMessage:
-                    return BadRequest("You cannot timeout member in DM");
+                    return BadRequest(new ApiError { Code = "CHAT_TIMEOUT_DM_NOT_ALLOWED", Message = "You cannot timeout member in DM", Status = 400 });
                 case ChatRoomType.Group:
                     if (chatRoom.AccountId != accountId)
-                        return StatusCode(403, "You need be the owner to timeout member in this chat.");
+                        return StatusCode(403, ApiError.Unauthorized("You need be the owner to timeout member in this chat.", forbidden: true));
                     break;
             }
         }
@@ -1600,7 +1565,7 @@ public class ChatRoomController(
         if (chatRoom.RealmId is not null)
         {
             if (!await rs.IsMemberWithRole(chatRoom.RealmId.Value, accountId, [RealmMemberRole.Moderator]))
-                return StatusCode(403, "You need at least be a realm moderator to cancel timeout in this chat.");
+                return StatusCode(403, ApiError.Unauthorized("You need at least be a realm moderator to cancel timeout in this chat.", forbidden: true));
         }
         else
         {
@@ -1609,11 +1574,11 @@ public class ChatRoomController(
             {
                 case ChatRoomType.DirectMessage:
                     if (!await crs.IsChatMember(chatRoom.Id, accountId))
-                        return StatusCode(403, "You need be part of the DM to cancel timeout in this chat.");
+                        return StatusCode(403, ApiError.Unauthorized("You need be part of the DM to cancel timeout in this chat.", forbidden: true));
                     break;
                 case ChatRoomType.Group:
                     if (chatRoom.AccountId != accountId)
-                        return StatusCode(403, "You need be the owner to cancel timeout for this chat.");
+                        return StatusCode(403, ApiError.Unauthorized("You need be the owner to cancel timeout for this chat.", forbidden: true));
                     break;
             }
         }
@@ -1669,7 +1634,7 @@ public class ChatRoomController(
         if (chatRoom.RealmId is not null)
         {
             if (!await rs.IsMemberWithRole(chatRoom.RealmId.Value, accountId, [RealmMemberRole.Moderator]))
-                return StatusCode(403, "You need at least be a realm moderator to remove member for this chat.");
+                return StatusCode(403, ApiError.Unauthorized("You need at least be a realm moderator to remove member for this chat.", forbidden: true));
         }
         else
         {
@@ -1677,11 +1642,11 @@ public class ChatRoomController(
             {
                 case ChatRoomType.DirectMessage:
                     if (!await crs.IsChatMember(chatRoom.Id, accountId))
-                        return StatusCode(403, "You need be part of the DM to remove member for this chat.");
+                        return StatusCode(403, ApiError.Unauthorized("You need be part of the DM to remove member for this chat.", forbidden: true));
                     break;
                 case ChatRoomType.Group:
                     if (chatRoom.AccountId != accountId)
-                        return StatusCode(403, "You need be the owner to remove member for this chat.");
+                        return StatusCode(403, ApiError.Unauthorized("You need be the owner to remove member for this chat.", forbidden: true));
                     break;
             }
         }
@@ -1740,14 +1705,14 @@ public class ChatRoomController(
             .FirstOrDefaultAsync();
         if (chatRoom is null) return NotFound();
         if (!chatRoom.IsCommunity)
-            return StatusCode(403, "This chat room isn't a community. You need an invitation to join.");
+            return StatusCode(403, ApiError.Unauthorized("This chat room isn't a community. You need an invitation to join.", forbidden: true));
 
         var existingMember = await db.ChatMembers
             .FirstOrDefaultAsync(m => m.AccountId == Guid.Parse(currentUser.Id) && m.ChatRoomId == roomId);
         if (existingMember != null)
         {
             if (existingMember.LeaveAt == null)
-                return BadRequest("You are already a member of this chat room.");
+                return BadRequest(new ApiError { Code = "CHAT_ALREADY_MEMBER", Message = "You are already a member of this chat room.", Status = 400 });
 
             existingMember.LeaveAt = null;
             existingMember.JoinedAt = SystemClock.Instance.GetCurrentInstant();
@@ -1795,7 +1760,7 @@ public class ChatRoomController(
         var chat = await db.ChatRooms.FirstOrDefaultAsync(c => c.Id == roomId);
         if (chat is null) return NotFound();
         if (chat.AccountId == accountId)
-            return BadRequest("You cannot leave you own chat room");
+            return BadRequest(new ApiError { Code = "CHAT_CANNOT_LEAVE_OWN_ROOM", Message = "You cannot leave you own chat room", Status = 400 });
 
         var member = await db.ChatMembers
             .Where(m => m.JoinedAt != null && m.LeaveAt == null)
@@ -1938,7 +1903,7 @@ public class ChatRoomController(
             return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
         var moved = await cgs.MoveToGroupAsync(accountId, roomId, request.GroupId);
-        if (!moved) return BadRequest("Failed to move the room to the specified group.");
+        if (!moved) return BadRequest(new ApiError { Code = "CHAT_GROUP_MOVE_FAILED", Message = "Failed to move the room to the specified group.", Status = 400 });
         return Ok();
     }
 
@@ -1967,11 +1932,11 @@ public class ChatRoomController(
         if (room.RealmId.HasValue)
         {
             if (!await rs.HasPermission(room.RealmId.Value, accountId, "chat.moderate"))
-                return StatusCode(403, "You do not have permission to moderate chat in this realm.");
+                return StatusCode(403, ApiError.Unauthorized("You do not have permission to moderate chat in this realm.", forbidden: true));
         }
         else
         {
-            return StatusCode(403, "Chat moderation is only available for realm chat rooms.");
+            return StatusCode(403, ApiError.Unauthorized("Chat moderation is only available for realm chat rooms.", forbidden: true));
         }
 
         var message = await db.ChatMessages
@@ -2038,11 +2003,11 @@ public class ChatRoomController(
         if (room.RealmId.HasValue)
         {
             if (!await rs.HasPermission(room.RealmId.Value, currentAccountId, "chat.moderate"))
-                return StatusCode(403, "You do not have permission to moderate chat in this realm.");
+                return StatusCode(403, ApiError.Unauthorized("You do not have permission to moderate chat in this realm.", forbidden: true));
         }
         else
         {
-            return StatusCode(403, "Chat moderation is only available for realm chat rooms.");
+            return StatusCode(403, ApiError.Unauthorized("Chat moderation is only available for realm chat rooms.", forbidden: true));
         }
 
         var member = await db.ChatMembers

@@ -1,6 +1,7 @@
 using System.Text.Json;
 using DysonNetwork.Sphere.Models;
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Networking;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -69,7 +70,7 @@ public class QuoteAuthorizationController(
             .FirstOrDefaultAsync(a => a.PublisherId == GetCurrentUserId());
 
         if (actor == null)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var existingAuth = await db.QuoteAuthorizations
             .FirstOrDefaultAsync(q =>
@@ -115,7 +116,7 @@ public class QuoteAuthorizationController(
             .FirstOrDefaultAsync(a => a.PublisherId == GetCurrentUserId());
 
         if (actor == null)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var auth = await db.QuoteAuthorizations
             .FirstOrDefaultAsync(q => q.Id == id && q.AuthorId == actor.Id);

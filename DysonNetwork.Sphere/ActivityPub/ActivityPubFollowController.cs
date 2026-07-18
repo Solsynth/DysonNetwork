@@ -1,7 +1,8 @@
 using DysonNetwork.Shared.Models;
-using DysonNetwork.Sphere.Models;
+using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Sphere.ActivityPub.Services;
+using DysonNetwork.Sphere.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -69,7 +70,7 @@ public class ActivityPubFollowController(
     {
         var currentUser = GetCurrentUser();
         if (currentUser == null)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var publisher = await db
             .Publishers.Include(p => p.Members)
@@ -112,7 +113,7 @@ public class ActivityPubFollowController(
     {
         var currentUser = GetCurrentUser();
         if (currentUser == null)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var publisher = await db
             .Publishers.Include(p => p.Members)
@@ -154,7 +155,7 @@ public class ActivityPubFollowController(
     )
     {
         if (string.IsNullOrWhiteSpace(query))
-            return BadRequest(new { error = "Query is required" });
+            return BadRequest(new ApiError { Code = "FEDIVERSE_SEARCH_QUERY_REQUIRED", Message = "Query is required", Status = 400 });
 
         var actors = await discSrv.SearchActorsAsync(query, limit, includeRemoteDiscovery: true);
 
@@ -180,7 +181,7 @@ public class ActivityPubFollowController(
     {
         var currentUser = GetCurrentUser();
         if (currentUser == null)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var publisher = await db
             .Publishers.Include(p => p.Members)
@@ -188,7 +189,7 @@ public class ActivityPubFollowController(
             .FirstOrDefaultAsync();
 
         if (publisher == null)
-            return NotFound(new { error = "Publisher not found" });
+            return NotFound(new ApiError { Code = "PUBLISHER_NOT_FOUND", Message = "Publisher not found", Status = 404 });
 
         var actorUrl = $"https://{Domain}/activitypub/actors/{publisher.Name}";
 

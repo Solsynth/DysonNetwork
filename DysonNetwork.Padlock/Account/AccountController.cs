@@ -62,9 +62,9 @@ public class AccountController(
     public async Task<ActionResult<string>> ValidateCreateAccountRequest([FromBody] AccountCreateValidateRequest request)
     {
         if (request.Name is not null && await accounts.CheckAccountNameHasTaken(request.Name))
-            return BadRequest("Account name has already been taken.");
+            return BadRequest(new ApiError { Code = "PADLOCK_ACCOUNT_NAME_TAKEN", Message = "Account name has already been taken.", Status = 400 });
         if (request.Email is not null && await accounts.CheckEmailHasBeenUsed(request.Email))
-            return BadRequest("Email has already been used.");
+            return BadRequest(new ApiError { Code = "PADLOCK_ACCOUNT_EMAIL_TAKEN", Message = "Email has already been used.", Status = 400 });
         return Ok("Everything seems good.");
     }
 

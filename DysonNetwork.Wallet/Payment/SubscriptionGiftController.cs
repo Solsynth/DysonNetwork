@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using NodaTime;
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Auth;
 
@@ -26,7 +27,8 @@ public class SubscriptionGiftController(
         [FromQuery] int take = 20
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var query = await subscriptions.GetGiftsByGifterAsync(Guid.Parse(currentUser.Id));
         var totalCount = query.Count;
@@ -51,7 +53,8 @@ public class SubscriptionGiftController(
         [FromQuery] int take = 20
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var gifts = await subscriptions.GetGiftsByRecipientAsync(Guid.Parse(currentUser.Id));
         var totalCount = gifts.Count;
@@ -73,7 +76,8 @@ public class SubscriptionGiftController(
     [Authorize]
     public async Task<ActionResult<SnWalletGift>> GetGift(Guid giftId)
     {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var currentUserId = Guid.Parse(currentUser.Id);
         var gift = await db.WalletGifts
@@ -81,10 +85,10 @@ public class SubscriptionGiftController(
             .Include(g => g.Coupon)
             .FirstOrDefaultAsync(g => g.Id == giftId);
 
-        if (gift is null) return NotFound();
+        if (gift is null) return NotFound(new ApiError { Code = "WALLET_GIFT_NOT_FOUND", Message = "Gift was not found.", Status = 404 });
         if (gift.GifterId != currentUserId && gift.RecipientId != currentUserId &&
             !(gift.IsOpenGift && gift.RedeemerId == currentUserId))
-            return NotFound();
+            return NotFound(new ApiError { Code = "WALLET_GIFT_NOT_FOUND", Message = "Gift was not found or you do not have access.", Status = 404 });
 
         return gift;
     }
@@ -96,10 +100,11 @@ public class SubscriptionGiftController(
     [Authorize]
     public async Task<ActionResult<GiftCheckResponse>> CheckGiftCode(string giftCode)
     {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var gift = await subscriptions.GetGiftByCodeAsync(giftCode);
-        if (gift is null) return NotFound("Gift code not found.");
+        if (gift is null) return NotFound(new ApiError { Code = "WALLET_GIFT_NOT_FOUND", Message = "Gift code not found.", Status = 404 });
 
         var canRedeem = false;
         var error = "";
@@ -167,7 +172,8 @@ public class SubscriptionGiftController(
     [AskPermission(PermissionKeys.SubscriptionGiftsPurchase)]
     public async Task<ActionResult<SnWalletGift>> PurchaseGift([FromBody] PurchaseGiftRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         Duration? giftDuration = null;
         if (request.GiftDurationDays.HasValue)
@@ -195,11 +201,11 @@ public class SubscriptionGiftController(
         }
         catch (ArgumentOutOfRangeException ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new ApiError { Code = "WALLET_GIFT_PURCHASE_FAILED", Message = ex.Message, Status = 400 });
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new ApiError { Code = "WALLET_GIFT_PURCHASE_FAILED", Message = ex.Message, Status = 400 });
         }
     }
 
@@ -216,7 +222,8 @@ public class SubscriptionGiftController(
     [AskPermission(PermissionKeys.SubscriptionGiftsRedeem)]
     public async Task<ActionResult<RedeemGiftResponse>> RedeemGift([FromBody] RedeemGiftRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         try
         {
@@ -230,7 +237,7 @@ public class SubscriptionGiftController(
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new ApiError { Code = "WALLET_GIFT_REDEEM_FAILED", Message = ex.Message, Status = 400 });
         }
     }
 
@@ -248,7 +255,8 @@ public class SubscriptionGiftController(
     [AskPermission(PermissionKeys.SubscriptionGiftsSend)]
     public async Task<ActionResult<SnWalletGift>> SendGift(Guid giftId)
     {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         try
         {
@@ -257,7 +265,7 @@ public class SubscriptionGiftController(
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new ApiError { Code = "WALLET_GIFT_SEND_FAILED", Message = ex.Message, Status = 400 });
         }
     }
 
@@ -269,7 +277,8 @@ public class SubscriptionGiftController(
     [AskPermission(PermissionKeys.SubscriptionGiftsCancel)]
     public async Task<ActionResult<SnWalletGift>> CancelGift(Guid giftId)
     {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         try
         {
@@ -278,7 +287,7 @@ public class SubscriptionGiftController(
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new ApiError { Code = "WALLET_GIFT_CANCEL_FAILED", Message = ex.Message, Status = 400 });
         }
     }
 
@@ -290,7 +299,8 @@ public class SubscriptionGiftController(
     [AskPermission(PermissionKeys.SubscriptionsOrderManage)]
     public async Task<ActionResult<SnWalletOrder>> CreateGiftOrder(Guid giftId)
     {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         try
         {
@@ -299,7 +309,7 @@ public class SubscriptionGiftController(
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new ApiError { Code = "WALLET_GIFT_ORDER_CREATE_FAILED", Message = ex.Message, Status = 400 });
         }
     }
 }

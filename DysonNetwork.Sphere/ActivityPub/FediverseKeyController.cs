@@ -1,3 +1,4 @@
+using DysonNetwork.Shared.Networking;
 using DysonNetwork.Sphere.ActivityPub.Services;
 using DysonNetwork.Sphere.Models;
 using Microsoft.AspNetCore.Authorization;
@@ -35,7 +36,7 @@ public class FediverseKeyController(
 
         var key = await keyService.GetKeyForActorAsync(actor.Id);
         if (key == null)
-            return NotFound(new { error = "No key found for this actor" });
+            return NotFound(new ApiError { Code = "FEDIVERSE_KEY_NOT_FOUND", Message = "No key found for this actor", Status = 404 });
 
         var actorUrl = $"https://{Domain}/activitypub/actors/{username}";
         var keyId = $"{actorUrl}#main-key";

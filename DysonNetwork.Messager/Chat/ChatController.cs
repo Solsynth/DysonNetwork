@@ -4,6 +4,7 @@ using System.Text.Json;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Messager.Survey;
 using DysonNetwork.Messager.Wallet;
@@ -44,7 +45,7 @@ public partial class ChatController(
 {
     private ActionResult E2EeError(string code, string message)
     {
-        return Conflict(new { code, error = message });
+        return Conflict(ApiError.Conflict(message, code: code.ToUpperInvariant()));
     }
 
     private async Task<ActionResult?> EnsureCurrentMlsEpochAsync(
@@ -56,34 +57,22 @@ public partial class ChatController(
         if (string.IsNullOrWhiteSpace(room.MlsGroupId) || !messageEpoch.HasValue)
             return E2EeError(
                 "chat.mls_payload_required",
-                "MLS rooms require a configured group and encryption_epoch.");
+                "MLS rooms require a configured group and encryption epoch.");
+
 
         try
         {
             var state = await mlsService.GetGroupStateAsync(room.MlsGroupId);
             if (state.Epoch == messageEpoch.Value) return null;
-            return Conflict(new
-            {
-                code = "chat.mls_epoch_mismatch",
-                current_epoch = state.Epoch,
-                message_epoch = messageEpoch.Value
-            });
+            return Conflict(ApiError.Conflict("MLS epoch mismatch.", code: "CHAT_E2EE_MLS_EPOCH_MISMATCH", meta: new Dictionary<string, object?> { { "current_epoch", state.Epoch }, { "message_epoch", messageEpoch.Value } }));
         }
         catch (RpcException ex) when (ex.StatusCode == Grpc.Core.StatusCode.NotFound)
         {
-            return Conflict(new
-            {
-                code = "chat.mls_group_not_ready",
-                error = "The MLS group has not been bootstrapped yet."
-            });
+            return Conflict(ApiError.Conflict("The MLS group has not been bootstrapped yet.", code: "CHAT_E2EE_MLS_GROUP_NOT_READY"));
         }
         catch (RpcException ex) when (ex.StatusCode == Grpc.Core.StatusCode.Unavailable)
         {
-            return StatusCode(503, new
-            {
-                code = "chat.mls_state_unavailable",
-                error = "MLS group state is temporarily unavailable."
-            });
+            return StatusCode(503, new ApiError { Code = "CHAT_E2EE_MLS_STATE_UNAVAILABLE", Message = "MLS group state is temporarily unavailable.", Status = 503 });
         }
     }
 
@@ -106,7 +95,7 @@ public partial class ChatController(
                 .Where(m => m.AccountId == accountId && m.ChatRoomId == roomId && m.JoinedAt != null && m.LeaveAt == null)
                 .FirstOrDefaultAsync();
             if (member is null)
-                return (null, StatusCode(403, "You are not a member of this chat room."));
+                return (null, StatusCode(403, ApiError.Unauthorized("You are not a member of this chat room.", forbidden: true)));
         }
 
         return (room, null);
@@ -116,7 +105,7 @@ public partial class ChatController(
     {
         if (ChatMessageHelpers.TryParseLocation(locationWkt, out location, out var error))
             return null;
-        return BadRequest(error);
+        return BadRequest(new ApiError { Code = "CHAT_MESSAGE_LOCATION_INVALID", Message = error, Status = 400 });
     }
 
     /// <summary>
@@ -135,23 +124,23 @@ public partial class ChatController(
             // No identity override - use current user
             var member = await crs.GetRoomMember(Guid.Parse(currentUser.Id), roomId);
             if (member is null)
-                return (null, StatusCode(403, "You are not a member of this chat room."));
+                return (null, StatusCode(403, ApiError.Unauthorized("You are not a member of this chat room.", forbidden: true)));
             return (member, null);
         }
 
         // Identity provided - resolve bot account
         var botId = identity.Value;
         var currentAccountId = Guid.Parse(currentUser.Id);
-        
+
         // Get bot account info
         var botAccount = await remoteAccountService.GetBotAccount(botId);
         if (botAccount is null)
-            return (null, NotFound("Bot account not found."));
+            return (null, NotFound(ApiError.NotFound("bot_account", message: "Bot account not found.", code: "CHAT_BOT_ACCOUNT_NOT_FOUND")));
 
         // Get bot's developer info to find the publisher ID
         var developer = await botChatConfigService.GetBotDeveloperAsync(botId);
         if (developer is null)
-            return (null, NotFound("Bot developer not found."));
+            return (null, NotFound(ApiError.NotFound("bot_developer", message: "Bot developer not found.", code: "CHAT_BOT_DEVELOPER_NOT_FOUND")));
 
         // Validate publisher membership
         // For read: require at least Viewer role
@@ -168,16 +157,16 @@ public partial class ChatController(
         if (!isMember)
         {
             var roleText = requireWritePermission ? "editor" : "viewer";
-            return (null, StatusCode(403, $"You must be a {roleText} of the bot's publisher to perform this action."));
+            return (null, StatusCode(403, ApiError.Unauthorized($"You must be a {roleText} of the bot's publisher to perform this action.", forbidden: true)));
         }
-        
+
         // Find the bot's chat member in the room
         var botMember = await db.ChatMembers
             .Where(m => m.AccountId == Guid.Parse(botAccount.Id) && m.ChatRoomId == roomId)
             .FirstOrDefaultAsync();
 
         if (botMember is null)
-            return (null, StatusCode(403, "The bot is not a member of this chat room."));
+            return (null, StatusCode(403, ApiError.Unauthorized("The bot is not a member of this chat room.", forbidden: true)));
 
         return (botMember, null);
     }
@@ -289,7 +278,7 @@ public partial class ChatController(
         var accountId = Guid.Parse(currentUser.Id);
         var member = await crs.GetRoomMember(accountId, roomId);
         if (member == null)
-            return StatusCode(403, "You are not a member of this chat room.");
+            return StatusCode(403, ApiError.Unauthorized("You are not a member of this chat room.", forbidden: true));
 
         var subscriptions = await crs.GetRoomSubscriptions(roomId);
         return Ok(subscriptions);
@@ -474,7 +463,7 @@ public partial class ChatController(
         // Resolve identity - if identity is provided, use bot's member, otherwise use current user
         var (member, identityError) = await ResolveChatIdentity(currentUser, roomId, identity, requireWritePermission: true);
         if (identityError is not null) return identityError;
-        if (member is null) return StatusCode(403, "You need to be a member to send messages here.");
+        if (member is null) return StatusCode(403, ApiError.Unauthorized("You need to be a member to send messages here.", forbidden: true));
 
         var accountId = member.AccountId;
 
@@ -482,7 +471,7 @@ public partial class ChatController(
         if (member.ChatRoom.RealmId.HasValue)
         {
             if (!await realmService.HasPermission(member.ChatRoom.RealmId.Value, accountId, "chat.send"))
-                return StatusCode(403, "You do not have permission to send messages in this realm.");
+                return StatusCode(403, ApiError.Unauthorized("You do not have permission to send messages in this realm.", forbidden: true));
         }
 
         request.Content = TextSanitizer.Sanitize(request.Content);
@@ -492,7 +481,7 @@ public partial class ChatController(
 
         var now = SystemClock.Instance.GetCurrentInstant();
         if (member.TimeoutUntil.HasValue && member.TimeoutUntil.Value > now)
-            return StatusCode(403, "You has been timed out in this chat.");
+            return StatusCode(403, ApiError.Unauthorized("You has been timed out in this chat.", forbidden: true));
         var e2eeMode = member.ChatRoom.EncryptionMode != ChatRoomEncryptionMode.None;
         var mlsMode = member.ChatRoom.EncryptionMode == ChatRoomEncryptionMode.E2eeMls;
         if (e2eeMode)
@@ -511,7 +500,12 @@ public partial class ChatController(
         else
         {
             if (ChatMessageHelpers.IsEmptyMessage(request))
-                return BadRequest("You cannot send an empty message.");
+                return BadRequest(ApiError.Validation(
+                    new Dictionary<string, string[]>
+                    {
+                        { "content", new[] { "You cannot send an empty message." } }
+                    },
+                    code: "CHAT_MESSAGE_EMPTY"));
         }
 
         // Validate fund if provided
@@ -526,15 +520,15 @@ public partial class ChatController(
 
                 // Check if the fund was created by the current user
                 if (fundResponse.CreatorAccountId != member.AccountId.ToString())
-                    return BadRequest("You can only share funds that you created.");
+                    return BadRequest(new ApiError { Code = "CHAT_FUND_NOT_OWNER", Message = "You can only share funds that you created.", Status = 400 });
             }
             catch (RpcException ex) when (ex.StatusCode == Grpc.Core.StatusCode.NotFound)
             {
-                return BadRequest("The specified fund does not exist.");
+                return BadRequest(new ApiError { Code = "CHAT_FUND_NOT_FOUND", Message = "The specified fund does not exist.", Status = 400 });
             }
             catch (RpcException ex) when (ex.StatusCode == Grpc.Core.StatusCode.InvalidArgument)
             {
-                return BadRequest("Invalid fund ID.");
+                return BadRequest(new ApiError { Code = "CHAT_FUND_INVALID_ID", Message = "Invalid fund ID.", Status = 400 });
             }
         }
 
@@ -548,11 +542,11 @@ public partial class ChatController(
             }
             catch (RpcException ex) when (ex.StatusCode == Grpc.Core.StatusCode.NotFound)
             {
-                return BadRequest("The specified poll does not exist.");
+                return BadRequest(new ApiError { Code = "CHAT_POLL_NOT_FOUND", Message = "The specified poll does not exist.", Status = 400 });
             }
             catch (RpcException ex) when (ex.StatusCode == Grpc.Core.StatusCode.InvalidArgument)
             {
-                return BadRequest("Invalid poll ID.");
+                return BadRequest(new ApiError { Code = "CHAT_POLL_INVALID_ID", Message = "Invalid poll ID.", Status = 400 });
             }
         }
 
@@ -646,7 +640,7 @@ public partial class ChatController(
             var repliedMessage = await db.ChatMessages
                 .FirstOrDefaultAsync(m => m.Id == request.RepliedMessageId.Value && m.ChatRoomId == roomId);
             if (repliedMessage == null)
-                return BadRequest("The message you're replying to does not exist.");
+                return BadRequest(new ApiError { Code = "CHAT_REPLY_MESSAGE_NOT_FOUND", Message = "The message you're replying to does not exist.", Status = 400 });
 
             message.RepliedMessageId = repliedMessage.Id;
         }
@@ -656,7 +650,7 @@ public partial class ChatController(
             var forwardedMessage = await db.ChatMessages
                 .FirstOrDefaultAsync(m => m.Id == request.ForwardedMessageId.Value);
             if (forwardedMessage == null)
-                return BadRequest("The message you're forwarding does not exist.");
+                return BadRequest(new ApiError { Code = "CHAT_FORWARD_MESSAGE_NOT_FOUND", Message = "The message you're forwarding does not exist.", Status = 400 });
 
             message.ForwardedMessageId = forwardedMessage.Id;
         }
@@ -684,22 +678,18 @@ public partial class ChatController(
         var now = SystemClock.Instance.GetCurrentInstant();
         var member = await crs.GetRoomMember(accountId, roomId);
         if (member == null)
-            return StatusCode(403, "You need to be a member to send messages here.");
+            return StatusCode(403, ApiError.Unauthorized("You need to be a member to send messages here.", forbidden: true));
         if (member.TimeoutUntil.HasValue && member.TimeoutUntil.Value > now)
-            return StatusCode(403, "You has been timed out in this chat.");
+            return StatusCode(403, ApiError.Unauthorized("You has been timed out in this chat.", forbidden: true));
         if (member.ChatRoom.EncryptionMode != ChatRoomEncryptionMode.None)
-            return Conflict(new
-            {
-                code = "chat.e2ee_voice_not_supported_v1",
-                error = "Voice endpoint is not supported for E2EE rooms in v1."
-            });
+            return Conflict(ApiError.Conflict("Voice endpoint is not supported for E2EE rooms in v1.", code: "CHAT_E2EE_VOICE_NOT_SUPPORTED_V1"));
 
         if (request.RepliedMessageId.HasValue)
         {
             var repliedMessage = await db.ChatMessages
                 .FirstOrDefaultAsync(m => m.Id == request.RepliedMessageId.Value && m.ChatRoomId == roomId);
             if (repliedMessage == null)
-                return BadRequest("The message you're replying to does not exist.");
+                return BadRequest(new ApiError { Code = "CHAT_REPLY_MESSAGE_NOT_FOUND", Message = "The message you're replying to does not exist.", Status = 400 });
         }
 
         if (request.ForwardedMessageId.HasValue)
@@ -707,7 +697,7 @@ public partial class ChatController(
             var forwardedMessage = await db.ChatMessages
                 .FirstOrDefaultAsync(m => m.Id == request.ForwardedMessageId.Value);
             if (forwardedMessage == null)
-                return BadRequest("The message you're forwarding does not exist.");
+                return BadRequest(new ApiError { Code = "CHAT_FORWARD_MESSAGE_NOT_FOUND", Message = "The message you're forwarding does not exist.", Status = 400 });
         }
 
         SnChatVoiceClip clip;
@@ -717,7 +707,7 @@ public partial class ChatController(
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new ApiError { Code = "CHAT_VOICE_INVALID", Message = ex.Message, Status = 400 });
         }
 
         var voiceUrl = voice.GetPublicUrl(clip) ?? $"/api/chat/{roomId}/voice/{clip.Id}";
@@ -775,18 +765,14 @@ public partial class ChatController(
         var now = SystemClock.Instance.GetCurrentInstant();
         var member = await crs.GetRoomMember(accountId, roomId);
         if (member == null)
-            return StatusCode(403, "You need to be a member to send messages here.");
+            return StatusCode(403, ApiError.Unauthorized("You need to be a member to send messages here.", forbidden: true));
         if (member.TimeoutUntil.HasValue && member.TimeoutUntil.Value > now)
-            return StatusCode(403, "You has been timed out in this chat.");
+            return StatusCode(403, ApiError.Unauthorized("You has been timed out in this chat.", forbidden: true));
         if (member.ChatRoom.EncryptionMode != ChatRoomEncryptionMode.None)
-            return Conflict(new
-            {
-                code = "chat.e2ee_placeholder_not_supported",
-                error = "Placeholder messages are not supported in encrypted rooms."
-            });
+            return Conflict(ApiError.Conflict("Placeholder messages are not supported in encrypted rooms.", code: "CHAT_E2EE_PLACEHOLDER_NOT_SUPPORTED"));
 
         if (request.Kind is not (ChatMessageHelpers.PlaceholderKindStreaming or ChatMessageHelpers.PlaceholderKindUploading))
-            return BadRequest($"Invalid placeholder kind. Must be '{ChatMessageHelpers.PlaceholderKindStreaming}' or '{ChatMessageHelpers.PlaceholderKindUploading}'.");
+            return BadRequest(new ApiError { Code = "CHAT_PLACEHOLDER_KIND_INVALID", Message = $"Invalid placeholder kind. Must be '{ChatMessageHelpers.PlaceholderKindStreaming}' or '{ChatMessageHelpers.PlaceholderKindUploading}'.", Status = 400 });
 
         var result = await cs.SendPlaceholderMessageAsync(member.ChatRoom, member, request.Kind);
         return Ok(result);
@@ -803,16 +789,16 @@ public partial class ChatController(
             .Distinct()
             .ToList();
         if (messageIds.Count == 0)
-            return BadRequest("You need to select at least one message to redirect.");
+            return BadRequest(new ApiError { Code = "CHAT_REDIRECT_NO_MESSAGES", Message = "You need to select at least one message to redirect.", Status = 400 });
         if (messageIds.Count > 100)
-            return BadRequest("You can redirect up to 100 messages at once.");
+            return BadRequest(new ApiError { Code = "CHAT_REDIRECT_TOO_MANY", Message = "You can redirect up to 100 messages at once.", Status = 400 });
 
         var accountId = Guid.Parse(currentUser.Id);
         var destinationMember = await crs.GetRoomMember(accountId, roomId);
         if (destinationMember == null)
-            return StatusCode(403, "You need to be a member to redirect messages here.");
+            return StatusCode(403, ApiError.Unauthorized("You need to be a member to redirect messages here.", forbidden: true));
         if (destinationMember.ChatRoom.EncryptionMode != ChatRoomEncryptionMode.None)
-            return BadRequest("Redirect is not supported for encrypted chat rooms.");
+            return BadRequest(new ApiError { Code = "CHAT_REDIRECT_ENCRYPTED_DEST", Message = "Redirect is not supported for encrypted chat rooms.", Status = 400 });
 
         var sourceMessages = await db.ChatMessages
             .Where(m => messageIds.Contains(m.Id))
@@ -820,7 +806,7 @@ public partial class ChatController(
             .Include(m => m.ChatRoom)
             .ToListAsync();
         if (sourceMessages.Count != messageIds.Count)
-            return BadRequest("One or more selected messages do not exist.");
+            return BadRequest(new ApiError { Code = "CHAT_REDIRECT_MESSAGES_NOT_FOUND", Message = "One or more selected messages do not exist.", Status = 400 });
 
         sourceMessages = sourceMessages
             .OrderBy(m => messageIds.IndexOf(m.Id))
@@ -832,11 +818,11 @@ public partial class ChatController(
             .ToList();
 
         if (sourceMessages.Any(m => m.Type != "text"))
-            return BadRequest("Only regular text messages can be redirected right now.");
+            return BadRequest(new ApiError { Code = "CHAT_REDIRECT_ONLY_TEXT", Message = "Only regular text messages can be redirected right now.", Status = 400 });
         if (sourceMessages.Any(m => m.ChatRoom.EncryptionMode != ChatRoomEncryptionMode.None))
-            return BadRequest("Redirect is not supported for encrypted source messages.");
+            return BadRequest(new ApiError { Code = "CHAT_REDIRECT_ENCRYPTED_SOURCE", Message = "Redirect is not supported for encrypted source messages.", Status = 400 });
         if (sourceRoomIds.Count != 1)
-            return BadRequest("You can only redirect a section of history from one source chat room at a time.");
+            return BadRequest(new ApiError { Code = "CHAT_REDIRECT_SINGLE_SOURCE", Message = "You can only redirect a section of history from one source chat room at a time.", Status = 400 });
 
         var joinedSourceRoomIds = await db.ChatMembers
             .Where(m => m.AccountId == accountId && sourceRoomIds.Contains(m.ChatRoomId))
@@ -845,7 +831,7 @@ public partial class ChatController(
             .Distinct()
             .ToListAsync();
         if (joinedSourceRoomIds.Count != sourceRoomIds.Count)
-            return StatusCode(403, "You can only redirect messages from chat rooms you are currently in.");
+            return StatusCode(403, ApiError.Unauthorized("You can only redirect messages from chat rooms you are currently in.", forbidden: true));
 
         var sourceSenders = await crs.LoadMemberAccounts(sourceMessages.Select(m => m.Sender).DistinctBy(m => m.Id).ToList());
         foreach (var roomGroup in sourceMessages.GroupBy(m => m.ChatRoomId))
@@ -939,9 +925,9 @@ public partial class ChatController(
 
         var now = SystemClock.Instance.GetCurrentInstant();
         if (message.Sender.AccountId != accountId)
-            return StatusCode(403, "You can only edit your own messages.");
+            return StatusCode(403, ApiError.Unauthorized("You can only edit your own messages.", forbidden: true));
         if (message.Sender.TimeoutUntil.HasValue && message.Sender.TimeoutUntil.Value > now)
-            return StatusCode(403, "You has been timed out in this chat.");
+            return StatusCode(403, ApiError.Unauthorized("You has been timed out in this chat.", forbidden: true));
 
         if (e2eeMode)
         {
@@ -959,7 +945,12 @@ public partial class ChatController(
         else
         {
             if (ChatMessageHelpers.IsEmptyMessage(request))
-                return BadRequest("You cannot send an empty message.");
+                return BadRequest(ApiError.Validation(
+                    new Dictionary<string, string[]>
+                    {
+                        { "content", new[] { "You cannot send an empty message." } }
+                    },
+                    code: "CHAT_MESSAGE_EMPTY"));
 
             // Update mentions based on new content and references
             var updatedMentions = await ChatMessageHelpers.ExtractMentionedUsersAsync(request.Content, request.RepliedMessageId,
@@ -987,7 +978,7 @@ public partial class ChatController(
 
                     // Check if the fund was created by the current user
                     if (fundResponse.CreatorAccountId != accountId.ToString())
-                        return BadRequest("You can only share funds that you created.");
+                        return BadRequest(new ApiError { Code = "CHAT_FUND_NOT_OWNER", Message = "You can only share funds that you created.", Status = 400 });
 
                     var fundEmbed = new FundEmbed { Id = request.FundId.Value };
                     ChatMessageHelpers.RemoveEmbedFromMessage(message, "fund");
@@ -995,11 +986,11 @@ public partial class ChatController(
                 }
                 catch (RpcException ex) when (ex.StatusCode == Grpc.Core.StatusCode.NotFound)
                 {
-                    return BadRequest("The specified fund does not exist.");
+                    return BadRequest(new ApiError { Code = "CHAT_FUND_NOT_FOUND", Message = "The specified fund does not exist.", Status = 400 });
                 }
                 catch (RpcException ex) when (ex.StatusCode == Grpc.Core.StatusCode.InvalidArgument)
                 {
-                    return BadRequest("Invalid fund ID.");
+                    return BadRequest(new ApiError { Code = "CHAT_FUND_INVALID_ID", Message = "Invalid fund ID.", Status = 400 });
                 }
             }
             else
@@ -1019,11 +1010,11 @@ public partial class ChatController(
                 }
                 catch (RpcException ex) when (ex.StatusCode == Grpc.Core.StatusCode.NotFound)
                 {
-                    return BadRequest("The specified poll does not exist.");
+                    return BadRequest(new ApiError { Code = "CHAT_POLL_NOT_FOUND", Message = "The specified poll does not exist.", Status = 400 });
                 }
                 catch (RpcException ex) when (ex.StatusCode == Grpc.Core.StatusCode.InvalidArgument)
                 {
-                    return BadRequest("Invalid poll ID.");
+                    return BadRequest(new ApiError { Code = "CHAT_POLL_INVALID_ID", Message = "Invalid poll ID.", Status = 400 });
                 }
             }
             else
@@ -1160,7 +1151,7 @@ public partial class ChatController(
 
         var accountId = Guid.Parse(currentUser.Id);
         if (message.Sender.AccountId != accountId)
-            return StatusCode(403, "You can only delete your own messages.");
+            return StatusCode(403, ApiError.Unauthorized("You can only delete your own messages.", forbidden: true));
 
         // Call service method to delete the message
         await cs.DeleteMessageAsync(
@@ -1211,13 +1202,13 @@ public partial class ChatController(
 
         if (!ReactionsAllowedDefault.Contains(request.Symbol))
             if (currentUser.PerkSubscription is null)
-                return BadRequest("You need subscription to send custom reactions");
+                return BadRequest(new ApiError { Code = "CHAT_REACTION_SUBSCRIPTION_REQUIRED", Message = "You need subscription to send custom reactions", Status = 400 });
 
         var accountId = Guid.Parse(currentUser.Id);
 
         var member = await crs.GetRoomMember(accountId, roomId);
         if (member is null)
-            return StatusCode(403, "You need to be a member to react to messages here.");
+            return StatusCode(403, ApiError.Unauthorized("You need to be a member to react to messages here.", forbidden: true));
 
         var message = await db.ChatMessages
             .Where(m => m.Id == messageId && m.ChatRoomId == roomId)
@@ -1264,7 +1255,7 @@ public partial class ChatController(
 
         var member = await crs.GetRoomMember(accountId, roomId);
         if (member is null)
-            return StatusCode(403, "You need to be a member to remove reaction from messages here.");
+            return StatusCode(403, ApiError.Unauthorized("You need to be a member to remove reaction from messages here.", forbidden: true));
 
         var message = await db.ChatMessages
             .Where(m => m.Id == messageId && m.ChatRoomId == roomId)
@@ -1465,7 +1456,7 @@ public partial class ChatController(
         var accountId = Guid.Parse(currentUser.Id);
         var member = await crs.GetRoomMember(accountId, roomId);
         if (member == null)
-            return StatusCode(403, "You need to be a member to use autocomplete here.");
+            return StatusCode(403, ApiError.Unauthorized("You need to be a member to use autocomplete here.", forbidden: true));
 
         var results = new List<Autocompletion>();
         var content = request.Content;
@@ -1547,13 +1538,13 @@ public partial class ChatController(
         var accountId = Guid.Parse(currentUser.Id);
         var member = await crs.GetRoomMember(accountId, roomId);
         if (member == null)
-            return StatusCode(403, "You need to be a member to use this endpoint.");
+            return StatusCode(403, ApiError.Unauthorized("You need to be a member to use this endpoint.", forbidden: true));
 
         if (member.ChatRoom.EncryptionMode != ChatRoomEncryptionMode.E2eeMls)
-            return BadRequest("Room is not an MLS room.");
+            return BadRequest(new ApiError { Code = "CHAT_DEVICE_MLS_ROOM_REQUIRED", Message = "Room is not an MLS room.", Status = 400 });
 
         if (string.IsNullOrWhiteSpace(member.ChatRoom.MlsGroupId))
-            return BadRequest("Room does not have MLS group configured.");
+            return BadRequest(new ApiError { Code = "CHAT_DEVICE_MLS_GROUP_REQUIRED", Message = "Room does not have MLS group configured.", Status = 400 });
 
         await mlsService.AddMlsDeviceMembershipAsync(
             member.ChatRoom.MlsGroupId,
@@ -1570,7 +1561,7 @@ public partial class ChatController(
         if (room.RealmId is not null)
         {
             if (!await realmService.IsMemberWithRole(room.RealmId.Value, accountId, [RealmMemberRole.Moderator]))
-                return StatusCode(403, "You need at least be a realm moderator to manage pins.");
+                return StatusCode(403, ApiError.Unauthorized("You need at least be a realm moderator to manage pins.", forbidden: true));
         }
         else
         {
@@ -1578,11 +1569,11 @@ public partial class ChatController(
             {
                 case ChatRoomType.DirectMessage:
                     if (!await crs.IsChatMember(room.Id, accountId))
-                        return StatusCode(403, "You need be part of the DM to manage pins.");
+                        return StatusCode(403, ApiError.Unauthorized("You need be part of the DM to manage pins.", forbidden: true));
                     break;
                 case ChatRoomType.Group:
                     if (room.AccountId != accountId)
-                        return StatusCode(403, "You need be the owner to manage pins.");
+                        return StatusCode(403, ApiError.Unauthorized("You need be the owner to manage pins.", forbidden: true));
                     break;
             }
         }
@@ -1611,7 +1602,7 @@ public partial class ChatController(
 
         var member = await crs.GetRoomMember(accountId, roomId);
         if (member is null)
-            return StatusCode(403, "You need to be a member to pin messages.");
+            return StatusCode(403, ApiError.Unauthorized("You need to be a member to pin messages.", forbidden: true));
 
         try
         {
@@ -1620,7 +1611,7 @@ public partial class ChatController(
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new ApiError { Code = "CHAT_PIN_FAILED", Message = ex.Message, Status = 400 });
         }
     }
 
@@ -1640,7 +1631,7 @@ public partial class ChatController(
 
         var member = await crs.GetRoomMember(accountId, roomId);
         if (member is null)
-            return StatusCode(403, "You need to be a member to unpin messages.");
+            return StatusCode(403, ApiError.Unauthorized("You need to be a member to unpin messages.", forbidden: true));
 
         try
         {
@@ -1649,7 +1640,7 @@ public partial class ChatController(
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new ApiError { Code = "CHAT_UNPIN_FAILED", Message = ex.Message, Status = 400 });
         }
     }
 

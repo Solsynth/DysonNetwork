@@ -1,4 +1,5 @@
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Auth;
 using Microsoft.AspNetCore.Authorization;
@@ -121,13 +122,13 @@ public class PostCategoryController(AppDatabase db) : ControllerBase
     [AskPermission(PermissionKeys.PostCategoriesSubscribe)]
     public async Task<ActionResult<SnPostCategorySubscription>> SubscribeCategory(string slug)
     {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         var accountId = Guid.Parse(currentUser.Id);
 
         var category = await db.PostCategories.FirstOrDefaultAsync(c => c.Slug.ToLower() == slug.ToLowerInvariant());
         if (category == null)
         {
-            return NotFound("Category not found.");
+            return NotFound(new ApiError { Code = "CATEGORY_NOT_FOUND", Message = "Category not found.", Status = 404 });
         }
 
         var existingSubscription = await db.PostCategorySubscriptions
@@ -153,17 +154,17 @@ public class PostCategoryController(AppDatabase db) : ControllerBase
     [AskPermission(PermissionKeys.PostCategoriesSubscribe)]
     public async Task<IActionResult> UnsubscribeCategory(string slug)
     {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         var accountId = Guid.Parse(currentUser.Id);
 
         var category = await db.PostCategories.FirstOrDefaultAsync(c => c.Slug.ToLower() == slug.ToLowerInvariant());
         if (category == null)
-            return NotFound("Category not found.");
+            return NotFound(new ApiError { Code = "CATEGORY_NOT_FOUND", Message = "Category not found.", Status = 404 });
 
         var subscription = await db.PostCategorySubscriptions
             .FirstOrDefaultAsync(s => s.CategoryId == category.Id && s.AccountId == accountId);
 
-        if (subscription == null)
+        if (subscription is null)
             return NoContent();
 
         db.PostCategorySubscriptions.Remove(subscription);
@@ -176,18 +177,18 @@ public class PostCategoryController(AppDatabase db) : ControllerBase
     [Authorize]
     public async Task<ActionResult<SnPostCategorySubscription>> GetCategorySubscription(string slug)
     {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         var accountId = Guid.Parse(currentUser.Id);
 
         var category = await db.PostCategories.FirstOrDefaultAsync(c => c.Slug.ToLower() == slug.ToLowerInvariant());
         if (category == null)
-            return NotFound("Category not found.");
+            return NotFound(new ApiError { Code = "CATEGORY_NOT_FOUND", Message = "Category not found.", Status = 404 });
 
         var subscription = await db.PostCategorySubscriptions
             .FirstOrDefaultAsync(s => s.CategoryId == category.Id && s.AccountId == accountId);
 
         if (subscription == null)
-            return NotFound("Subscription not found.");
+            return NotFound(new ApiError { Code = "CATEGORY_SUBSCRIPTION_NOT_FOUND", Message = "Subscription not found.", Status = 404 });
 
         return Ok(subscription);
     }
@@ -197,13 +198,13 @@ public class PostCategoryController(AppDatabase db) : ControllerBase
     [AskPermission(PermissionKeys.PostCategoriesSubscribe)]
     public async Task<ActionResult<SnPostCategorySubscription>> SubscribeTag(string slug)
     {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         var accountId = Guid.Parse(currentUser.Id);
 
         var tag = await db.PostTags.FirstOrDefaultAsync(t => t.Slug.ToLower() == slug.ToLowerInvariant());
         if (tag == null)
         {
-            return NotFound("Tag not found.");
+            return NotFound(new ApiError { Code = "POST_TAG_NOT_FOUND", Message = "Tag not found.", Status = 404 });
         }
 
         var existingSubscription = await db.PostCategorySubscriptions
@@ -231,13 +232,13 @@ public class PostCategoryController(AppDatabase db) : ControllerBase
     [AskPermission(PermissionKeys.PostCategoriesSubscribe)]
     public async Task<IActionResult> UnsubscribeTag(string slug)
     {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         var accountId = Guid.Parse(currentUser.Id);
 
         var tag = await db.PostTags.FirstOrDefaultAsync(t => t.Slug.ToLower() == slug.ToLowerInvariant());
         if (tag == null)
         {
-            return NotFound("Tag not found.");
+            return NotFound(new ApiError { Code = "POST_TAG_NOT_FOUND", Message = "Tag not found.", Status = 404 });
         }
 
         var subscription = await db.PostCategorySubscriptions
@@ -258,13 +259,13 @@ public class PostCategoryController(AppDatabase db) : ControllerBase
     [Authorize]
     public async Task<ActionResult<SnPostCategorySubscription>> GetTagSubscription(string slug)
     {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         var accountId = Guid.Parse(currentUser.Id);
 
         var tag = await db.PostTags.FirstOrDefaultAsync(t => t.Slug.ToLower() == slug.ToLowerInvariant());
         if (tag == null)
         {
-            return NotFound("Tag not found.");
+            return NotFound(new ApiError { Code = "POST_TAG_NOT_FOUND", Message = "Tag not found.", Status = 404 });
         }
 
         var subscription = await db.PostCategorySubscriptions
@@ -272,7 +273,7 @@ public class PostCategoryController(AppDatabase db) : ControllerBase
 
         if (subscription == null)
         {
-            return NotFound("Subscription not found.");
+            return NotFound(new ApiError { Code = "TAG_SUBSCRIPTION_NOT_FOUND", Message = "Subscription not found.", Status = 404 });
         }
 
         return Ok(subscription);

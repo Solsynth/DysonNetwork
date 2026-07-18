@@ -1,9 +1,10 @@
 using System.Text.Json;
-using DysonNetwork.Sphere.Models;
-using DysonNetwork.Shared.Models;
-using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Networking;
+using DysonNetwork.Shared.Proto;
 using DysonNetwork.Sphere.ActivityPub.Services;
+using DysonNetwork.Sphere.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -68,12 +69,12 @@ public class FediverseActorController(
                 $"{username}@{instance}"
             );
             if (discoveredActor == null)
-                return NotFound(new { error = "Actor not found" });
+                return NotFound(new ApiError { Code = "ACTIVITYPUB_ACTOR_NOT_FOUND", Message = "Actor not found", Status = 404 });
 
             await cachingService.SetActorAsync(discoveredActor, instance);
             dbActor = await cachingService.GetActorByHandleAsync(username, instance);
             if (dbActor == null)
-                return NotFound(new { error = "Actor not found" });
+                return NotFound(new ApiError { Code = "ACTIVITYPUB_ACTOR_NOT_FOUND", Message = "Actor not found", Status = 404 });
         }
 
         var dto = CachedActorToEntity(dbActor);
@@ -94,7 +95,7 @@ public class FediverseActorController(
 
         var actor = await cachingService.GetActorFromDbByIdAsync(id);
         if (actor == null)
-            return NotFound(new { error = "Actor not found" });
+            return NotFound(new ApiError { Code = "ACTIVITYPUB_ACTOR_NOT_FOUND", Message = "Actor not found", Status = 404 });
 
         var dto = CachedActorToEntity(actor);
 
@@ -109,7 +110,7 @@ public class FediverseActorController(
     )
     {
         if (string.IsNullOrWhiteSpace(query))
-            return BadRequest(new { error = "Query is required" });
+            return BadRequest(new ApiError { Code = "FEDIVERSE_SEARCH_QUERY_REQUIRED", Message = "Query is required", Status = 400 });
 
         limit = Math.Clamp(limit, 1, 50);
 
@@ -235,7 +236,7 @@ public class FediverseActorController(
             .FirstOrDefaultAsync(a => a.Id == id);
 
         if (actor == null)
-            return NotFound(new { error = "Actor not found" });
+            return NotFound(new ApiError { Code = "ACTIVITYPUB_ACTOR_NOT_FOUND", Message = "Actor not found", Status = 404 });
 
         var postsQuery = db.Posts
             .Include(p => p.Publisher)
@@ -839,7 +840,7 @@ public class FediverseActorController(
         var actor = await db.FediverseActors.FirstOrDefaultAsync(a => a.Id == id);
 
         if (actor == null)
-            return NotFound(new { error = "Actor not found" });
+            return NotFound(new ApiError { Code = "ACTIVITYPUB_ACTOR_NOT_FOUND", Message = "Actor not found", Status = 404 });
 
         var followerQuery = db
             .FediverseRelationships.Include(r => r.Actor)
@@ -866,7 +867,7 @@ public class FediverseActorController(
         var actor = await db.FediverseActors.FirstOrDefaultAsync(a => a.Id == id);
 
         if (actor == null)
-            return NotFound(new { error = "Actor not found" });
+            return NotFound(new ApiError { Code = "ACTIVITYPUB_ACTOR_NOT_FOUND", Message = "Actor not found", Status = 404 });
 
         var followingQuery = db
             .FediverseRelationships.Include(r => r.TargetActor)
@@ -887,7 +888,7 @@ public class FediverseActorController(
     public async Task<ActionResult<FediverseRelationshipResponse>> GetActorRelationship(Guid id)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var accountId = Guid.Parse(currentUser.Id);
 
@@ -896,7 +897,7 @@ public class FediverseActorController(
             .FirstOrDefaultAsync(a => a.Id == id);
 
         if (actor == null)
-            return NotFound(new { error = "Actor not found" });
+            return NotFound(new ApiError { Code = "ACTIVITYPUB_ACTOR_NOT_FOUND", Message = "Actor not found", Status = 404 });
 
         var userPublishers = await db.Publishers
             .Where(p => p.AccountId == accountId)
@@ -1038,7 +1039,7 @@ public class FediverseActorController(
     public async Task<ActionResult<FediverseAvailabilityResponse>> CheckAvailability()
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var accountId = Guid.Parse(currentUser.Id);
 
@@ -1106,19 +1107,19 @@ public class FediverseActorController(
     public async Task<ActionResult> FollowActor(Guid id)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var accountId = Guid.Parse(currentUser.Id);
 
         var publisherId = await GetEffectiveFediverseIdentityAsync(accountId);
         if (publisherId == null)
-            return BadRequest(new { error = "No Fediverse publisher available" });
+            return BadRequest(new ApiError { Code = "ACTIVITYPUB_NO_FEDIVERSE_PUBLISHER", Message = "No Fediverse publisher available", Status = 400 });
 
         var targetActor = await db.FediverseActors
             .FirstOrDefaultAsync(a => a.Id == id);
 
         if (targetActor == null)
-            return NotFound(new { error = "Actor not found" });
+            return NotFound(new ApiError { Code = "ACTIVITYPUB_ACTOR_NOT_FOUND", Message = "Actor not found", Status = 404 });
 
         var success = await deliveryService.SendFollowActivityAsync(
             publisherId.Value,
@@ -1135,7 +1136,7 @@ public class FediverseActorController(
             });
         }
 
-        return BadRequest(new { error = "Failed to send follow request" });
+        return BadRequest(new ApiError { Code = "FEDIVERSE_FOLLOW_REQUEST_FAILED", Message = "Failed to send follow request", Status = 400 });
     }
 
     [HttpPost("{id:guid}/unfollow")]
@@ -1144,19 +1145,19 @@ public class FediverseActorController(
     public async Task<ActionResult> UnfollowActor(Guid id)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var accountId = Guid.Parse(currentUser.Id);
 
         var publisherId = await GetEffectiveFediverseIdentityAsync(accountId);
         if (publisherId == null)
-            return BadRequest(new { error = "No Fediverse publisher available" });
+            return BadRequest(new ApiError { Code = "ACTIVITYPUB_NO_FEDIVERSE_PUBLISHER", Message = "No Fediverse publisher available", Status = 400 });
 
         var targetActor = await db.FediverseActors
             .FirstOrDefaultAsync(a => a.Id == id);
 
         if (targetActor == null)
-            return NotFound(new { error = "Actor not found" });
+            return NotFound(new ApiError { Code = "ACTIVITYPUB_ACTOR_NOT_FOUND", Message = "Actor not found", Status = 404 });
 
         var success = await deliveryService.SendUnfollowActivityAsync(
             publisherId.Value,
@@ -1172,7 +1173,7 @@ public class FediverseActorController(
             });
         }
 
-        return BadRequest(new { error = "Failed to unfollow" });
+        return BadRequest(new ApiError { Code = "FEDIVERSE_UNFOLLOW_FAILED", Message = "Failed to unfollow", Status = 400 });
     }
 
     private async Task<Guid?> GetEffectiveFediverseIdentityAsync(Guid accountId)

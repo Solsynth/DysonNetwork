@@ -260,7 +260,7 @@ public class PostController(
     public async Task<ActionResult> GetPostSponsorHistory(Guid id)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var requesterId = Guid.Parse(currentUser.Id);
         var post = await db.Posts
@@ -292,7 +292,7 @@ public class PostController(
     )
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var accountId = Guid.Parse(currentUser.Id);
         var userPublishers = await pub.GetUserPublishers(accountId);
@@ -310,7 +310,7 @@ public class PostController(
                     PublisherMemberRole.Editor
                 )
             )
-                return StatusCode(403, "You need at least be an editor to view drafts.");
+                return StatusCode(403, ApiError.Unauthorized("You need at least be an editor to view drafts.", forbidden: true));
 
             publisherIds = [selectedPublisher.Id];
         }
@@ -344,7 +344,7 @@ public class PostController(
     )
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var accountId = Guid.Parse(currentUser.Id);
         var friendsResponse = await accounts.ListFriendsAsync(
@@ -486,7 +486,7 @@ public class PostController(
             ? null
             : await pub.GetPublisherByName(pubName);
         if (pubName is not null && publisher is null)
-            return NotFound("Publisher not found.");
+            return NotFound(new ApiError { Code = "PUBLISHER_NOT_FOUND", Message = "Publisher not found.", Status = 404 });
         var realm = realmName == null ? null : await rs.GetRealmBySlug(realmName);
         var defaultSearchEngine = configuration["Posts:SearchEngineDefault"] ?? "semantic";
         var searchContext = CreatePostSearchContext(queryTerm);
@@ -542,7 +542,7 @@ public class PostController(
                 break;
             case true:
                 return BadRequest(
-                    "You need pass extra realm or publisher params in order to filter with pinned posts."
+                    new ApiError { Code = "POST_PINNED_FILTER_REQUIRES_PARAM", Message = "You need pass extra realm or publisher params in order to filter with pinned posts.", Status = 400 }
                 );
             case false:
                 query = query.Where(p => p.PinMode == null);
@@ -677,7 +677,7 @@ public class PostController(
             }
             catch (Grpc.Core.RpcException)
             {
-                return StatusCode(503, "Semantic search is currently unavailable.");
+                return StatusCode(503, ApiError.WithStatus(503, "Semantic search is currently unavailable.", code: "POST_SEMANTIC_SEARCH_UNAVAILABLE"));
             }
         }
 
@@ -850,24 +850,24 @@ public class PostController(
         if (post.PublisherId.HasValue && (post.Publisher?.GatekeptFollows == true || post.Visibility == Shared.Models.PostVisibility.QuietPublic))
         {
             if (currentUser == null)
-                return StatusCode(403, "Subscriber access required");
+                return StatusCode(403, ApiError.Unauthorized("Subscriber access required", forbidden: true));
             var currentAccountId = Guid.Parse(currentUser.Id);
             var isSubscriber = await db.PublisherSubscriptions
                 .AnyAsync(s => s.PublisherId == post.PublisherId.Value && s.AccountId == currentAccountId && s.EndedAt == null);
             if (!isSubscriber && !userPublishers.Any(p => p.Id == post.PublisherId.Value))
-                return StatusCode(403, "Subscriber access required");
+                return StatusCode(403, ApiError.Unauthorized("Subscriber access required", forbidden: true));
         }
 
         if (post.Visibility == Shared.Models.PostVisibility.CloseFriendsOnly)
         {
             if (currentUser == null)
-                return StatusCode(403, "Close friends access required");
+                return StatusCode(403, ApiError.Unauthorized("Close friends access required", forbidden: true));
             if (post.Publisher?.AccountId != null)
             {
                 var currentAccountId = Guid.Parse(currentUser.Id);
                 var isCloseFriend = await remoteAccountsHelper.IsCloseFriend(post.Publisher.AccountId.Value, currentAccountId);
                 if (!isCloseFriend && !userPublishers.Any(p => p.Id == post.PublisherId!.Value))
-                    return StatusCode(403, "Close friends access required");
+                    return StatusCode(403, ApiError.Unauthorized("Close friends access required", forbidden: true));
             }
         }
 
@@ -920,24 +920,24 @@ public class PostController(
         if (post.PublisherId.HasValue && (post.Publisher?.GatekeptFollows == true || post.Visibility == Shared.Models.PostVisibility.QuietPublic))
         {
             if (currentUser == null)
-                return StatusCode(403, "Subscriber access required");
+                return StatusCode(403, ApiError.Unauthorized("Subscriber access required", forbidden: true));
             var currentAccountId = Guid.Parse(currentUser.Id);
             var isSubscriber = await db.PublisherSubscriptions
                 .AnyAsync(s => s.PublisherId == post.PublisherId.Value && s.AccountId == currentAccountId && s.EndedAt == null);
             if (!isSubscriber && !userPublishers.Any(p => p.Id == post.PublisherId.Value))
-                return StatusCode(403, "Subscriber access required");
+                return StatusCode(403, ApiError.Unauthorized("Subscriber access required", forbidden: true));
         }
 
         if (post.Visibility == Shared.Models.PostVisibility.CloseFriendsOnly)
         {
             if (currentUser == null)
-                return StatusCode(403, "Close friends access required");
+                return StatusCode(403, ApiError.Unauthorized("Close friends access required", forbidden: true));
             if (post.Publisher?.AccountId != null)
             {
                 var currentAccountId = Guid.Parse(currentUser.Id);
                 var isCloseFriend = await remoteAccountsHelper.IsCloseFriend(post.Publisher.AccountId.Value, currentAccountId);
                 if (!isCloseFriend && !userPublishers.Any(p => p.Id == post.PublisherId!.Value))
-                    return StatusCode(403, "Close friends access required");
+                    return StatusCode(403, ApiError.Unauthorized("Close friends access required", forbidden: true));
             }
         }
 
@@ -992,7 +992,7 @@ public class PostController(
             ? null
             : await pub.GetPublisherByName(pubName);
         if (pubName is not null && publisher is null)
-            return NotFound("Publisher not found.");
+            return NotFound(new ApiError { Code = "POST_PUBLISHER_NOT_FOUND", Message = "Publisher not found.", Status = 404 });
         var realm = realmName == null ? null : await rs.GetRealmBySlug(realmName);
 
         Instant? periodStart = periodStartTime.HasValue
@@ -1004,7 +1004,7 @@ public class PostController(
 
         var currentPost = await db.Posts.Where(e => e.Id == id).FirstOrDefaultAsync();
         if (currentPost is null)
-            return NotFound("Current post not found");
+            return NotFound(new ApiError { Code = "POST_CURRENT_NOT_FOUND", Message = "Current post not found.", Status = 404 });
 
         var currentTime = currentPost.PublishedAt ?? currentPost.CreatedAt;
 
@@ -1046,7 +1046,7 @@ public class PostController(
                 baseQuery = baseQuery.Where(p => p.PinMode == Shared.Models.PostPinMode.PublisherPage);
                 break;
             case true:
-                return BadRequest("You need pass extra realm or publisher params in order to filter with pinned posts.");
+                return BadRequest(new ApiError { Code = "POST_PINNED_FILTER_REQUIRES_PARAM", Message = "You need pass extra realm or publisher params in order to filter with pinned posts.", Status = 400 });
             case false:
                 baseQuery = baseQuery.Where(p => p.PinMode == null);
                 break;
@@ -1083,29 +1083,29 @@ public class PostController(
             .FirstOrDefaultAsync();
 
         if (prevPost is null)
-            return NotFound("No previous post found");
+            return NotFound(new ApiError { Code = "POST_PREV_NOT_FOUND", Message = "No previous post found", Status = 404 });
 
         if (prevPost.PublisherId.HasValue && (prevPost.Publisher?.GatekeptFollows == true || prevPost.Visibility == Shared.Models.PostVisibility.QuietPublic))
         {
             if (currentUser == null)
-                return StatusCode(403, "Subscriber access required");
+                return StatusCode(403, ApiError.Unauthorized("Subscriber access required", forbidden: true));
             var currentAccountId = Guid.Parse(currentUser.Id);
             var isSubscriber = await db.PublisherSubscriptions
                 .AnyAsync(s => s.PublisherId == prevPost.PublisherId.Value && s.AccountId == currentAccountId && s.EndedAt == null);
             if (!isSubscriber && !userPublishers.Any(p => p.Id == prevPost.PublisherId.Value))
-                return StatusCode(403, "Subscriber access required");
+                return StatusCode(403, ApiError.Unauthorized("Subscriber access required", forbidden: true));
         }
 
         if (prevPost.Visibility == Shared.Models.PostVisibility.CloseFriendsOnly)
         {
             if (currentUser == null)
-                return StatusCode(403, "Close friends access required");
+                return StatusCode(403, ApiError.Unauthorized("Close friends access required", forbidden: true));
             if (prevPost.Publisher?.AccountId != null)
             {
                 var currentAccountId = Guid.Parse(currentUser.Id);
                 var isCloseFriend = await remoteAccountsHelper.IsCloseFriend(prevPost.Publisher.AccountId.Value, currentAccountId);
                 if (!isCloseFriend && !userPublishers.Any(p => p.Id == prevPost.PublisherId!.Value))
-                    return StatusCode(403, "Close friends access required");
+                    return StatusCode(403, ApiError.Unauthorized("Close friends access required", forbidden: true));
             }
         }
 
@@ -1155,7 +1155,7 @@ public class PostController(
             ? null
             : await pub.GetPublisherByName(pubName);
         if (pubName is not null && publisher is null)
-            return NotFound("Publisher not found.");
+            return NotFound(new ApiError { Code = "POST_PUBLISHER_NOT_FOUND", Message = "Publisher not found.", Status = 404 });
         var realm = realmName == null ? null : await rs.GetRealmBySlug(realmName);
 
         Instant? periodStart = periodStartTime.HasValue
@@ -1167,7 +1167,7 @@ public class PostController(
 
         var currentPost = await db.Posts.Where(e => e.Id == id).FirstOrDefaultAsync();
         if (currentPost is null)
-            return NotFound("Current post not found");
+            return NotFound(new ApiError { Code = "POST_CURRENT_NOT_FOUND", Message = "Current post not found.", Status = 404 });
 
         var currentTime = currentPost.PublishedAt ?? currentPost.CreatedAt;
 
@@ -1209,7 +1209,7 @@ public class PostController(
                 baseQuery = baseQuery.Where(p => p.PinMode == Shared.Models.PostPinMode.PublisherPage);
                 break;
             case true:
-                return BadRequest("You need pass extra realm or publisher params in order to filter with pinned posts.");
+                return BadRequest(new ApiError { Code = "POST_PINNED_FILTER_REQUIRES_PARAM", Message = "You need pass extra realm or publisher params in order to filter with pinned posts.", Status = 400 });
             case false:
                 baseQuery = baseQuery.Where(p => p.PinMode == null);
                 break;
@@ -1246,29 +1246,29 @@ public class PostController(
             .FirstOrDefaultAsync();
 
         if (nextPost is null)
-            return NotFound("No next post found");
+            return NotFound(new ApiError { Code = "POST_NEXT_NOT_FOUND", Message = "No next post found", Status = 404 });
 
         if (nextPost.PublisherId.HasValue && (nextPost.Publisher?.GatekeptFollows == true || nextPost.Visibility == Shared.Models.PostVisibility.QuietPublic))
         {
             if (currentUser == null)
-                return StatusCode(403, "Subscriber access required");
+                return StatusCode(403, ApiError.Unauthorized("Subscriber access required", forbidden: true));
             var currentAccountId = Guid.Parse(currentUser.Id);
             var isSubscriber = await db.PublisherSubscriptions
                 .AnyAsync(s => s.PublisherId == nextPost.PublisherId.Value && s.AccountId == currentAccountId && s.EndedAt == null);
             if (!isSubscriber && !userPublishers.Any(p => p.Id == nextPost.PublisherId.Value))
-                return StatusCode(403, "Subscriber access required");
+                return StatusCode(403, ApiError.Unauthorized("Subscriber access required", forbidden: true));
         }
 
         if (nextPost.Visibility == Shared.Models.PostVisibility.CloseFriendsOnly)
         {
             if (currentUser == null)
-                return StatusCode(403, "Close friends access required");
+                return StatusCode(403, ApiError.Unauthorized("Close friends access required", forbidden: true));
             if (nextPost.Publisher?.AccountId != null)
             {
                 var currentAccountId = Guid.Parse(currentUser.Id);
                 var isCloseFriend = await remoteAccountsHelper.IsCloseFriend(nextPost.Publisher.AccountId.Value, currentAccountId);
                 if (!isCloseFriend && !userPublishers.Any(p => p.Id == nextPost.PublisherId!.Value))
-                    return StatusCode(403, "Close friends access required");
+                    return StatusCode(403, ApiError.Unauthorized("Close friends access required", forbidden: true));
             }
         }
 
@@ -1731,24 +1731,24 @@ public class PostController(
         if (currentPost.PublisherId.HasValue && (currentPost.Publisher?.GatekeptFollows == true || currentPost.Visibility == Shared.Models.PostVisibility.QuietPublic))
         {
             if (currentUser == null)
-                return StatusCode(403, "Subscriber access required");
+                return StatusCode(403, ApiError.Unauthorized("Subscriber access required", forbidden: true));
             var currentAccountId = Guid.Parse(currentUser.Id);
             var isSubscriber = await db.PublisherSubscriptions
                 .AnyAsync(s => s.PublisherId == currentPost.PublisherId.Value && s.AccountId == currentAccountId && s.EndedAt == null);
             if (!isSubscriber && !userPublishers.Any(p => p.Id == currentPost.PublisherId.Value))
-                return StatusCode(403, "Subscriber access required");
+                return StatusCode(403, ApiError.Unauthorized("Subscriber access required", forbidden: true));
         }
 
         if (currentPost.Visibility == Shared.Models.PostVisibility.CloseFriendsOnly)
         {
             if (currentUser == null)
-                return StatusCode(403, "Close friends access required");
+                return StatusCode(403, ApiError.Unauthorized("Close friends access required", forbidden: true));
             if (currentPost.Publisher?.AccountId != null)
             {
                 var currentAccountId = Guid.Parse(currentUser.Id);
                 var isCloseFriend = await remoteAccountsHelper.IsCloseFriend(currentPost.Publisher.AccountId.Value, currentAccountId);
                 if (!isCloseFriend && !userPublishers.Any(p => p.Id == currentPost.PublisherId!.Value))
-                    return StatusCode(403, "Close friends access required");
+                    return StatusCode(403, ApiError.Unauthorized("Close friends access required", forbidden: true));
             }
         }
 

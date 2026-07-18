@@ -2,6 +2,7 @@ using DysonNetwork.Padlock.Account;
 using DysonNetwork.Padlock.Auth;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Networking;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -71,7 +72,7 @@ public class OidcController(
         catch (Exception ex)
         {
             logger.LogError(ex, "Error initiating OIDC flow for provider {Provider}", provider);
-            return BadRequest($"Error initiating OpenID Connect flow: {ex.Message}");
+            return BadRequest(new ApiError { Code = "OIDC_INIT_FLOW_FAILED", Message = $"Error initiating OpenID Connect flow: {ex.Message}", Status = 400 });
         }
     }
 
@@ -88,7 +89,7 @@ public class OidcController(
         {
             // Get Apple OIDC service
             if (GetOidcService("apple") is not AppleOidcService appleService)
-                return StatusCode(503, "Apple OIDC service not available");
+                return StatusCode(503, new ApiError { Code = "OIDC_APPLE_UNAVAILABLE", Message = "Apple OIDC service not available.", Status = 503 });
 
             // Prepare callback data for processing
             var callbackData = new OidcCallbackData
@@ -130,15 +131,15 @@ public class OidcController(
         }
         catch (SecurityTokenValidationException ex)
         {
-            return Unauthorized($"Invalid identity token: {ex.Message}");
+            return Unauthorized(new ApiError { Code = "OIDC_INVALID_IDENTITY_TOKEN", Message = $"Invalid identity token: {ex.Message}", Status = 401 });
         }
         catch (Grpc.Core.RpcException ex)
         {
-            return BadRequest($"Authentication failed: {ex.Status.Detail}");
+            return BadRequest(new ApiError { Code = "OIDC_AUTH_FAILED", Message = $"Authentication failed: {ex.Status.Detail}", Status = 400 });
         }
         catch (Exception ex)
         {
-            return StatusCode(500, $"Authentication failed: {ex.Message}");
+            return StatusCode(500, new ApiError { Code = "OIDC_AUTHENTICATION_FAILED", Message = $"Authentication failed: {ex.Message}", Status = 500 });
         }
     }
 

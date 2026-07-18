@@ -1,11 +1,12 @@
 using System.ComponentModel.DataAnnotations;
-using DysonNetwork.Sphere.Models;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Extensions;
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
 using DysonNetwork.Sphere.ActivityPub;
+using DysonNetwork.Sphere.Models;
 using DysonNetwork.Sphere.Post;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -36,7 +37,7 @@ public class PublisherController(
     public async Task<ActionResult<ResourceQuotaResponse<PublisherQuotaRecord>>> GetQuota()
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var account = SnAccount.FromProtoValue(
             await remoteAccounts.GetAccount(Guid.Parse(currentUser.Id))
@@ -49,7 +50,7 @@ public class PublisherController(
     public async Task<ActionResult<List<SnPublisher>>> ListManagedPublishers()
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         var accountId = Guid.Parse(currentUser.Id);
         var defaultPublisherId = await db.PublishingSettings
             .Where(s => s.AccountId == accountId)
@@ -83,7 +84,7 @@ public class PublisherController(
     public async Task<ActionResult<List<SnPublisherMember>>> ListInvites()
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         var accountId = Guid.Parse(currentUser.Id);
 
         var members = await db.PublisherMembers
@@ -115,14 +116,14 @@ public class PublisherController(
     )
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         var accountId = Guid.Parse(currentUser.Id);
 
         var relatedUser = await accounts.GetAccountAsync(
             new DyGetAccountRequest { Id = request.RelatedUserId.ToString() }
         );
         if (relatedUser == null)
-            return BadRequest("Related user was not found");
+            return BadRequest(new ApiError { Code = "PUBLISHER_RELATED_USER_NOT_FOUND", Message = "Related user was not found", Status = 400 });
 
         var lowerName = name.ToLowerInvariant();
         var publisher = await db.Publishers.Where(p => p.Name.ToLower() == lowerName).FirstOrDefaultAsync();
@@ -130,7 +131,7 @@ public class PublisherController(
             return NotFound();
 
         if (!await ps.IsMemberWithRole(publisher.Id, accountId, request.Role))
-            return StatusCode(403, "You cannot invite member has higher permission than yours.");
+            return StatusCode(403, ApiError.Unauthorized("You cannot invite member has higher permission than yours.", forbidden: true));
 
         var newMember = new SnPublisherMember
         {
@@ -163,7 +164,7 @@ public class PublisherController(
     public async Task<ActionResult<SnPublisher>> AcceptMemberInvite(string name)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         var accountId = Guid.Parse(currentUser.Id);
 
         var lowerName = name.ToLowerInvariant();
@@ -201,7 +202,7 @@ public class PublisherController(
     public async Task<ActionResult> DeclineMemberInvite(string name)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         var accountId = Guid.Parse(currentUser.Id);
 
         var lowerName = name.ToLowerInvariant();
@@ -237,7 +238,7 @@ public class PublisherController(
     public async Task<ActionResult> RemoveMember(string name, Guid memberId)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var publisher = await db.Publishers.Where(p => p.Name.ToLower() == name.ToLowerInvariant()).FirstOrDefaultAsync();
         if (publisher is null)
@@ -249,13 +250,13 @@ public class PublisherController(
             .FirstOrDefaultAsync();
         var accountId = Guid.Parse(currentUser.Id);
         if (member is null)
-            return NotFound("Member was not found");
+            return NotFound(new ApiError { Code = "PUBLISHER_MEMBER_NOT_FOUND", Message = "Member was not found", Status = 404 });
         if (member.AccountId == accountId && member.Role >= PublisherMemberRole.Owner)
-            return BadRequest("You cannot remove yourself as the publisher owner.");
+            return BadRequest(new ApiError { Code = "PUBLISHER_CANNOT_REMOVE_OWNER", Message = "You cannot remove yourself as the publisher owner.", Status = 400 });
         if (!await ps.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.Manager))
             return StatusCode(
                 403,
-                "You need at least be a manager to remove members from this publisher."
+                ApiError.Unauthorized("You need at least be a manager to remove members from this publisher.", forbidden: true)
             );
 
         db.PublisherMembers.Remove(member);
@@ -282,7 +283,7 @@ public class PublisherController(
     public async Task<ActionResult> LeavePublisher(string name)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         var accountId = Guid.Parse(currentUser.Id);
 
         var publisher = await db.Publishers.Where(p => p.Name.ToLower() == name.ToLowerInvariant()).FirstOrDefaultAsync();
@@ -297,7 +298,7 @@ public class PublisherController(
         if (member is null)
             return NotFound();
         if (member.Role >= PublisherMemberRole.Owner)
-            return BadRequest("You cannot leave your own publisher.");
+            return BadRequest(new ApiError { Code = "PUBLISHER_CANNOT_LEAVE_OWNER", Message = "You cannot leave your own publisher.", Status = 400 });
 
         db.PublisherMembers.Remove(member);
         await db.SaveChangesAsync();
@@ -327,9 +328,9 @@ public class PublisherController(
     )
     {
         if (newRole >= (int)PublisherMemberRole.Owner)
-            return BadRequest("Unable to set publisher member to owner or greater role.");
+            return BadRequest(new ApiError { Code = "PUBLISHER_ROLE_INVALID", Message = "Unable to set publisher member to owner or greater role.", Status = 400 });
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var publisher = await db.Publishers.Where(p => p.Name.ToLower() == name.ToLowerInvariant()).FirstOrDefaultAsync();
         if (publisher is null)
@@ -356,7 +357,7 @@ public class PublisherController(
         )
             return StatusCode(
                 403,
-                "You do not have permission to update member roles in this publisher."
+                ApiError.Unauthorized("You do not have permission to update member roles in this publisher.", forbidden: true)
             );
 
         member.Role = (PublisherMemberRole)newRole;
@@ -410,26 +411,31 @@ public class PublisherController(
     )
     {
         if (string.IsNullOrEmpty(request.Name) || string.IsNullOrEmpty(request.Nick))
-            return BadRequest("Name and Nick are required.");
+            return BadRequest(new ApiError { Code = "PUBLISHER_NAME_NICK_REQUIRED", Message = "Name and Nick are required.", Status = 400 });
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var hydratedAccount = SnAccount.FromProtoValue(
             await remoteAccounts.GetAccount(Guid.Parse(currentUser.Id))
         );
         var quota = await quotaService.GetQuotaAsync(hydratedAccount);
         if (quota.Used >= quota.Total)
-            return StatusCode(403, $"Publisher quota exceeded ({quota.Used}/{quota.Total}).");
+            return StatusCode(403, ApiError.Unauthorized($"Publisher quota exceeded ({quota.Used}/{quota.Total}).", forbidden: true));
 
         var takenName = request.Name ?? currentUser.Name;
         var lowerTakenName = takenName.ToLowerInvariant();
         var duplicateNameCount = await db.Publishers.Where(p => p.Name.ToLower() == lowerTakenName).CountAsync();
         if (duplicateNameCount > 0)
             return BadRequest(
-                "The name you requested has already be taken, "
-                    + "if it is your account name, "
-                    + "you can request a taken down to the publisher which created with "
-                    + "your name firstly to get your name back."
+                new ApiError
+                {
+                    Code = "PUBLISHER_NAME_TAKEN",
+                    Message = "The name you requested has already be taken, "
+                        + "if it is your account name, "
+                        + "you can request a taken down to the publisher which created with "
+                        + "your name firstly to get your name back.",
+                    Status = 400
+                }
             );
 
         SnCloudFileReferenceObject? picture = null,
@@ -494,20 +500,20 @@ public class PublisherController(
     )
     {
         if (string.IsNullOrEmpty(request.Name) || string.IsNullOrEmpty(request.Nick))
-            return BadRequest("Name and Nick are required.");
+            return BadRequest(new ApiError { Code = "PUBLISHER_NAME_NICK_REQUIRED", Message = "Name and Nick are required.", Status = 400 });
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var hydratedAccount = SnAccount.FromProtoValue(
             await remoteAccounts.GetAccount(Guid.Parse(currentUser.Id))
         );
         var quota = await quotaService.GetQuotaAsync(hydratedAccount);
         if (quota.Used >= quota.Total)
-            return StatusCode(403, $"Publisher quota exceeded ({quota.Used}/{quota.Total}).");
+            return StatusCode(403, ApiError.Unauthorized($"Publisher quota exceeded ({quota.Used}/{quota.Total}).", forbidden: true));
 
         var realm = await remoteRealmService.GetRealmBySlug(realmSlug);
         if (realm == null)
-            return NotFound("Realm not found");
+            return NotFound(new ApiError { Code = "REALM_NOT_FOUND", Message = "Realm not found", Status = 404 });
 
         var accountId = Guid.Parse(currentUser.Id);
         var isAdmin = await remoteRealmService.IsMemberWithRole(
@@ -518,14 +524,14 @@ public class PublisherController(
         if (!isAdmin)
             return StatusCode(
                 403,
-                "You need to be a moderator of the realm to create an organization publisher"
+                ApiError.Unauthorized("You need to be a moderator of the realm to create an organization publisher", forbidden: true)
             );
 
         var takenName = request.Name ?? realm.Slug;
         var lowerTakenName = takenName.ToLowerInvariant();
         var duplicateNameCount = await db.Publishers.Where(p => p.Name.ToLower() == lowerTakenName).CountAsync();
         if (duplicateNameCount > 0)
-            return BadRequest("The name you requested has already been taken");
+            return BadRequest(new ApiError { Code = "PUBLISHER_NAME_TAKEN", Message = "The name you requested has already been taken", Status = 400 });
 
         SnCloudFileReferenceObject? picture = null,
             background = null;
@@ -590,7 +596,7 @@ public class PublisherController(
     )
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         var accountId = Guid.Parse(currentUser.Id);
 
         var publisher = await db.Publishers.Where(p => p.Name.ToLower() == name.ToLowerInvariant()).FirstOrDefaultAsync();
@@ -602,11 +608,11 @@ public class PublisherController(
             .Where(m => m.PublisherId == publisher.Id)
             .FirstOrDefaultAsync();
         if (member is null)
-            return StatusCode(403, "You are not even a member of the targeted publisher.");
+            return StatusCode(403, ApiError.Unauthorized("You are not even a member of the targeted publisher.", forbidden: true));
         if (member.Role < PublisherMemberRole.Manager)
             return StatusCode(
                 403,
-                "You need at least be the manager to update the publisher profile."
+                ApiError.Unauthorized("You need at least be the manager to update the publisher profile.", forbidden: true)
             );
 
         if (request.Name is not null)
@@ -747,7 +753,7 @@ public class PublisherController(
     public async Task<ActionResult<SnPublisher>> DeletePublisher(string name)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         var accountId = Guid.Parse(currentUser.Id);
 
         var publisher = await db.Publishers.Where(p => p.Name.ToLower() == name.ToLowerInvariant()).FirstOrDefaultAsync();
@@ -759,9 +765,9 @@ public class PublisherController(
             .Where(m => m.PublisherId == publisher.Id)
             .FirstOrDefaultAsync();
         if (member is null)
-            return StatusCode(403, "You are not even a member of the targeted publisher.");
+            return StatusCode(403, ApiError.Unauthorized("You are not even a member of the targeted publisher.", forbidden: true));
         if (member.Role < PublisherMemberRole.Owner)
-            return StatusCode(403, "You need to be the owner to delete the publisher.");
+            return StatusCode(403, ApiError.Unauthorized("You need to be the owner to delete the publisher.", forbidden: true));
 
         var publisherResourceId = $"publisher:{publisher.Id}";
 
@@ -814,7 +820,7 @@ public class PublisherController(
     public async Task<ActionResult<SnPublisherMember>> GetCurrentIdentity(string name)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         var accountId = Guid.Parse(currentUser.Id);
 
         var publisher = await db.Publishers.Where(p => p.Name.ToLower() == name.ToLowerInvariant()).FirstOrDefaultAsync();
@@ -858,7 +864,7 @@ public class PublisherController(
     > GetPublisherExpectedReward(string name)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         var accountId = Guid.Parse(currentUser.Id);
 
         var publisher = await db.Publishers.Where(p => p.Name.ToLower() == name.ToLowerInvariant()).FirstOrDefaultAsync();
@@ -866,7 +872,7 @@ public class PublisherController(
             return NotFound();
 
         if (!await ps.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.Viewer))
-            return StatusCode(403, "You are not allowed to view stats data of this publisher.");
+            return StatusCode(403, ApiError.Unauthorized("You are not allowed to view stats data of this publisher.", forbidden: true));
 
         var result = await ps.GetPublisherExpectedReward(publisher.Id);
         return Ok(result);
@@ -918,7 +924,7 @@ public class PublisherController(
 
         if (PublisherFeatureFlag.SystemOnlyFlags.Contains(request.Flag))
             return BadRequest(
-                $"Flag '{request.Flag}' is a system flag and cannot be enabled manually"
+                new ApiError { Code = "PUBLISHER_FLAG_SYSTEM_ONLY", Message = $"Flag '{request.Flag}' is a system flag and cannot be enabled manually", Status = 400 }
             );
 
         if (request.Flag == PublisherFeatureFlag.FollowRequiresApproval)
@@ -932,7 +938,7 @@ public class PublisherController(
                 )
                     return StatusCode(
                         403,
-                        $"This feature requires PerkLevel >= {PublisherFeatureFlag.MinimumPerkLevel}"
+                        ApiError.Unauthorized($"This feature requires PerkLevel >= {PublisherFeatureFlag.MinimumPerkLevel}", forbidden: true)
                     );
             }
             publisher.ModerateSubscription = true;
@@ -952,7 +958,7 @@ public class PublisherController(
                 )
                     return StatusCode(
                         403,
-                        $"This feature requires PerkLevel >= {PublisherFeatureFlag.MinimumPerkLevel}"
+                        ApiError.Unauthorized($"This feature requires PerkLevel >= {PublisherFeatureFlag.MinimumPerkLevel}", forbidden: true)
                     );
             }
             publisher.GatekeptFollows = true;
@@ -983,7 +989,7 @@ public class PublisherController(
     )
     {
         if (string.IsNullOrEmpty(flag))
-            return BadRequest("Flag is required");
+            return BadRequest(new ApiError { Code = "PUBLISHER_FLAG_REQUIRED", Message = "Flag is required", Status = 400 });
 
         var publisher = await db.Publishers.Where(p => p.Name.ToLower() == name.ToLowerInvariant()).FirstOrDefaultAsync();
         if (publisher is null)
@@ -1067,7 +1073,7 @@ public class PublisherController(
     public async Task<ActionResult<FediverseStatus>> GetFediverseStatus(string name)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var publisher = await db.Publishers.Where(p => p.Name.ToLower() == name.ToLowerInvariant()).FirstOrDefaultAsync();
         if (publisher is null)
@@ -1083,7 +1089,7 @@ public class PublisherController(
     public async Task<ActionResult<FediverseStatus>> EnableFediverse(string name)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var accountId = Guid.Parse(currentUser.Id);
 
@@ -1094,7 +1100,7 @@ public class PublisherController(
         if (!await ps.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.Manager))
             return StatusCode(
                 403,
-                "You need at least be manager to enable fediverse for this publisher."
+                ApiError.Unauthorized("You need at least be manager to enable fediverse for this publisher.", forbidden: true)
             );
 
         try
@@ -1105,7 +1111,7 @@ public class PublisherController(
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new ApiError { Code = "PUBLISHER_FEDIVERSE_ENABLE_FAILED", Message = ex.Message, Status = 400 });
         }
     }
 
@@ -1115,7 +1121,7 @@ public class PublisherController(
     public async Task<ActionResult> DisableFediverse(string name)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var accountId = Guid.Parse(currentUser.Id);
 
@@ -1126,7 +1132,7 @@ public class PublisherController(
         if (!await ps.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.Manager))
             return StatusCode(
                 403,
-                "You need at least be manager to disable fediverse for this publisher."
+                ApiError.Unauthorized("You need at least be manager to disable fediverse for this publisher.", forbidden: true)
             );
 
         try
@@ -1136,7 +1142,7 @@ public class PublisherController(
         }
         catch (UnauthorizedAccessException ex)
         {
-            return StatusCode(403, ex.Message);
+            return StatusCode(403, ApiError.Unauthorized(ex.Message, forbidden: true));
         }
     }
 
@@ -1150,7 +1156,7 @@ public class PublisherController(
     public async Task<ActionResult<List<SnPublisherVerifiedDomain>>> ListDomains(string name)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var publisher = await db.Publishers.Where(p => p.Name.ToLower() == name.ToLowerInvariant()).FirstOrDefaultAsync();
         if (publisher is null)
@@ -1158,7 +1164,7 @@ public class PublisherController(
 
         var accountId = Guid.Parse(currentUser.Id);
         if (!await ps.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.Editor))
-            return StatusCode(403, "You need at least be an editor to view domains.");
+            return StatusCode(403, ApiError.Unauthorized("You need at least be an editor to view domains.", forbidden: true));
 
         var domains = await db.PublisherVerifiedDomains
             .Where(d => d.PublisherId == publisher.Id)
@@ -1177,7 +1183,7 @@ public class PublisherController(
     )
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var publisher = await db.Publishers.Where(p => p.Name.ToLower() == name.ToLowerInvariant()).FirstOrDefaultAsync();
         if (publisher is null)
@@ -1185,16 +1191,16 @@ public class PublisherController(
 
         var accountId = Guid.Parse(currentUser.Id);
         if (!await ps.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.Manager))
-            return StatusCode(403, "You need at least be a manager to add domains.");
+            return StatusCode(403, ApiError.Unauthorized("You need at least be a manager to add domains.", forbidden: true));
 
         var domain = request.Domain.Trim().ToLowerInvariant();
         if (string.IsNullOrWhiteSpace(domain))
-            return BadRequest("Domain is required.");
+            return BadRequest(new ApiError { Code = "PUBLISHER_DOMAIN_REQUIRED", Message = "Domain is required.", Status = 400 });
 
         var existing = await db.PublisherVerifiedDomains
             .FirstOrDefaultAsync(d => d.PublisherId == publisher.Id && d.Domain == domain);
         if (existing is not null)
-            return Conflict("This domain already exists for this publisher.");
+            return Conflict(ApiError.Conflict("This domain already exists for this publisher.", code: "PUBLISHER_DOMAIN_CONFLICT"));
 
         var record = new SnPublisherVerifiedDomain
         {
@@ -1221,7 +1227,7 @@ public class PublisherController(
     public async Task<ActionResult> RemoveDomain(string name, Guid domainId)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var publisher = await db.Publishers.Where(p => p.Name.ToLower() == name.ToLowerInvariant()).FirstOrDefaultAsync();
         if (publisher is null)
@@ -1229,7 +1235,7 @@ public class PublisherController(
 
         var accountId = Guid.Parse(currentUser.Id);
         if (!await ps.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.Manager))
-            return StatusCode(403, "You need at least be a manager to remove domains.");
+            return StatusCode(403, ApiError.Unauthorized("You need at least be a manager to remove domains.", forbidden: true));
 
         var domain = await db.PublisherVerifiedDomains
             .FirstOrDefaultAsync(d => d.Id == domainId && d.PublisherId == publisher.Id);
@@ -1248,7 +1254,7 @@ public class PublisherController(
     public async Task<ActionResult<SnPublisherVerifiedDomain>> RecheckDomain(string name, Guid domainId)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var publisher = await db.Publishers.Where(p => p.Name.ToLower() == name.ToLowerInvariant()).FirstOrDefaultAsync();
         if (publisher is null)
@@ -1256,7 +1262,7 @@ public class PublisherController(
 
         var accountId = Guid.Parse(currentUser.Id);
         if (!await ps.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.Manager))
-            return StatusCode(403, "You need at least be a manager to recheck domains.");
+            return StatusCode(403, ApiError.Unauthorized("You need at least be a manager to recheck domains.", forbidden: true));
 
         var domain = await db.PublisherVerifiedDomains
             .FirstOrDefaultAsync(d => d.Id == domainId && d.PublisherId == publisher.Id);
@@ -1284,7 +1290,7 @@ public class PublisherController(
     )
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var publisher = await db.Publishers.Where(p => p.Name.ToLower() == name.ToLowerInvariant()).FirstOrDefaultAsync();
         if (publisher is null)
@@ -1292,7 +1298,7 @@ public class PublisherController(
 
         var accountId = Guid.Parse(currentUser.Id);
         if (!await ps.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.Viewer))
-            return StatusCode(403, "You need at least be a viewer to view advertising data for this publisher.");
+            return StatusCode(403, ApiError.Unauthorized("You need at least be a viewer to view advertising data for this publisher.", forbidden: true));
 
         var allStats = await sponsorService.ListAdvertisingPostsAsync(publisher.Id);
         var totalCount = allStats.Count;

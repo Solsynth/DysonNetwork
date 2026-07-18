@@ -1,3 +1,4 @@
+using DysonNetwork.Shared.Networking;
 using Microsoft.AspNetCore.Mvc;
 using DysonNetwork.Sphere.Models;
 using Microsoft.EntityFrameworkCore;
@@ -33,21 +34,21 @@ public class WebFingerController(
     public async Task<ActionResult<WebFingerResponse>> GetWebFinger([FromQuery] string resource)
     {
         if (string.IsNullOrEmpty(resource))
-            return BadRequest("Missing resource parameter");
+            return BadRequest(new ApiError { Code = "WEBFINGER_RESOURCE_REQUIRED", Message = "Missing resource parameter", Status = 400 });
 
         if (!resource.StartsWith("acct:"))
-            return BadRequest("Invalid resource format");
+            return BadRequest(new ApiError { Code = "WEBFINGER_RESOURCE_INVALID_FORMAT", Message = "Invalid resource format", Status = 400 });
 
         var account = resource[5..];
         var parts = account.Split('@');
         if (parts.Length != 2)
-            return BadRequest("Invalid account format");
+            return BadRequest(new ApiError { Code = "WEBFINGER_ACCOUNT_INVALID_FORMAT", Message = "Invalid account format", Status = 400 });
 
         var username = parts[0];
         var domain = parts[1];
 
         if (domain != Domain)
-            return NotFound();
+            return NotFound(new ApiError { Code = "WEBFINGER_DOMAIN_NOT_FOUND", Message = "Domain not found.", Status = 404 });
 
         var serverUsername = configuration["ActivityPub:ServerActor:PreferredUsername"] ?? "solar-network";
         if (username.Equals(serverUsername, StringComparison.OrdinalIgnoreCase))
@@ -80,13 +81,13 @@ public class WebFingerController(
             .FirstOrDefaultAsync(p => p.Name.ToLower() == username.ToLowerInvariant());
 
         if (publisher == null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "WEBFINGER_PUBLISHER_NOT_FOUND", Message = "Publisher not found.", Status = 404 });
 
         var hasActor = await db.FediverseActors
             .AnyAsync(a => a.PublisherId == publisher.Id);
 
         if (!hasActor)
-            return NotFound();
+            return NotFound(new ApiError { Code = "WEBFINGER_ACTOR_NOT_FOUND", Message = "Actor not found.", Status = 404 });
 
         var actorUrl = $"https://{Domain}/activitypub/actors/{username}";
 

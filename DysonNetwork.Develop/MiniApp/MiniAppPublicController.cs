@@ -1,4 +1,5 @@
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Networking;
 using DysonNetwork.Develop.Models;
 using Microsoft.AspNetCore.Mvc;
 
@@ -31,7 +32,7 @@ public class MiniAppPublicController(MiniAppService miniAppService, Identity.Dev
     public async Task<ActionResult<SnMiniApp>> GetMiniAppBySlug([FromRoute] string slug)
     {
         var miniApp = await miniAppService.GetPublishedMiniAppBySlugAsync(slug);
-        if (miniApp is null) return NotFound("Mini app not found");
+        if (miniApp is null) return NotFound(new ApiError { Code = "DEV_MINI_APP_NOT_FOUND", Message = "Mini app not found", Status = 404 });
 
         miniApp.Developer = await developerService.LoadDeveloperPublisher(miniApp.Project.Developer);
 

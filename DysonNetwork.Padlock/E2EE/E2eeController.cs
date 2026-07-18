@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Networking;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SnAuthSession = DysonNetwork.Shared.Models.SnAuthSession;
@@ -94,7 +95,7 @@ public class E2EeController(IE2EeModule e2EeModule) : ControllerBase
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser ||
             HttpContext.Items["CurrentSession"] is not SnAuthSession currentSession)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "AUTH_UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var result = await e2EeModule.PublishMlsKeyPackageAsync(currentUser.Id, body.DeviceId, body.DeviceLabel,
             new PublishMlsKeyPackageRequest(body.KeyPackage, body.Ciphersuite, body.Meta));
@@ -105,7 +106,7 @@ public class E2EeController(IE2EeModule e2EeModule) : ControllerBase
     public async Task<ActionResult<MlsKeyPackageStatusResponse>> GetMlsKeyPackageStatus()
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "AUTH_UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var result = await e2EeModule.GetMlsKeyPackageStatusAsync(currentUser.Id);
         return Ok(result);
@@ -118,7 +119,7 @@ public class E2EeController(IE2EeModule e2EeModule) : ControllerBase
     )
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "AUTH_UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var result = await e2EeModule.ListMlsDeviceKeyPackagesAsync(accountId, currentUser.Id, consume);
         return Ok(result);
@@ -150,7 +151,7 @@ public class E2EeController(IE2EeModule e2EeModule) : ControllerBase
     [HttpPost("mls/users/ready/batch")]
     public async Task<ActionResult<BatchCheckMlsReadyResponse>> BatchCheckMlsUsersReady([FromBody] BatchCheckMlsReadyRequest body)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "AUTH_UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var results = new List<MlsUserAvailability>();
         foreach (var accountId in body.AccountIds)
@@ -171,7 +172,7 @@ public class E2EeController(IE2EeModule e2EeModule) : ControllerBase
     public async Task<ActionResult<CheckMlsReadyResponse>> CheckMlsUserReady(Guid accountId)
     {
         var currentUser = HttpContext.Items["CurrentUser"] as SnAccount;
-        if (currentUser is null) return Unauthorized();
+        if (currentUser is null) return Unauthorized(new ApiError { Code = "AUTH_UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var packages = await e2EeModule.ListMlsDeviceKeyPackagesAsync(accountId, currentUser.Id, consume: false);
         return Ok(new CheckMlsReadyResponse
@@ -191,7 +192,7 @@ public class E2EeController(IE2EeModule e2EeModule) : ControllerBase
     [HttpPost("mls/groups/{groupId}/bootstrap")]
     public async Task<ActionResult<SnMlsGroupState>> BootstrapMlsGroup(string groupId, [FromBody] BootstrapMlsGroupBody body)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "AUTH_UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var state = await e2EeModule.BootstrapMlsGroupAsync(currentUser.Id, new BootstrapMlsGroupRequest(
             groupId, body.Epoch, body.StateVersion, body.Meta
@@ -202,12 +203,12 @@ public class E2EeController(IE2EeModule e2EeModule) : ControllerBase
     [HttpPost("mls/groups/{groupId}/commit")]
     public async Task<ActionResult<SnMlsGroupState>> CommitMlsGroup(string groupId, [FromBody] CommitMlsGroupBody body)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "AUTH_UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var state = await e2EeModule.CommitMlsGroupAsync(currentUser.Id, new CommitMlsGroupRequest(
             groupId, body.Epoch, body.Reason, body.Meta
         ));
-        if (state is null) return NotFound();
+        if (state is null) return NotFound(new ApiError { Code = "E2EE_GROUP_NOT_FOUND", Message = "MLS group was not found.", Status = 404 });
         return Ok(state);
     }
 
@@ -219,10 +220,10 @@ public class E2EeController(IE2EeModule e2EeModule) : ControllerBase
     )
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "AUTH_UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         if (string.IsNullOrWhiteSpace(senderDeviceId))
-            return BadRequest("X-Device-Id header is required.");
+            return BadRequest(new ApiError { Code = "E2EE_DEVICE_ID_REQUIRED", Message = "X-Device-Id header is required.", Status = 400 });
         if (!await e2EeModule.IsMlsGroupMemberAsync(currentUser.Id, senderDeviceId, groupId))
             return Forbid();
 
@@ -249,7 +250,7 @@ public class E2EeController(IE2EeModule e2EeModule) : ControllerBase
         [FromBody] MarkMlsReshareRequiredBody body
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "AUTH_UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var result = await e2EeModule.MarkMlsReshareRequiredAsync(currentUser.Id, new MarkMlsReshareRequiredRequest(
             groupId, body.TargetAccountId, body.TargetDeviceId, body.Epoch, body.Reason
@@ -263,10 +264,10 @@ public class E2EeController(IE2EeModule e2EeModule) : ControllerBase
     )
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "AUTH_UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         if (string.IsNullOrWhiteSpace(deviceId))
-            return BadRequest("X-Device-Id header is required.");
+            return BadRequest(new ApiError { Code = "E2EE_DEVICE_ID_REQUIRED", Message = "X-Device-Id header is required.", Status = 400 });
 
         var result = await e2EeModule.GetDeviceMlsReshareStatusAsync(currentUser.Id, deviceId);
         return Ok(result);
@@ -279,13 +280,13 @@ public class E2EeController(IE2EeModule e2EeModule) : ControllerBase
     )
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "AUTH_UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         if (string.IsNullOrWhiteSpace(deviceId))
-            return BadRequest("X-Device-Id header is required.");
+            return BadRequest(new ApiError { Code = "E2EE_DEVICE_ID_REQUIRED", Message = "X-Device-Id header is required.", Status = 400 });
 
         var result = await e2EeModule.CompleteMlsReshareAsync(currentUser.Id, deviceId, groupId);
-        if (!result) return NotFound();
+        if (!result) return NotFound(new ApiError { Code = "E2EE_RESHARE_NOT_FOUND", Message = "Device reshare status was not found.", Status = 404 });
         return NoContent();
     }
 
@@ -295,9 +296,9 @@ public class E2EeController(IE2EeModule e2EeModule) : ControllerBase
         [FromBody] UploadGroupInfoBody body,
         [FromHeader(Name = "X-Device-Id")] string? deviceId)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "AUTH_UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         if (string.IsNullOrWhiteSpace(deviceId))
-            return BadRequest("X-Device-Id header is required.");
+            return BadRequest(new ApiError { Code = "E2EE_DEVICE_ID_REQUIRED", Message = "X-Device-Id header is required.", Status = 400 });
         if (!await e2EeModule.IsMlsGroupMemberAsync(currentUser.Id, deviceId, groupId))
             return Forbid();
 
@@ -307,11 +308,12 @@ public class E2EeController(IE2EeModule e2EeModule) : ControllerBase
             body.RatchetTree,
             body.Epoch);
         if (!result.Success)
-            return Conflict(new
+            return Conflict(new ApiError
             {
-                code = "e2ee.mls_epoch_mismatch",
-                currentEpoch = result.Epoch,
-                requestedEpoch = body.Epoch
+                Code = "E2EE_MLS_EPOCH_MISMATCH",
+                Message = "Epoch mismatch when uploading group info.",
+                Status = 409,
+                Detail = $"Current epoch: {result.Epoch}, requested epoch: {body.Epoch}"
             });
         return Ok(new
         {
@@ -326,14 +328,14 @@ public class E2EeController(IE2EeModule e2EeModule) : ControllerBase
         string groupId,
         [FromHeader(Name = "X-Device-Id")] string? deviceId)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "AUTH_UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         if (string.IsNullOrWhiteSpace(deviceId))
-            return BadRequest("X-Device-Id header is required.");
+            return BadRequest(new ApiError { Code = "E2EE_DEVICE_ID_REQUIRED", Message = "X-Device-Id header is required.", Status = 400 });
         if (!await e2EeModule.IsMlsGroupMemberAsync(currentUser.Id, deviceId, groupId))
             return Forbid();
 
         var state = await e2EeModule.GetMlsGroupStateByGroupIdAsync(groupId);
-        if (state is null) return NotFound();
+        if (state is null) return NotFound(new ApiError { Code = "E2EE_GROUP_NOT_FOUND", Message = "MLS group was not found.", Status = 404 });
 
         return Ok(new
         {
@@ -351,10 +353,10 @@ public class E2EeController(IE2EeModule e2EeModule) : ControllerBase
     )
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "AUTH_UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         if (string.IsNullOrWhiteSpace(senderDeviceId))
-            return BadRequest("X-Device-Id header is required.");
+            return BadRequest(new ApiError { Code = "E2EE_DEVICE_ID_REQUIRED", Message = "X-Device-Id header is required.", Status = 400 });
         if (string.IsNullOrWhiteSpace(body.GroupId) ||
             !await e2EeModule.IsMlsGroupMemberAsync(currentUser.Id, senderDeviceId, body.GroupId))
             return Forbid();
@@ -407,31 +409,33 @@ public class E2EeController(IE2EeModule e2EeModule) : ControllerBase
     )
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "AUTH_UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         if (string.IsNullOrWhiteSpace(senderDeviceId))
-            return BadRequest("X-Device-Id header is required.");
+            return BadRequest(new ApiError { Code = "E2EE_DEVICE_ID_REQUIRED", Message = "X-Device-Id header is required.", Status = 400 });
         if (!await e2EeModule.IsMlsGroupMemberAsync(currentUser.Id, senderDeviceId, groupId))
             return Forbid();
 
         var currentState = await e2EeModule.GetMlsGroupStateByGroupIdAsync(groupId);
         if (currentState != null && body.Epoch <= currentState.Epoch)
         {
-            return Conflict(new
+            return Conflict(new ApiError
             {
-                code = "e2ee.mls_stale_epoch",
-                currentEpoch = currentState.Epoch,
-                requestedEpoch = body.Epoch
+                Code = "E2EE_MLS_STALE_EPOCH",
+                Message = "Stale epoch for MLS commit.",
+                Status = 409,
+                Detail = $"Current epoch: {currentState.Epoch}, requested epoch: {body.Epoch}"
             });
         }
 
         if (currentState != null && body.Epoch != currentState.Epoch + 1)
         {
-            return Conflict(new
+            return Conflict(new ApiError
             {
-                code = "e2ee.mls_epoch_mismatch",
-                currentEpoch = currentState.Epoch,
-                requestedEpoch = body.Epoch
+                Code = "E2EE_MLS_EPOCH_MISMATCH",
+                Message = "Epoch mismatch for MLS commit.",
+                Status = 409,
+                Detail = $"Current epoch: {currentState.Epoch}, requested epoch: {body.Epoch}"
             });
         }
 
@@ -452,7 +456,7 @@ public class E2EeController(IE2EeModule e2EeModule) : ControllerBase
         var state = await e2EeModule.CommitMlsGroupAsync(currentUser.Id, new CommitMlsGroupRequest(
             groupId, body.Epoch, GetCommitReason(body.Meta, "member_add"), body.Meta
         ));
-        if (state is null) return NotFound();
+        if (state is null) return NotFound(new ApiError { Code = "E2EE_GROUP_NOT_FOUND", Message = "MLS group was not found.", Status = 404 });
 
         return Ok(envelopes);
     }
@@ -465,10 +469,10 @@ public class E2EeController(IE2EeModule e2EeModule) : ControllerBase
     )
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "AUTH_UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         if (string.IsNullOrWhiteSpace(senderDeviceId))
-            return BadRequest("X-Device-Id header is required.");
+            return BadRequest(new ApiError { Code = "E2EE_DEVICE_ID_REQUIRED", Message = "X-Device-Id header is required.", Status = 400 });
         if (!await e2EeModule.IsMlsGroupMemberAsync(currentUser.Id, senderDeviceId, groupId))
             return Forbid();
 
@@ -495,10 +499,10 @@ public class E2EeController(IE2EeModule e2EeModule) : ControllerBase
     )
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "AUTH_UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         if (string.IsNullOrWhiteSpace(deviceId))
-            return BadRequest("X-Device-Id header is required.");
+            return BadRequest(new ApiError { Code = "E2EE_DEVICE_ID_REQUIRED", Message = "X-Device-Id header is required.", Status = 400 });
 
         take = Math.Clamp(take, 1, 500);
         var envelopes = await e2EeModule.GetPendingEnvelopesByDeviceAsync(currentUser.Id, deviceId, take);
@@ -512,13 +516,13 @@ public class E2EeController(IE2EeModule e2EeModule) : ControllerBase
     )
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "AUTH_UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         if (string.IsNullOrWhiteSpace(deviceId))
-            return BadRequest("X-Device-Id header is required.");
+            return BadRequest(new ApiError { Code = "E2EE_DEVICE_ID_REQUIRED", Message = "X-Device-Id header is required.", Status = 400 });
 
         var message = await e2EeModule.AcknowledgeEnvelopeByDeviceAsync(currentUser.Id, deviceId, envelopeId);
-        if (message is null) return NotFound();
+        if (message is null) return NotFound(new ApiError { Code = "E2EE_ENVELOPE_NOT_FOUND", Message = "Envelope was not found.", Status = 404 });
         return Ok(message);
     }
 
@@ -526,10 +530,10 @@ public class E2EeController(IE2EeModule e2EeModule) : ControllerBase
     public async Task<ActionResult> RevokeMlsDevice(string deviceId)
     {
         var currentUser = HttpContext.Items["CurrentUser"] as SnAccount;
-        if (currentUser is null) return Unauthorized();
+        if (currentUser is null) return Unauthorized(new ApiError { Code = "AUTH_UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var revoked = await e2EeModule.RevokeDeviceAsync(currentUser.Id, deviceId);
-        if (!revoked) return NotFound();
+        if (!revoked) return NotFound(new ApiError { Code = "E2EE_DEVICE_NOT_FOUND", Message = "Device was not found.", Status = 404 });
         return NoContent();
     }
 
@@ -546,7 +550,7 @@ public class E2EeController(IE2EeModule e2EeModule) : ControllerBase
     )
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "AUTH_UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var membership = await e2EeModule.AddMlsDeviceMembershipAsync(
             currentUser.Id,
@@ -568,10 +572,10 @@ public class E2EeController(IE2EeModule e2EeModule) : ControllerBase
     public async Task<ActionResult<SnMlsGroupState>> ResetMlsGroup(string groupId, [FromBody] ResetMlsGroupBody body)
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "AUTH_UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var group = await e2EeModule.GetMlsGroupStateByGroupIdAsync(groupId);
-        if (group is null) return NotFound();
+        if (group is null) return NotFound(new ApiError { Code = "E2EE_GROUP_NOT_FOUND", Message = "MLS group was not found.", Status = 404 });
 
         await e2EeModule.MarkAllDevicesReshareRequiredAsync(groupId, body.Reason ?? "group_reset");
         await e2EeModule.NotifyGroupResetAsync(groupId, body.Reason);

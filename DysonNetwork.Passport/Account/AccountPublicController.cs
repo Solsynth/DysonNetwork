@@ -163,11 +163,11 @@ public class AccountPublicController(
         if (account is null) return NotFound(ApiError.NotFound(name, traceId: HttpContext.TraceIdentifier));
         await EnsureProfileAsync(account);
 
-        if (account.Profile?.Picture is null) return NotFound();
-        
+        if (account.Profile?.Picture is null) return NotFound(new ApiError { Code = "PASSPORT_ACCOUNT_PICTURE_NOT_FOUND", Message = "Account picture not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
+
         return Redirect($"{configuration["FileUrl"]}/{account.Profile.Picture.Id}");
     }
-    
+
     [HttpGet("{name}/background")]
     [ProducesResponseType(StatusCodes.Status302Found)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -189,8 +189,8 @@ public class AccountPublicController(
         if (account is null) return NotFound(ApiError.NotFound(name, traceId: HttpContext.TraceIdentifier));
         await EnsureProfileAsync(account);
 
-        if (account.Profile?.Background is null) return NotFound();
-        
+        if (account.Profile?.Background is null) return NotFound(new ApiError { Code = "PASSPORT_ACCOUNT_BACKGROUND_NOT_FOUND", Message = "Account background not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
+
         return Redirect($"{configuration["FileUrl"]}/{account.Profile.Background.Id}");
     }
 

@@ -1,6 +1,7 @@
 using System.Text.Json.Serialization;
 using DysonNetwork.Sphere.Models;
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Networking;
 using DysonNetwork.Sphere.ActivityPub.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -144,10 +145,7 @@ public class ActivityPubController : ControllerBase
             _logger.LogWarning("Invalid Content-Type for inbox: {ContentType}", contentType);
             return StatusCode(
                 StatusCodes.Status406NotAcceptable,
-                new
-                {
-                    error = $"Content-Type '{contentType}' not acceptable. Accepted types: application/activity+json, application/ld+json",
-                }
+                ApiError.WithStatus(406, $"Content-Type '{contentType}' not acceptable. Accepted types: application/activity+json, application/ld+json", code: "ACTIVITYPUB_INVALID_CONTENT_TYPE")
             );
         }
 
@@ -156,7 +154,7 @@ public class ActivityPubController : ControllerBase
         if (string.IsNullOrEmpty(activityType))
         {
             _logger.LogWarning("Missing activity type");
-            return BadRequest(new { error = "Missing activity type" });
+            return BadRequest(new ApiError { Code = "ACTIVITYPUB_MISSING_ACTIVITY_TYPE", Message = "Missing activity type", Status = 400 });
         }
 
         var result = await _activityHandler.ProcessActivityAsync(HttpContext, username, activity);
@@ -169,7 +167,7 @@ public class ActivityPubController : ControllerBase
             ActivityResult.NotFound => NotFound(),
             ActivityResult.NotSupported => StatusCode(
                 422,
-                new { error = "Unsupported activity type" }
+                ApiError.WithStatus(422, "Unsupported activity type", code: "ACTIVITYPUB_UNSUPPORTED_ACTIVITY_TYPE")
             ),
             _ => Accepted(),
         };
@@ -217,7 +215,7 @@ public class ActivityPubController : ControllerBase
     public async Task<IActionResult> GetOutbox(string username, [FromQuery] string? page)
     {
         if (!TryParseCollectionPage(page, out var pageNumber))
-            return BadRequest(new { error = "Page must be a positive integer or 'true'." });
+            return BadRequest(new ApiError { Code = "ACTIVITYPUB_INVALID_PAGE", Message = "Page must be a positive integer or 'true'.", Status = 400 });
 
         var publisher = await _db.Publishers.FirstOrDefaultAsync(p => p.Name.ToLower() == username.ToLowerInvariant());
 

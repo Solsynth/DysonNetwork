@@ -5,6 +5,7 @@ using DysonNetwork.Develop.Project;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Networking;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -71,22 +72,22 @@ public class MiniAppController(
         CancellationToken cancellationToken)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var developer = await ds.GetDeveloperByName(dev);
         if (developer is null)
-            return NotFound("Developer not found");
+            return NotFound(new ApiError { Code = "DEV_MINI_APP_DEVELOPER_NOT_FOUND", Message = "Developer not found", Status = 404 });
 
         if (!await ds.IsMemberWithRole(developer.PublisherId, Guid.Parse(currentUser.Id), DyPublisherMemberRole.DyEditor))
-            return StatusCode(403, "You must be an editor of the developer to upload a plugin file");
+            return StatusCode(403, ApiError.Unauthorized("You must be an editor of the developer to upload a plugin file", forbidden: true));
 
         var project = await projectService.GetProjectAsync(proj, developer.Id);
         if (project is null)
-            return NotFound("Project not found or you don't have access");
+            return NotFound(new ApiError { Code = "DEV_MINI_APP_PROJECT_NOT_FOUND", Message = "Project not found or you don't have access", Status = 404 });
 
         var miniApp = await miniAppService.GetMiniAppByIdAsync(miniAppId);
         if (miniApp is null || miniApp.ProjectId != proj)
-            return NotFound("Mini app not found");
+            return NotFound(new ApiError { Code = "DEV_MINI_APP_NOT_FOUND", Message = "Mini app not found", Status = 404 });
 
         try
         {
@@ -100,7 +101,7 @@ public class MiniAppController(
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new ApiError { Code = "DEV_MINI_APP_UPLOAD_FAILED", Message = ex.Message, Status = 400 });
         }
     }
 
@@ -110,17 +111,17 @@ public class MiniAppController(
     public async Task<IActionResult> ListMiniApps([FromQuery(Name = "dev")] string dev, [FromQuery(Name = "proj")] Guid proj)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var developer = await ds.GetDeveloperByName(dev);
-        if (developer is null) return NotFound("Developer not found");
+        if (developer is null) return NotFound(new ApiError { Code = "DEV_MINI_APP_DEVELOPER_NOT_FOUND", Message = "Developer not found", Status = 404 });
 
         var accountId = Guid.Parse(currentUser.Id);
         if (!await ds.IsMemberWithRole(developer.PublisherId, accountId, DyPublisherMemberRole.DyViewer))
-            return StatusCode(403, "You must be a viewer of the developer to list mini apps");
+            return StatusCode(403, ApiError.Unauthorized("You must be a viewer of the developer to list mini apps", forbidden: true));
 
         var project = await projectService.GetProjectAsync(proj, developer.Id);
-        if (project is null) return NotFound("Project not found or you don't have access");
+        if (project is null) return NotFound(new ApiError { Code = "DEV_MINI_APP_PROJECT_NOT_FOUND", Message = "Project not found or you don't have access", Status = 404 });
 
         var miniApps = await miniAppService.GetMiniAppsByProjectAsync(proj);
         var developers = miniApps.Select(m => m.Project.Developer).ToList();
@@ -140,21 +141,21 @@ public class MiniAppController(
         [FromRoute] Guid miniAppId)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var developer = await ds.GetDeveloperByName(dev);
-        if (developer is null) return NotFound("Developer not found");
+        if (developer is null) return NotFound(new ApiError { Code = "DEV_MINI_APP_DEVELOPER_NOT_FOUND", Message = "Developer not found", Status = 404 });
 
         var accountId = Guid.Parse(currentUser.Id);
         if (!await ds.IsMemberWithRole(developer.PublisherId, accountId, DyPublisherMemberRole.DyViewer))
-            return StatusCode(403, "You must be a viewer of the developer to view mini app details");
+            return StatusCode(403, ApiError.Unauthorized("You must be a viewer of the developer to view mini app details", forbidden: true));
 
         var project = await projectService.GetProjectAsync(proj, developer.Id);
-        if (project is null) return NotFound("Project not found or you don't have access");
+        if (project is null) return NotFound(new ApiError { Code = "DEV_MINI_APP_PROJECT_NOT_FOUND", Message = "Project not found or you don't have access", Status = 404 });
 
         var miniApp = await miniAppService.GetMiniAppByIdAsync(miniAppId);
         if (miniApp == null || miniApp.ProjectId != proj)
-            return NotFound("Mini app not found");
+            return NotFound(new ApiError { Code = "DEV_MINI_APP_NOT_FOUND", Message = "Mini app not found", Status = 404 });
 
         return Ok(miniApp);
     }
@@ -168,22 +169,22 @@ public class MiniAppController(
         [FromBody] CreateMiniAppRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var developer = await ds.GetDeveloperByName(dev);
         if (developer is null)
-            return NotFound("Developer not found");
+            return NotFound(new ApiError { Code = "DEV_MINI_APP_DEVELOPER_NOT_FOUND", Message = "Developer not found", Status = 404 });
 
         if (!await ds.IsMemberWithRole(developer.PublisherId, Guid.Parse(currentUser.Id), DyPublisherMemberRole.DyEditor))
-            return StatusCode(403, "You must be an editor of the developer to create a mini app");
+            return StatusCode(403, ApiError.Unauthorized("You must be an editor of the developer to create a mini app", forbidden: true));
 
         var project = await projectService.GetProjectAsync(proj, developer.Id);
         if (project is null)
-            return NotFound("Project not found or you don't have access");
+            return NotFound(new ApiError { Code = "DEV_MINI_APP_PROJECT_NOT_FOUND", Message = "Project not found or you don't have access", Status = 404 });
 
         var manifestError = ValidatePluginManifest(request.Manifest);
         if (manifestError is not null)
-            return BadRequest(manifestError);
+            return BadRequest(new ApiError { Code = "DEV_MINI_APP_MANIFEST_INVALID", Message = manifestError, Status = 400 });
 
         try
         {
@@ -198,7 +199,7 @@ public class MiniAppController(
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new ApiError { Code = "DEV_MINI_APP_CREATE_FAILED", Message = ex.Message, Status = 400 });
         }
     }
 
@@ -213,29 +214,29 @@ public class MiniAppController(
     )
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var developer = await ds.GetDeveloperByName(dev);
         if (developer is null)
-            return NotFound("Developer not found");
+            return NotFound(new ApiError { Code = "DEV_MINI_APP_DEVELOPER_NOT_FOUND", Message = "Developer not found", Status = 404 });
 
         if (!await ds.IsMemberWithRole(developer.PublisherId, Guid.Parse(currentUser.Id), DyPublisherMemberRole.DyEditor))
-            return StatusCode(403, "You must be an editor of the developer to update a mini app");
+            return StatusCode(403, ApiError.Unauthorized("You must be an editor of the developer to update a mini app", forbidden: true));
 
         var project = await projectService.GetProjectAsync(proj, developer.Id);
         if (project is null)
-            return NotFound("Project not found or you don't have access");
+            return NotFound(new ApiError { Code = "DEV_MINI_APP_PROJECT_NOT_FOUND", Message = "Project not found or you don't have access", Status = 404 });
 
         if (request.Manifest is not null)
         {
             var manifestError = ValidatePluginManifest(request.Manifest);
             if (manifestError is not null)
-                return BadRequest(manifestError);
+                return BadRequest(new ApiError { Code = "DEV_MINI_APP_MANIFEST_INVALID", Message = manifestError, Status = 400 });
         }
 
         var miniApp = await miniAppService.GetMiniAppByIdAsync(miniAppId);
         if (miniApp == null || miniApp.ProjectId != proj)
-            return NotFound("Mini app not found");
+            return NotFound(new ApiError { Code = "DEV_MINI_APP_NOT_FOUND", Message = "Mini app not found", Status = 404 });
 
         try
         {
@@ -250,7 +251,7 @@ public class MiniAppController(
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new ApiError { Code = "DEV_MINI_APP_UPDATE_FAILED", Message = ex.Message, Status = 400 });
         }
     }
 
@@ -264,26 +265,26 @@ public class MiniAppController(
     )
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var developer = await ds.GetDeveloperByName(dev);
         if (developer is null)
-            return NotFound("Developer not found");
+            return NotFound(new ApiError { Code = "DEV_MINI_APP_DEVELOPER_NOT_FOUND", Message = "Developer not found", Status = 404 });
 
         if (!await ds.IsMemberWithRole(developer.PublisherId, Guid.Parse(currentUser.Id), DyPublisherMemberRole.DyEditor))
-            return StatusCode(403, "You must be an editor of the developer to delete a mini app");
+            return StatusCode(403, ApiError.Unauthorized("You must be an editor of the developer to delete a mini app", forbidden: true));
 
         var project = await projectService.GetProjectAsync(proj, developer.Id);
         if (project is null)
-            return NotFound("Project not found or you don't have access");
+            return NotFound(new ApiError { Code = "DEV_MINI_APP_PROJECT_NOT_FOUND", Message = "Project not found or you don't have access", Status = 404 });
 
         var miniApp = await miniAppService.GetMiniAppByIdAsync(miniAppId);
         if (miniApp == null || miniApp.ProjectId != proj)
-            return NotFound("Mini app not found");
+            return NotFound(new ApiError { Code = "DEV_MINI_APP_NOT_FOUND", Message = "Mini app not found", Status = 404 });
 
         var result = await miniAppService.DeleteMiniAppAsync(miniAppId);
         if (!result)
-            return NotFound("Failed to delete mini app");
+            return NotFound(new ApiError { Code = "DEV_MINI_APP_DELETE_FAILED", Message = "Failed to delete mini app", Status = 404 });
 
         return NoContent();
     }

@@ -88,7 +88,7 @@ public class NearbyController(
         CancellationToken cancellationToken
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var tokens = await nearby.IssuePresenceTokensAsync(
             currentUser.Id,
@@ -122,7 +122,7 @@ public class NearbyController(
         CancellationToken cancellationToken
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var peers = await nearby.ResolveAsync(
             currentUser.Id,

@@ -37,7 +37,7 @@ public class AccountCurrentController(
     [ProducesResponseType<ApiError>(StatusCodes.Status401Unauthorized)]
     public async Task<ActionResult<SnAccount>> GetCurrentIdentity()
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         var userId = currentUser.Id;
 
         var account = await accounts.GetAccount(userId);
@@ -80,7 +80,7 @@ public class AccountCurrentController(
     [Produces("application/vnd.apple.pkpass")]
     public async Task<ActionResult> GetMemberPass(CancellationToken cancellationToken)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var bytes = await applePasses.GenerateMemberPassAsync(currentUser.Id, cancellationToken);
         return File(bytes, "application/vnd.apple.pkpass", "solian-member.pkpass");
@@ -135,7 +135,7 @@ public class AccountCurrentController(
     [HttpPatch("profile")]
     public async Task<ActionResult<SnAccountProfile>> UpdateProfile([FromBody] ProfileRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         var userId = currentUser.Id;
 
         var profile = await accounts.GetOrCreateAccountProfileAsync(userId);
@@ -211,7 +211,7 @@ public class AccountCurrentController(
     [AskPermission(PermissionKeys.AccountsProfileBoardManage)]
     public async Task<ActionResult<List<SnAccountBoardItem>>> GetBoard()
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         return Ok(await boards.GetBoardAsync(currentUser.Id));
     }
 
@@ -219,7 +219,7 @@ public class AccountCurrentController(
     [AskPermission(PermissionKeys.AccountsProfileBoardManage)]
     public async Task<ActionResult<List<SnAccountBoardItem>>> ReplaceBoard([FromBody] List<BoardItemRequest> request)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         try
         {
@@ -229,7 +229,7 @@ public class AccountCurrentController(
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new ApiError { Code = "PASSPORT_BOARD_REPLACE_FAILED", Message = ex.Message, Status = 400, TraceId = HttpContext.TraceIdentifier });
         }
     }
 
@@ -247,7 +247,7 @@ public class AccountCurrentController(
     [HttpDelete]
     public async Task<ActionResult> RequestDeleteAccount()
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         try
         {
@@ -257,7 +257,7 @@ public class AccountCurrentController(
         {
             return BadRequest(new ApiError
             {
-                Code = "TOO_MANY_REQUESTS",
+                Code = "PASSPORT_ACCOUNT_DELETION_TOO_MANY_REQUESTS",
                 Message = "You already requested account deletion within 24 hours.",
                 Status = 400,
                 TraceId = HttpContext.TraceIdentifier
@@ -275,7 +275,7 @@ public class AccountCurrentController(
         [FromQuery] int offset = 0
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var page = await remoteActionLogs.ListActionLogsPage(
             currentUser.Id,
@@ -331,7 +331,7 @@ public class AccountCurrentController(
     [Authorize]
     public async Task<ActionResult<List<SnAccountBadge>>> GetBadges()
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var badges = await db.Badges
             .Where(b => b.AccountId == currentUser.Id)
@@ -344,7 +344,7 @@ public class AccountCurrentController(
     [AskPermission(PermissionKeys.ProgressionBadgesManage)]
     public async Task<ActionResult<SnAccountBadge>> ActivateBadge(Guid id)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         try
         {
@@ -353,7 +353,7 @@ public class AccountCurrentController(
         }
         catch (Exception ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new ApiError { Code = "PASSPORT_BADGE_ACTIVATE_FAILED", Message = ex.Message, Status = 400, TraceId = HttpContext.TraceIdentifier });
         }
     }
 
@@ -364,7 +364,7 @@ public class AccountCurrentController(
         [FromQuery] int offset = 0
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var queryable = db.ExperienceRecords
             .Where(r => r.AccountId == currentUser.Id)
@@ -384,7 +384,7 @@ public class AccountCurrentController(
     [HttpGet("credits")]
     public async Task<ActionResult<bool>> GetSocialCredit()
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var credit = await creditService.GetSocialCredit(currentUser.Id);
         return Ok(credit);
@@ -396,7 +396,7 @@ public class AccountCurrentController(
         [FromQuery] int offset = 0
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var queryable = db.SocialCreditRecords
             .Where(r => r.AccountId == currentUser.Id)
@@ -420,7 +420,7 @@ public class AccountCurrentController(
         [FromQuery] string? provider = null
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var connections = await remoteConnections.ListConnectionsAsync(currentUser.Id, provider);
         return Ok(connections);

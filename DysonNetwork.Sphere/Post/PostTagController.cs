@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Extensions;
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
 using DysonNetwork.Sphere.Publisher;
@@ -63,12 +64,12 @@ public class PostTagController(
         [FromQuery(Name = "pub")] string? pubName
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         var accountId = Guid.Parse(currentUser.Id);
 
         var publisher = await ResolvePublisherAsync(accountId, pubName);
         if (publisher is null)
-            return BadRequest("Cannot resolve publisher. Specify one via ?pub= or set a default.");
+            return BadRequest(new ApiError { Code = "TAG_PUBLISHER_NOT_RESOLVED", Message = "Cannot resolve publisher. Specify one via ?pub= or set a default.", Status = 400 });
 
         try
         {
@@ -77,7 +78,7 @@ public class PostTagController(
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new ApiError { Code = "TAG_CREATE_FAILED", Message = ex.Message, Status = 400 });
         }
     }
 
@@ -97,7 +98,7 @@ public class PostTagController(
         [FromQuery(Name = "pub")] string? pubName
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         var accountId = Guid.Parse(currentUser.Id);
 
         var tag = await tagService.FindBySlugAsync(slug);
@@ -110,7 +111,7 @@ public class PostTagController(
         }
         catch (InvalidOperationException ex)
         {
-            return StatusCode(403, ex.Message);
+            return StatusCode(403, ApiError.Unauthorized(ex.Message, forbidden: true));
         }
     }
 
@@ -122,12 +123,12 @@ public class PostTagController(
         [FromQuery(Name = "pub")] string? pubName
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         var accountId = Guid.Parse(currentUser.Id);
 
         var publisher = await ResolvePublisherAsync(accountId, pubName);
         if (publisher is null)
-            return BadRequest("Cannot resolve publisher. Specify one via ?pub= or set a default.");
+            return BadRequest(new ApiError { Code = "TAG_PUBLISHER_NOT_RESOLVED", Message = "Cannot resolve publisher. Specify one via ?pub= or set a default.", Status = 400 });
 
         var tag = await tagService.FindBySlugAsync(slug);
         if (tag is null) return NotFound();
@@ -139,7 +140,7 @@ public class PostTagController(
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new ApiError { Code = "TAG_CLAIM_FAILED", Message = ex.Message, Status = 400 });
         }
     }
 
@@ -154,12 +155,12 @@ public class PostTagController(
         [FromQuery(Name = "pub")] string? pubName
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         var accountId = Guid.Parse(currentUser.Id);
 
         var publisher = await ResolvePublisherAsync(accountId, pubName);
         if (publisher is null)
-            return BadRequest("Cannot resolve publisher. Specify one via ?pub= or set a default.");
+            return BadRequest(new ApiError { Code = "TAG_PUBLISHER_NOT_RESOLVED", Message = "Cannot resolve publisher. Specify one via ?pub= or set a default.", Status = 400 });
 
         var tag = await tagService.FindBySlugAsync(slug);
         if (tag is null) return NotFound();
@@ -171,11 +172,10 @@ public class PostTagController(
         }
         catch (InvalidOperationException ex)
         {
-            // Ownership / role failures vs not-found style business rules
             if (ex.Message.Contains("manager", StringComparison.OrdinalIgnoreCase) ||
                 ex.Message.Contains("not owned", StringComparison.OrdinalIgnoreCase))
-                return StatusCode(403, ex.Message);
-            return BadRequest(ex.Message);
+                return StatusCode(403, ApiError.Unauthorized(ex.Message, forbidden: true));
+            return BadRequest(new ApiError { Code = "TAG_RELEASE_FAILED", Message = ex.Message, Status = 400 });
         }
     }
 
@@ -195,22 +195,21 @@ public class PostTagController(
         [FromQuery(Name = "pub")] string? pubName
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         var accountId = Guid.Parse(currentUser.Id);
 
         var publisher = await ResolvePublisherAsync(accountId, pubName);
         if (publisher is null)
-            return BadRequest("Cannot resolve publisher. Specify one via ?pub= or set a default.");
+            return BadRequest(new ApiError { Code = "TAG_PUBLISHER_NOT_RESOLVED", Message = "Cannot resolve publisher. Specify one via ?pub= or set a default.", Status = 400 });
 
-        // Require manager+ for protection changes (same bar as metadata edit).
         if (!await pub.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.Manager))
-            return StatusCode(403, "You must be a manager or above of the owning publisher.");
+            return StatusCode(403, ApiError.Unauthorized("You must be a manager or above of the owning publisher.", forbidden: true));
 
         var tag = await tagService.FindBySlugAsync(slug);
         if (tag is null) return NotFound();
 
         if (tag.OwnerPublisherId != publisher.Id)
-            return StatusCode(403, "This tag is not owned by the specified publisher.");
+            return StatusCode(403, ApiError.Unauthorized("This tag is not owned by the specified publisher.", forbidden: true));
 
         try
         {
@@ -219,7 +218,7 @@ public class PostTagController(
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new ApiError { Code = "TAG_PROTECT_FAILED", Message = ex.Message, Status = 400 });
         }
     }
 
@@ -238,12 +237,12 @@ public class PostTagController(
         string? slug = null
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         var accountId = Guid.Parse(currentUser.Id);
 
         var publisher = await ResolvePublisherAsync(accountId, pubName);
         if (publisher is null)
-            return BadRequest("Cannot resolve publisher. Specify one via ?pub= or set a default.");
+            return BadRequest(new ApiError { Code = "TAG_PUBLISHER_NOT_RESOLVED", Message = "Cannot resolve publisher. Specify one via ?pub= or set a default.", Status = 400 });
 
         var quota = await tagService.GetProtectedTagQuotaAsync(publisher);
         return Ok(quota);
@@ -384,7 +383,7 @@ public class PostTagAdminController(
                 HttpContext.RequestAborted
             );
             if (owner is null)
-                return BadRequest("Owner publisher not found.");
+                return BadRequest(new ApiError { Code = "TAG_OWNER_PUBLISHER_NOT_FOUND", Message = "Owner publisher not found.", Status = 400 });
         }
 
         try
@@ -403,7 +402,7 @@ public class PostTagAdminController(
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new ApiError { Code = "TAG_CREATE_FAILED", Message = ex.Message, Status = 400 });
         }
     }
 
@@ -426,7 +425,7 @@ public class PostTagAdminController(
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new ApiError { Code = "TAG_ASSIGN_FAILED", Message = ex.Message, Status = 400 });
         }
     }
 
@@ -446,7 +445,7 @@ public class PostTagAdminController(
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new ApiError { Code = "TAG_UNASSIGN_FAILED", Message = ex.Message, Status = 400 });
         }
     }
 
@@ -459,13 +458,13 @@ public class PostTagAdminController(
         if (tag is null) return NotFound();
 
         if (tag.OwnerPublisherId is null)
-            return BadRequest("Tag has no owner. Assign ownership first.");
+            return BadRequest(new ApiError { Code = "TAG_NO_OWNER", Message = "Tag has no owner. Assign ownership first.", Status = 400 });
 
         var publisher = await db.Publishers.FirstOrDefaultAsync(
             p => p.Id == tag.OwnerPublisherId.Value,
             HttpContext.RequestAborted
         );
-        if (publisher is null) return BadRequest("Owner publisher not found.");
+        if (publisher is null) return BadRequest(new ApiError { Code = "TAG_OWNER_PUBLISHER_NOT_FOUND", Message = "Owner publisher not found.", Status = 400 });
 
         try
         {
@@ -478,7 +477,7 @@ public class PostTagAdminController(
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new ApiError { Code = "TAG_PROTECT_FAILED", Message = ex.Message, Status = 400 });
         }
     }
 
@@ -502,7 +501,7 @@ public class PostTagAdminController(
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new ApiError { Code = "TAG_EVENT_FAILED", Message = ex.Message, Status = 400 });
         }
     }
 
@@ -514,7 +513,7 @@ public class PostTagAdminController(
         var tag = await tagService.FindBySlugAsync(slug);
         if (tag is null) return NotFound();
 
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         try
         {
@@ -530,7 +529,7 @@ public class PostTagAdminController(
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new ApiError { Code = "TAG_ADMIN_UPDATE_FAILED", Message = ex.Message, Status = 400 });
         }
     }
 
@@ -553,7 +552,7 @@ public class PostTagAdminController(
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new ApiError { Code = "TAG_DELETE_FAILED", Message = ex.Message, Status = 400 });
         }
     }
 

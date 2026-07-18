@@ -1,11 +1,12 @@
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Passport.Account;
 using DysonNetwork.Passport.Mailer;
+using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Localization;
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
-using DysonNetwork.Shared.Auth;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -295,7 +296,7 @@ public class TicketController(
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<SnTicket>> CreateTicket([FromBody] CreateTicketRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         try
         {
@@ -315,7 +316,7 @@ public class TicketController(
         }
         catch (Exception ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new ApiError { Code = "PASSPORT_TICKET_CREATE_FAILED", Message = ex.Message, Status = 400, TraceId = HttpContext.TraceIdentifier });
         }
     }
 
@@ -334,10 +335,10 @@ public class TicketController(
     )
     {
         var (isAdmin, currentUser) = await GetCurrentUserAsync();
-        if (currentUser == null) return Unauthorized();
+        if (currentUser == null) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         if (!isAdmin && !IsSelfScopedTicketQuery(currentUser, creatorId, assigneeId))
-            return StatusCode(StatusCodes.Status403Forbidden, "You do not have permission to view these tickets");
+            return StatusCode(StatusCodes.Status403Forbidden, ApiError.Unauthorized("You do not have permission to view these tickets.", forbidden: true));
 
         var tickets = await ticketService.GetTicketsAsync(
             creatorId,
@@ -361,7 +362,7 @@ public class TicketController(
         [FromQuery] int take = 20
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var tickets = await ticketService.GetTicketsAsync(
             creatorId: currentUser.Id,
@@ -381,11 +382,11 @@ public class TicketController(
     public async Task<ActionResult<SnTicket>> GetTicketById(Guid id)
     {
         var ticket = await ticketService.GetTicketByIdAsync(id);
-        if (ticket == null) return NotFound();
+        if (ticket == null) return NotFound(new ApiError { Code = "PASSPORT_TICKET_NOT_FOUND", Message = "Ticket not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
         var (isAdmin, currentUser) = await GetCurrentUserAsync();
         if (!isAdmin && ticket.CreatorId != currentUser?.Id && ticket.AssigneeId != currentUser?.Id)
-            return StatusCode(StatusCodes.Status403Forbidden, "You do not have permission to view this ticket");
+            return StatusCode(StatusCodes.Status403Forbidden, ApiError.Unauthorized("You do not have permission to view this ticket.", forbidden: true));
 
         return Ok(ticket);
     }
@@ -399,7 +400,7 @@ public class TicketController(
     public async Task<ActionResult<SnTicket>> UpdateTicket(Guid id, [FromBody] UpdateTicketRequest request)
     {
         var (isAdmin, _) = await GetCurrentUserAsync();
-        if (!isAdmin) return StatusCode(StatusCodes.Status403Forbidden, "You do not have permission to update tickets");
+        if (!isAdmin) return StatusCode(StatusCodes.Status403Forbidden, ApiError.Unauthorized("You do not have permission to update tickets.", forbidden: true));
 
         try
         {
@@ -415,11 +416,11 @@ public class TicketController(
         }
         catch (KeyNotFoundException)
         {
-            return NotFound();
+            return NotFound(new ApiError { Code = "PASSPORT_TICKET_NOT_FOUND", Message = "Ticket not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
         }
         catch (Exception ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new ApiError { Code = "PASSPORT_TICKET_UPDATE_FAILED", Message = ex.Message, Status = 400, TraceId = HttpContext.TraceIdentifier });
         }
     }
 
@@ -432,7 +433,7 @@ public class TicketController(
     public async Task<IActionResult> DeleteTicket(Guid id)
     {
         var (isAdmin, _) = await GetCurrentUserAsync();
-        if (!isAdmin) return StatusCode(StatusCodes.Status403Forbidden, "You do not have permission to delete tickets");
+        if (!isAdmin) return StatusCode(StatusCodes.Status403Forbidden, ApiError.Unauthorized("You do not have permission to delete tickets.", forbidden: true));
 
         try
         {
@@ -441,11 +442,11 @@ public class TicketController(
         }
         catch (KeyNotFoundException)
         {
-            return NotFound();
+            return NotFound(new ApiError { Code = "PASSPORT_TICKET_NOT_FOUND", Message = "Ticket not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
         }
         catch (Exception ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new ApiError { Code = "PASSPORT_TICKET_DELETE_FAILED", Message = ex.Message, Status = 400, TraceId = HttpContext.TraceIdentifier });
         }
     }
 
@@ -458,26 +459,26 @@ public class TicketController(
     public async Task<ActionResult<SnTicketMessage>> AddMessage(Guid id, [FromBody] AddMessageRequest request)
     {
         var (isAdmin, currentUser) = await GetCurrentUserAsync();
-        if (!isAdmin) return StatusCode(StatusCodes.Status403Forbidden, "You do not have permission to reply to tickets");
+        if (!isAdmin) return StatusCode(StatusCodes.Status403Forbidden, ApiError.Unauthorized("You do not have permission to reply to tickets.", forbidden: true));
 
         try
         {
             var ticket = await ticketService.GetTicketByIdAsync(id);
-            if (ticket == null) return NotFound();
+            if (ticket == null) return NotFound(new ApiError { Code = "PASSPORT_TICKET_NOT_FOUND", Message = "Ticket not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
             var message = await ticketService.AddMessageAsync(id, currentUser!.Id, request.Content, request.FileIds);
-            
+
             await NotifyTicketNewMessageAsync(ticket, currentUser);
-            
+
             return Ok(message);
         }
         catch (KeyNotFoundException)
         {
-            return NotFound();
+            return NotFound(new ApiError { Code = "PASSPORT_TICKET_NOT_FOUND", Message = "Ticket not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
         }
         catch (Exception ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new ApiError { Code = "PASSPORT_TICKET_MESSAGE_FAILED", Message = ex.Message, Status = 400, TraceId = HttpContext.TraceIdentifier });
         }
     }
 
@@ -490,12 +491,12 @@ public class TicketController(
     public async Task<ActionResult<SnTicket>> UpdateStatus(Guid id, [FromBody] UpdateStatusRequest request)
     {
         var (isAdmin, currentUser) = await GetCurrentUserAsync();
-        if (!isAdmin) return StatusCode(StatusCodes.Status403Forbidden, "You do not have permission to update ticket status");
+        if (!isAdmin) return StatusCode(StatusCodes.Status403Forbidden, ApiError.Unauthorized("You do not have permission to update ticket status.", forbidden: true));
 
         try
         {
             var existingTicket = await ticketService.GetTicketByIdAsync(id);
-            if (existingTicket == null) return NotFound();
+            if (existingTicket == null) return NotFound(new ApiError { Code = "PASSPORT_TICKET_NOT_FOUND", Message = "Ticket not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
             var oldStatus = existingTicket.Status;
             var ticket = await ticketService.UpdateStatusAsync(id, request.Status);
@@ -544,11 +545,11 @@ public class TicketController(
         }
         catch (KeyNotFoundException)
         {
-            return NotFound();
+            return NotFound(new ApiError { Code = "PASSPORT_TICKET_NOT_FOUND", Message = "Ticket not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
         }
         catch (Exception ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new ApiError { Code = "PASSPORT_TICKET_STATUS_UPDATE_FAILED", Message = ex.Message, Status = 400, TraceId = HttpContext.TraceIdentifier });
         }
     }
 
@@ -561,12 +562,12 @@ public class TicketController(
     public async Task<ActionResult<SnTicket>> Assign(Guid id, [FromBody] AssignRequest request)
     {
         var (isAdmin, currentUser) = await GetCurrentUserAsync();
-        if (!isAdmin) return StatusCode(StatusCodes.Status403Forbidden, "You do not have permission to assign tickets");
+        if (!isAdmin) return StatusCode(StatusCodes.Status403Forbidden, ApiError.Unauthorized("You do not have permission to assign tickets.", forbidden: true));
 
         try
         {
             var existingTicket = await ticketService.GetTicketByIdAsync(id);
-            if (existingTicket == null) return NotFound();
+            if (existingTicket == null) return NotFound(new ApiError { Code = "PASSPORT_TICKET_NOT_FOUND", Message = "Ticket not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
             var oldAssignee = existingTicket.Assignee;
             var ticket = await ticketService.AssignAsync(id, request.AssigneeId);
@@ -580,11 +581,11 @@ public class TicketController(
         }
         catch (KeyNotFoundException)
         {
-            return NotFound();
+            return NotFound(new ApiError { Code = "PASSPORT_TICKET_NOT_FOUND", Message = "Ticket not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
         }
         catch (Exception ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new ApiError { Code = "PASSPORT_TICKET_ASSIGN_FAILED", Message = ex.Message, Status = 400, TraceId = HttpContext.TraceIdentifier });
         }
     }
 
@@ -599,10 +600,10 @@ public class TicketController(
     )
     {
         var (isAdmin, currentUser) = await GetCurrentUserAsync();
-        if (currentUser == null) return Unauthorized();
+        if (currentUser == null) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         if (!isAdmin && !IsSelfScopedTicketQuery(currentUser, creatorId, assigneeId))
-            return StatusCode(StatusCodes.Status403Forbidden, "You do not have permission to view these tickets");
+            return StatusCode(StatusCodes.Status403Forbidden, ApiError.Unauthorized("You do not have permission to view these tickets.", forbidden: true));
 
         var count = await ticketService.CountTicketsAsync(creatorId, assigneeId, status);
         return Ok(new { count });

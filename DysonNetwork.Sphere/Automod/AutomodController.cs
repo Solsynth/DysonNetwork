@@ -1,5 +1,6 @@
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Networking;
 using DysonNetwork.Sphere.Models;
 using DysonNetwork.Sphere.Automod;
 using Microsoft.AspNetCore.Mvc;
@@ -41,7 +42,7 @@ public class AutomodController(
     {
         var rule = await db.AutomodRules.FindAsync(id);
         if (rule is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "AUTOMOD_RULE_NOT_FOUND", Message = "Rule not found.", Status = 404 });
 
         return Ok(rule);
     }
@@ -84,7 +85,7 @@ public class AutomodController(
     {
         var rule = await db.AutomodRules.FindAsync(id);
         if (rule is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "AUTOMOD_RULE_NOT_FOUND", Message = "Rule not found.", Status = 404 });
 
         if (!string.IsNullOrEmpty(request.Name))
             rule.Name = request.Name;
@@ -118,7 +119,7 @@ public class AutomodController(
     {
         var rule = await db.AutomodRules.FindAsync(id);
         if (rule is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "AUTOMOD_RULE_NOT_FOUND", Message = "Rule not found.", Status = 404 });
 
         db.AutomodRules.Remove(rule);
         await db.SaveChangesAsync();
@@ -199,7 +200,7 @@ public class AutomodController(
     {
         var rule = await db.AutomodRules.FindAsync(id);
         if (rule is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "AUTOMOD_RULE_NOT_FOUND", Message = "Rule not found.", Status = 404 });
 
         var contentToCheck = request.Content ?? string.Empty;
         var matchedText = MatchRuleContent(rule, contentToCheck);

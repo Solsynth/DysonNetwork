@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using DysonNetwork.Shared.Networking;
 
 namespace DysonNetwork.Sphere.ActivityPub.Services;
 
@@ -25,7 +26,7 @@ public class InboxValidationMiddleware(
         {
             logger.LogWarning("[Inbox] Request missing Signature header. Path: {Path}", path);
             context.Response.StatusCode = StatusCodes.Status401Unauthorized;
-            await context.Response.WriteAsJsonAsync(new { error = "Missing signature" });
+            await context.Response.WriteAsJsonAsync(new ApiError { Code = "INBOX_MISSING_SIGNATURE", Message = "Missing signature.", Status = 401 });
             return;
         }
 
@@ -42,7 +43,7 @@ public class InboxValidationMiddleware(
         {
             logger.LogWarning("[Inbox] Invalid signature header: {Error}", ex.Message);
             context.Response.StatusCode = StatusCodes.Status401Unauthorized;
-            await context.Response.WriteAsJsonAsync(new { error = "Invalid signature" });
+            await context.Response.WriteAsJsonAsync(new ApiError { Code = "INBOX_INVALID_SIGNATURE", Message = "Invalid signature.", Status = 401 });
             return;
         }
 
@@ -79,7 +80,7 @@ public class InboxActivityMiddleware(
         {
             logger.LogWarning("[Inbox] Actor not validated before activity parsing");
             context.Response.StatusCode = StatusCodes.Status401Unauthorized;
-            await context.Response.WriteAsJsonAsync(new { error = "Actor not validated" });
+            await context.Response.WriteAsJsonAsync(new ApiError { Code = "INBOX_ACTOR_NOT_VALIDATED", Message = "Actor not validated.", Status = 401 });
             return;
         }
 
@@ -99,7 +100,7 @@ public class InboxActivityMiddleware(
             {
                 logger.LogWarning("[Inbox] Invalid JSON from {Actor}: {Error}", actorUri, ex.Message);
                 context.Response.StatusCode = StatusCodes.Status400BadRequest;
-                await context.Response.WriteAsJsonAsync(new { error = "Invalid JSON" });
+                await context.Response.WriteAsJsonAsync(new ApiError { Code = "INBOX_INVALID_JSON", Message = "Invalid JSON.", Status = 400 });
                 return;
             }
 
@@ -107,7 +108,7 @@ public class InboxActivityMiddleware(
             {
                 logger.LogWarning("[Inbox] Empty activity from {Actor}", actorUri);
                 context.Response.StatusCode = StatusCodes.Status400BadRequest;
-                await context.Response.WriteAsJsonAsync(new { error = "Empty activity" });
+                await context.Response.WriteAsJsonAsync(new ApiError { Code = "INBOX_EMPTY_ACTIVITY", Message = "Empty activity.", Status = 400 });
                 return;
             }
 
@@ -125,7 +126,7 @@ public class InboxActivityMiddleware(
         {
             logger.LogError(ex, "[Inbox] Error parsing activity from {Actor}", actorUri);
             context.Response.StatusCode = StatusCodes.Status500InternalServerError;
-            await context.Response.WriteAsJsonAsync(new { error = "Processing error" });
+            await context.Response.WriteAsJsonAsync(new ApiError { Code = "INBOX_PROCESSING_ERROR", Message = "Processing error.", Status = 500 });
             return;
         }
 

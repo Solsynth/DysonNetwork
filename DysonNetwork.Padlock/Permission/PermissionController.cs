@@ -5,6 +5,7 @@ using DysonNetwork.Shared.Models;
 using NodaTime;
 using System.Text.Json;
 using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Networking;
 
 namespace DysonNetwork.Padlock.Permission;
 
@@ -37,11 +38,11 @@ public class PermissionController(
         }
         catch (ArgumentException ex)
         {
-            return BadRequest(new { error = ex.Message });
+            return BadRequest(new ApiError { Code = "PERMISSION_CHECK_INVALID_INPUT", Message = ex.Message, Status = 400 });
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { error = "Failed to check permission", details = ex.Message });
+            return StatusCode(500, new ApiError { Code = "PERMISSION_CHECK_ERROR", Message = "Failed to check permission.", Status = 500, Detail = ex.Message });
         }
     }
 
@@ -62,11 +63,11 @@ public class PermissionController(
         }
         catch (ArgumentException ex)
         {
-            return BadRequest(new { error = ex.Message });
+            return BadRequest(new ApiError { Code = "PERMISSION_LIST_INVALID_INPUT", Message = ex.Message, Status = 400 });
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { error = "Failed to list permissions", details = ex.Message });
+            return StatusCode(500, new ApiError { Code = "PERMISSION_LIST_ERROR", Message = "Failed to list permissions.", Status = 500, Detail = ex.Message });
         }
     }
 
@@ -87,11 +88,11 @@ public class PermissionController(
         }
         catch (ArgumentException ex)
         {
-            return BadRequest(new { error = ex.Message });
+            return BadRequest(new ApiError { Code = "PERMISSION_LIST_INVALID_INPUT", Message = ex.Message, Status = 400 });
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { error = "Failed to list permissions", details = ex.Message });
+            return StatusCode(500, new ApiError { Code = "PERMISSION_LIST_ERROR", Message = "Failed to list permissions.", Status = 500, Detail = ex.Message });
         }
     }
 
@@ -122,11 +123,11 @@ public class PermissionController(
         }
         catch (ArgumentException ex)
         {
-            return BadRequest(new { error = ex.Message });
+            return BadRequest(new ApiError { Code = "PERMISSION_ADD_INVALID_INPUT", Message = ex.Message, Status = 400 });
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { error = "Failed to add permission", details = ex.Message });
+            return StatusCode(500, new ApiError { Code = "PERMISSION_ADD_ERROR", Message = "Failed to add permission.", Status = 500, Detail = ex.Message });
         }
     }
 
@@ -151,11 +152,11 @@ public class PermissionController(
         }
         catch (ArgumentException ex)
         {
-            return BadRequest(new { error = ex.Message });
+            return BadRequest(new ApiError { Code = "PERMISSION_REMOVE_INVALID_INPUT", Message = ex.Message, Status = 400 });
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { error = "Failed to remove permission", details = ex.Message });
+            return StatusCode(500, new ApiError { Code = "PERMISSION_REMOVE_ERROR", Message = "Failed to remove permission.", Status = 500, Detail = ex.Message });
         }
     }
 
@@ -183,7 +184,7 @@ public class PermissionController(
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { error = "Failed to list actor groups", details = ex.Message });
+            return StatusCode(500, new ApiError { Code = "PERMISSION_ACTOR_GROUPS_ERROR", Message = "Failed to list actor groups.", Status = 500, Detail = ex.Message });
         }
     }
 
@@ -207,7 +208,7 @@ public class PermissionController(
             var group = await db.PermissionGroups.FindAsync(groupId);
             if (group == null)
             {
-                return NotFound(new { error = "Permission group not found" });
+                return NotFound(new ApiError { Code = "PERMISSION_GROUP_NOT_FOUND", Message = "Permission group not found.", Status = 404 });
             }
 
             // Check if actor is already in the group
@@ -216,7 +217,7 @@ public class PermissionController(
 
             if (existing != null)
             {
-                return BadRequest(new { error = "Actor is already in this group" });
+                return BadRequest(new ApiError { Code = "PERMISSION_ACTOR_ALREADY_IN_GROUP", Message = "Actor is already in this group.", Status = 400 });
             }
 
             var member = new SnPermissionGroupMember
@@ -238,7 +239,7 @@ public class PermissionController(
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { error = "Failed to add actor to group", details = ex.Message });
+            return StatusCode(500, new ApiError { Code = "PERMISSION_ADD_ACTOR_TO_GROUP_ERROR", Message = "Failed to add actor to group.", Status = 500, Detail = ex.Message });
         }
     }
 
@@ -259,7 +260,7 @@ public class PermissionController(
 
             if (member == null)
             {
-                return NotFound(new { error = "Actor is not in this group" });
+                return NotFound(new ApiError { Code = "PERMISSION_ACTOR_NOT_IN_GROUP", Message = "Actor is not in this group.", Status = 404 });
             }
 
             db.PermissionGroupMembers.Remove(member);
@@ -272,7 +273,7 @@ public class PermissionController(
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { error = "Failed to remove actor from group", details = ex.Message });
+            return StatusCode(500, new ApiError { Code = "PERMISSION_REMOVE_ACTOR_FROM_GROUP_ERROR", Message = "Failed to remove actor from group.", Status = 500, Detail = ex.Message });
         }
     }
 
@@ -293,11 +294,11 @@ public class PermissionController(
         }
         catch (ArgumentException ex)
         {
-            return BadRequest(new { error = ex.Message });
+            return BadRequest(new ApiError { Code = "PERMISSION_CLEAR_CACHE_INVALID_INPUT", Message = ex.Message, Status = 400 });
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { error = "Failed to clear cache", details = ex.Message });
+            return StatusCode(500, new ApiError { Code = "PERMISSION_CLEAR_CACHE_ERROR", Message = "Failed to clear cache.", Status = 500, Detail = ex.Message });
         }
     }
 
@@ -322,7 +323,7 @@ public class PermissionController(
         }
         catch (Exception ex)
         {
-            return BadRequest(new { error = ex.Message });
+            return BadRequest(new ApiError { Code = "PERMISSION_VALIDATE_PATTERN_ERROR", Message = ex.Message, Status = 400 });
         }
     }
 }

@@ -39,7 +39,7 @@ public class AccountSecurityController(
     public async Task<ActionResult<SnAccount>> GetCurrentIdentity()
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         var account = await db.Accounts.Where(e => e.Id == currentUser.Id).FirstOrDefaultAsync();
         return Ok(account);
     }
@@ -48,7 +48,7 @@ public class AccountSecurityController(
     public async Task<ActionResult<List<SnAccountAuthFactor>>> GetAuthFactors()
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var factors = await db
             .AccountAuthFactors.Where(f => f.AccountId == currentUser.Id)
@@ -69,7 +69,7 @@ public class AccountSecurityController(
     )
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         if (
             request.Type != AccountAuthFactorType.RecoveryCode
             && !await accounts.CheckAuthFactorEnabled(
@@ -101,7 +101,7 @@ public class AccountSecurityController(
             );
 
         var factor = await accounts.CreateAuthFactor(currentUser, request.Type, request.Secret);
-        return factor is null ? BadRequest("Invalid factor request.") : Ok(factor);
+        return factor is null ? BadRequest(new ApiError { Code = "PADLOCK_AUTH_FACTOR_INVALID", Message = "Invalid factor request.", Status = 400 }) : Ok(factor);
     }
 
     public class PasskeyRegistrationStartRequest
@@ -142,7 +142,7 @@ public class AccountSecurityController(
     )
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         if (!await accounts.CheckAuthFactorEnabled(currentUser, AccountAuthFactorType.RecoveryCode))
             return BadRequest(
                 ApiError.Validation(
@@ -197,9 +197,9 @@ public class AccountSecurityController(
     )
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         if (!await accounts.CheckAuthFactorEnabled(currentUser, AccountAuthFactorType.Passkey))
-            return BadRequest("Passkey factor is not enabled.");
+            return BadRequest(new ApiError { Code = "PADLOCK_PASSKEY_FACTOR_NOT_ENABLED", Message = "Passkey factor is not enabled.", Status = 400 });
 
         var credential = await accounts.CompletePasskeyRegistrationAsync(
             currentUser,
@@ -209,10 +209,10 @@ public class AccountSecurityController(
         );
 
         if (credential == null)
-            return BadRequest("Passkey registration failed.");
+            return BadRequest(new ApiError { Code = "PADLOCK_PASSKEY_REGISTRATION_FAILED", Message = "Passkey registration failed.", Status = 400 });
 
         if (await db.AccountPasskeys.AnyAsync(p => p.CredentialId == credential.CredentialId))
-            return BadRequest("Passkey is already registered.");
+            return BadRequest(new ApiError { Code = "PADLOCK_PASSKEY_ALREADY_REGISTERED", Message = "Passkey is already registered.", Status = 400 });
 
         var passkey = new SnAccountPasskey
         {
@@ -230,7 +230,7 @@ public class AccountSecurityController(
     public async Task<ActionResult<List<SnAccountPasskey>>> GetPasskeys()
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         return Ok(await db.AccountPasskeys
             .Where(p => p.AccountId == currentUser.Id)
@@ -242,7 +242,7 @@ public class AccountSecurityController(
     public async Task<ActionResult> DeletePasskey(Guid id)
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var passkey = await db.AccountPasskeys
             .FirstOrDefaultAsync(p => p.Id == id && p.AccountId == currentUser.Id);
@@ -266,7 +266,7 @@ public class AccountSecurityController(
     )
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var passkey = await db.AccountPasskeys
             .FirstOrDefaultAsync(p => p.Id == id && p.AccountId == currentUser.Id);
@@ -285,7 +285,7 @@ public class AccountSecurityController(
     )
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var factor = await db
             .AccountAuthFactors.Where(f => f.AccountId == currentUser.Id && f.Id == id)
@@ -300,7 +300,7 @@ public class AccountSecurityController(
         }
         catch (Exception ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new ApiError { Code = "PADLOCK_AUTH_FACTOR_OPERATION_FAILED", Message = ex.Message, Status = 400 });
         }
     }
 
@@ -308,13 +308,13 @@ public class AccountSecurityController(
     public async Task<ActionResult<SnAccountAuthFactor>> DisableAuthFactor(Guid id)
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var factor = await db
             .AccountAuthFactors.Where(f => f.AccountId == currentUser.Id && f.Id == id)
             .FirstOrDefaultAsync();
         if (factor is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PADLOCK_AUTH_FACTOR_NOT_FOUND", Message = "Auth factor not found.", Status = 404 });
 
         try
         {
@@ -323,7 +323,7 @@ public class AccountSecurityController(
         }
         catch (Exception ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new ApiError { Code = "PADLOCK_AUTH_FACTOR_OPERATION_FAILED", Message = ex.Message, Status = 400 });
         }
     }
 
@@ -331,13 +331,13 @@ public class AccountSecurityController(
     public async Task<ActionResult> DeleteAuthFactor(Guid id)
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var factor = await db
             .AccountAuthFactors.Where(f => f.AccountId == currentUser.Id && f.Id == id)
             .FirstOrDefaultAsync();
         if (factor is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PADLOCK_AUTH_FACTOR_NOT_FOUND", Message = "Auth factor not found.", Status = 404 });
 
         if (factor.Type == AccountAuthFactorType.Passkey)
         {
@@ -360,7 +360,7 @@ public class AccountSecurityController(
             HttpContext.Items["CurrentUser"] is not SnAccount currentUser
             || HttpContext.Items["CurrentSession"] is not SnAuthSession currentSession
         )
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         Response.Headers.Append("X-Auth-Session", currentSession.Id.ToString());
 
@@ -407,7 +407,7 @@ public class AccountSecurityController(
             HttpContext.Items["CurrentUser"] is not SnAccount currentUser
             || HttpContext.Items["CurrentSession"] is not SnAuthSession currentSession
         )
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var query = db.AuthSessions.Where(session => session.AccountId == currentUser.Id);
 
@@ -463,7 +463,7 @@ public class AccountSecurityController(
             HttpContext.Items["CurrentUser"] is not SnAccount currentUser
             || HttpContext.Items["CurrentSession"] is not SnAuthSession currentSession
         )
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         // Verify the session belongs to current user
         var parentSession = await db.AuthSessions.FirstOrDefaultAsync(s =>
@@ -511,7 +511,7 @@ public class AccountSecurityController(
     public async Task<ActionResult> DeleteSession(Guid id)
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         await accounts.DeleteSession(currentUser, id);
         return NoContent();
     }
@@ -520,7 +520,7 @@ public class AccountSecurityController(
     public async Task<ActionResult> DeleteDevice(string deviceId)
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         await accounts.DeleteDevice(currentUser, deviceId);
         return NoContent();
     }
@@ -532,7 +532,7 @@ public class AccountSecurityController(
             HttpContext.Items["CurrentUser"] is not SnAccount currentUser
             || HttpContext.Items["CurrentSession"] is not SnAuthSession currentSession
         )
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         await accounts.DeleteSession(currentUser, currentSession.Id);
         return NoContent();
     }
@@ -543,7 +543,7 @@ public class AccountSecurityController(
     )
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var query = db
             .AuthorizedApps.Where(x => x.AccountId == currentUser.Id)
@@ -606,10 +606,10 @@ public class AccountSecurityController(
     )
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         if (request.Scopes is not { Count: > 0 })
-            return BadRequest("At least one scope is required.");
+            return BadRequest(new ApiError { Code = "PADLOCK_AUTH_SCOPE_REQUIRED", Message = "At least one scope is required.", Status = 400 });
 
         var authorized = await db
             .AuthorizedApps.Where(x =>
@@ -617,7 +617,7 @@ public class AccountSecurityController(
             )
             .FirstOrDefaultAsync();
         if (authorized is null)
-            return NotFound("Authorized app was not found.");
+            return NotFound(new ApiError { Code = "PADLOCK_AUTHORIZED_APP_NOT_FOUND", Message = "Authorized app was not found.", Status = 404 });
 
         DyGetCustomAppResponse appResponse;
         try
@@ -628,11 +628,11 @@ public class AccountSecurityController(
         }
         catch (Grpc.Core.RpcException)
         {
-            return NotFound("App was not found.");
+            return NotFound(new ApiError { Code = "PADLOCK_APP_NOT_FOUND", Message = "App was not found.", Status = 404 });
         }
 
         if (appResponse.App is null)
-            return NotFound("App was not found.");
+            return NotFound(new ApiError { Code = "PADLOCK_APP_NOT_FOUND", Message = "App was not found.", Status = 404 });
 
         var allowedScopes =
             appResponse.App.OauthConfig?.AllowedScopes?.ToHashSet(StringComparer.Ordinal) ?? [];
@@ -642,7 +642,7 @@ public class AccountSecurityController(
             .ToList();
         scopes = authorized.Scopes.Concat(scopes).Distinct(StringComparer.Ordinal).ToList();
         if (scopes.Any(x => !allowedScopes.Contains(x)))
-            return BadRequest("One or more scopes are not allowed by this app.");
+            return BadRequest(new ApiError { Code = "PADLOCK_AUTH_SCOPE_NOT_ALLOWED", Message = "One or more scopes are not allowed by this app.", Status = 400 });
 
         authorized = await auth.UpsertAuthorizedAppAsync(
             currentUser.Id,
@@ -680,11 +680,11 @@ public class AccountSecurityController(
     )
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var count = await auth.RevokeAuthorizedAppAccessByIdAsync(currentUser.Id, id, type);
         if (count == 0)
-            return NotFound("Authorized app was not found.");
+            return NotFound(new ApiError { Code = "PADLOCK_AUTHORIZED_APP_NOT_FOUND", Message = "Authorized app was not found.", Status = 404 });
 
         return NoContent();
     }
@@ -693,7 +693,7 @@ public class AccountSecurityController(
     public async Task<ActionResult> UpdateDeviceLabel(string deviceId, [FromBody] string label)
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         await accounts.UpdateDeviceName(currentUser, deviceId, label);
         return NoContent();
     }
@@ -705,11 +705,11 @@ public class AccountSecurityController(
             HttpContext.Items["CurrentUser"] is not SnAccount currentUser
             || HttpContext.Items["CurrentSession"] is not SnAuthSession currentSession
         )
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var device = await db.AuthClients.FirstOrDefaultAsync(d => d.Id == currentSession.ClientId);
         if (device is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PADLOCK_DEVICE_NOT_FOUND", Message = "Device not found.", Status = 404 });
 
         await accounts.UpdateDeviceName(currentUser, device.DeviceId, label);
         return NoContent();
@@ -719,7 +719,7 @@ public class AccountSecurityController(
     public async Task<ActionResult<List<SnAccountContact>>> GetContacts()
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         var contacts = await db
             .AccountContacts.Where(c => c.AccountId == currentUser.Id)
             .ToListAsync();
@@ -738,7 +738,7 @@ public class AccountSecurityController(
     )
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         var contact = await accounts.CreateContactMethod(
             currentUser,
             request.Type,
@@ -751,12 +751,12 @@ public class AccountSecurityController(
     public async Task<ActionResult<SnAccountContact>> VerifyContact(Guid id)
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         var contact = await db
             .AccountContacts.Where(c => c.AccountId == currentUser.Id && c.Id == id)
             .FirstOrDefaultAsync();
         if (contact is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PADLOCK_CONTACT_NOT_FOUND", Message = "Contact not found.", Status = 404 });
 
         try
         {
@@ -764,7 +764,7 @@ public class AccountSecurityController(
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new ApiError { Code = "PADLOCK_CONTACT_VERIFICATION_FAILED", Message = ex.Message, Status = 400 });
         }
 
         return Ok(contact);
@@ -774,12 +774,12 @@ public class AccountSecurityController(
     public async Task<ActionResult<SnAccountContact>> SetPrimaryContact(Guid id)
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         var contact = await db
             .AccountContacts.Where(c => c.AccountId == currentUser.Id && c.Id == id)
             .FirstOrDefaultAsync();
         if (contact is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PADLOCK_CONTACT_NOT_FOUND", Message = "Contact not found.", Status = 404 });
         contact = await accounts.SetContactMethodPrimary(currentUser, contact);
         return Ok(contact);
     }
@@ -788,12 +788,12 @@ public class AccountSecurityController(
     public async Task<ActionResult<SnAccountContact>> SetPublicContact(Guid id)
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         var contact = await db
             .AccountContacts.Where(c => c.AccountId == currentUser.Id && c.Id == id)
             .FirstOrDefaultAsync();
         if (contact is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PADLOCK_CONTACT_NOT_FOUND", Message = "Contact not found.", Status = 404 });
         contact = await accounts.SetContactMethodPublic(currentUser, contact, true);
         return Ok(contact);
     }
@@ -802,12 +802,12 @@ public class AccountSecurityController(
     public async Task<ActionResult<SnAccountContact>> UnsetPublicContact(Guid id)
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         var contact = await db
             .AccountContacts.Where(c => c.AccountId == currentUser.Id && c.Id == id)
             .FirstOrDefaultAsync();
         if (contact is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PADLOCK_CONTACT_NOT_FOUND", Message = "Contact not found.", Status = 404 });
         contact = await accounts.SetContactMethodPublic(currentUser, contact, false);
         return Ok(contact);
     }
@@ -816,12 +816,12 @@ public class AccountSecurityController(
     public async Task<ActionResult> DeleteContact(Guid id)
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         var contact = await db
             .AccountContacts.Where(c => c.AccountId == currentUser.Id && c.Id == id)
             .FirstOrDefaultAsync();
         if (contact is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PADLOCK_CONTACT_NOT_FOUND", Message = "Contact not found.", Status = 404 });
         await accounts.DeleteContactMethod(currentUser, contact);
         return NoContent();
     }

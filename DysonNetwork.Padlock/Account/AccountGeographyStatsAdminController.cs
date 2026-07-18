@@ -1,4 +1,5 @@
 using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Networking;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -40,12 +41,12 @@ public class AccountGeographyStatsAdminController(AppDatabase db) : ControllerBa
     {
         var normalizedPrecision = (precision ?? "country").Trim().ToLowerInvariant();
         if (normalizedPrecision is not "country" and not "city")
-            return BadRequest("precision must be either country or city.");
+            return BadRequest(new ApiError { Code = "PADLOCK_STATS_PRECISION_INVALID", Message = "Precision must be either country or city.", Status = 400 });
 
         var now = SystemClock.Instance.GetCurrentInstant();
         var startAt = since ?? now - Duration.FromDays(30);
         if (startAt > now)
-            return BadRequest("since cannot be in the future.");
+            return BadRequest(new ApiError { Code = "PADLOCK_STATS_SINCE_FUTURE", Message = "Since cannot be in the future.", Status = 400 });
 
         var latestLocations = await db.AuthSessions
             .AsNoTracking()

@@ -1,15 +1,16 @@
 using System.ComponentModel.DataAnnotations;
-using DysonNetwork.Sphere.Models;
 using System.Globalization;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Data;
-using DysonNetwork.Shared.Extensions;
 using DysonNetwork.Shared.EventBus;
+using DysonNetwork.Shared.Extensions;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Models.Embed;
+using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Queue;
 using DysonNetwork.Shared.Registry;
+using DysonNetwork.Sphere.Models;
 using DysonNetwork.Sphere.ActivityPub;
 using DysonNetwork.Sphere.Reader;
 using DysonNetwork.Sphere.Survey;
@@ -92,7 +93,7 @@ public class PostActionController(
         }
         catch (Exception)
         {
-            return BadRequest("Invalid location WKT.");
+            return BadRequest(new ApiError { Code = "POST_INVALID_LOCATION", Message = "Invalid location WKT.", Status = 400 });
         }
     }
 
@@ -121,7 +122,7 @@ public class PostActionController(
         if (post.Type != PostType.Blog)
             return null;
         if (string.IsNullOrWhiteSpace(post.Content))
-            return BadRequest("Blog post content must be a valid URL.");
+            return BadRequest(new ApiError { Code = "POST_BLOG_INVALID_URL", Message = "Blog post content must be a valid URL.", Status = 400 });
 
         try
         {
@@ -155,7 +156,7 @@ public class PostActionController(
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Failed to fetch blog preview for URL {Url}", post.Content);
-            return BadRequest("Unable to fetch a link preview for this blog URL.");
+            return BadRequest(new ApiError { Code = "POST_BLOG_PREVIEW_FAILED", Message = "Unable to fetch a link preview for this blog URL.", Status = 400 });
         }
     }
 
@@ -302,19 +303,19 @@ public class PostActionController(
     )
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var normalizedUrl = NormalizeOptionalText(request.Url);
         if (normalizedUrl is null)
-            return BadRequest("URL is required.");
+            return BadRequest(new ApiError { Code = "POST_URL_REQUIRED", Message = "URL is required.", Status = 400 });
 
         var accountId = Guid.Parse(currentUser.Id);
         var publisher = await ResolvePublisherForPostRequestAsync(accountId, pubName, isReply: false);
         if (publisher is null)
-            return BadRequest("Publisher was not found.");
+            return BadRequest(new ApiError { Code = "PUBLISHER_NOT_FOUND", Message = "Publisher was not found.", Status = 400 });
 
         if (pubName is not null && !await pub.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.Editor))
-            return StatusCode(403, "You need at least be an editor to post as this publisher.");
+            return StatusCode(403, ApiError.Unauthorized("You need at least be an editor to post as this publisher.", forbidden: true));
 
         BlogPermissionCheckResult result;
         try
@@ -323,7 +324,7 @@ public class PostActionController(
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new ApiError { Code = "POST_BLOG_PERMISSION_CHECK_FAILED", Message = ex.Message, Status = 400 });
         }
 
         return Ok(new
@@ -351,10 +352,10 @@ public class PostActionController(
         if (request.Type != PostType.Blog)
         {
             if (string.IsNullOrWhiteSpace(request.Content) && request.Attachments is { Count: 0 })
-                return BadRequest("Content is required.");
+                return BadRequest(new ApiError { Code = "POST_CONTENT_REQUIRED", Message = "Content is required.", Status = 400 });
         }
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         // Blog posts require the posts.create.blog permission
         if (request.Type == PostType.Blog)
@@ -369,20 +370,20 @@ public class PostActionController(
                     Key = "posts.create.blog"
                 });
                 if (!permResp.HasPermission)
-                    return StatusCode(403, "You do not have permission to create blog posts.");
+                    return StatusCode(403, ApiError.Unauthorized("You do not have permission to create blog posts.", forbidden: true));
             }
 
             if (string.IsNullOrWhiteSpace(request.Content) || !Uri.TryCreate(request.Content, UriKind.Absolute, out _))
-                return BadRequest("Blog post content must be a valid URL.");
+                return BadRequest(new ApiError { Code = "POST_BLOG_INVALID_URL", Message = "Blog post content must be a valid URL.", Status = 400 });
         }
 
         if (!string.IsNullOrWhiteSpace(request.ThumbnailId) && request.Type != PostType.Article)
-            return BadRequest("Thumbnail only supported in article.");
+            return BadRequest(new ApiError { Code = "POST_THUMBNAIL_NOT_SUPPORTED", Message = "Thumbnail only supported in article.", Status = 400 });
         if (!string.IsNullOrWhiteSpace(request.ThumbnailId) &&
             !(request.Attachments?.Contains(request.ThumbnailId) ?? false))
-            return BadRequest("Thumbnail must be presented in attachment list.");
+            return BadRequest(new ApiError { Code = "POST_THUMBNAIL_NOT_IN_ATTACHMENTS", Message = "Thumbnail must be presented in attachment list.", Status = 400 });
         if (request.DraftedAt is not null && request.PublishedAt is not null)
-            return BadRequest("Cannot set both draftedAt and publishedAt.");
+            return BadRequest(new ApiError { Code = "POST_DRAFT_PUBLISH_CONFLICT", Message = "Cannot set both draftedAt and publishedAt.", Status = 400 });
 
         var locationError = TryParseLocation(request.LocationWkt, out var location);
         if (locationError is not null)
@@ -392,9 +393,9 @@ public class PostActionController(
         var publisher = await ResolvePublisherForPostRequestAsync(accountId, pubName, request.RepliedPostId != null);
 
         if (publisher is null)
-            return BadRequest("Publisher was not found.");
+            return BadRequest(new ApiError { Code = "PUBLISHER_NOT_FOUND", Message = "Publisher was not found.", Status = 400 });
         if (pubName is not null && !await pub.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.Editor))
-            return StatusCode(403, "You need at least be an editor to post as this publisher.");
+            return StatusCode(403, ApiError.Unauthorized("You need at least be an editor to post as this publisher.", forbidden: true));
 
         if (request.Type == PostType.Blog)
         {
@@ -405,13 +406,13 @@ public class PostActionController(
             }
             catch (InvalidOperationException ex)
             {
-                return BadRequest(ex.Message);
+                return BadRequest(new ApiError { Code = "POST_BLOG_PERMISSION_CHECK_FAILED", Message = ex.Message, Status = 400 });
             }
 
             if (!blogPermission.PermissionGranted)
-                return StatusCode(403, "You do not have permission to create blog posts.");
+                return StatusCode(403, ApiError.Unauthorized("You do not have permission to create blog posts.", forbidden: true));
             if (!blogPermission.DomainVerified)
-                return StatusCode(403, "This domain is not verified for your publisher. Add it via the domains endpoint first.");
+                return StatusCode(403, ApiError.Unauthorized("This domain is not verified for your publisher. Add it via the domains endpoint first.", forbidden: true));
         }
 
         var post = new SnPost
@@ -433,7 +434,7 @@ public class PostActionController(
         if (post.Visibility is Shared.Models.PostVisibility.CloseFriendsOnly or Shared.Models.PostVisibility.Friends)
         {
             if (publisher is null)
-                return BadRequest("CloseFriendsOnly and Friends visibility require a publisher.");
+                return BadRequest(new ApiError { Code = "POST_VISIBILITY_REQUIRES_PUBLISHER", Message = "CloseFriendsOnly and Friends visibility require a publisher.", Status = 400 });
         }
 
         if (request.RepliedPostId is not null)
@@ -443,14 +444,14 @@ public class PostActionController(
                 .Include(p => p.Publisher)
                 .FirstOrDefaultAsync();
             if (repliedPost is null)
-                return BadRequest("Post replying to was not found.");
+                return BadRequest(new ApiError { Code = "POST_REPLY_TARGET_NOT_FOUND", Message = "Post replying to was not found.", Status = 400 });
 
             if (repliedPost.Publisher?.AccountId != null)
             {
                 if (await IsBlockedEitherDirectionAsync(repliedPost.Publisher.AccountId.Value, accountId))
-                    return BadRequest("You cannot reply to a post from a user who blocked you.");
+                    return BadRequest(new ApiError { Code = "POST_REPLY_BLOCKED", Message = "You cannot reply to a post from a user who blocked you.", Status = 400 });
             }
-            
+
             post.RepliedPost = repliedPost;
             post.RepliedPostId = repliedPost.Id;
         }
@@ -462,11 +463,11 @@ public class PostActionController(
                 .Include(p => p.Publisher)
                 .FirstOrDefaultAsync();
             if (forwardedPost is null)
-                return BadRequest("Forwarded post was not found.");
+                return BadRequest(new ApiError { Code = "POST_FORWARD_TARGET_NOT_FOUND", Message = "Forwarded post was not found.", Status = 400 });
             if (forwardedPost.Publisher?.AccountId != null && forwardedPost.Publisher.AccountId != accountId)
             {
                 if (await IsBlockedEitherDirectionAsync(forwardedPost.Publisher.AccountId.Value, accountId))
-                    return BadRequest("You cannot forward a post from a blocked user.");
+                    return BadRequest(new ApiError { Code = "POST_FORWARD_BLOCKED", Message = "You cannot forward a post from a blocked user.", Status = 400 });
             }
             post.ForwardedPost = forwardedPost;
             post.ForwardedPostId = forwardedPost.Id;
@@ -482,7 +483,7 @@ public class PostActionController(
                     new List<int> { RealmMemberRole.Normal }
                 )
             )
-                return StatusCode(403, "You are not a member of this realm.");
+                return StatusCode(403, ApiError.Unauthorized("You are not a member of this realm.", forbidden: true));
             post.RealmId = realm.Id;
         }
 
@@ -515,7 +516,7 @@ public class PostActionController(
             }
             catch (Exception ex)
             {
-                return BadRequest(ex.Message);
+                return BadRequest(new ApiError { Code = "POST_SURVEY_EMBED_FAILED", Message = ex.Message, Status = 400 });
             }
         }
         else
@@ -540,7 +541,7 @@ public class PostActionController(
 
                 // Check if the fund was created by the current user
                 if (fundResponse.CreatorAccountId != currentUser.Id)
-                    return BadRequest("You can only share funds that you created.");
+                    return BadRequest(new ApiError { Code = "POST_FUND_NOT_OWNER", Message = "You can only share funds that you created.", Status = 400 });
 
                 var fundEmbed = new FundEmbed { Id = request.FundId.Value };
                 post.Metadata ??= new Dictionary<string, object>();
@@ -555,11 +556,11 @@ public class PostActionController(
             }
             catch (RpcException ex) when (ex.StatusCode == Grpc.Core.StatusCode.NotFound)
             {
-                return BadRequest("The specified fund does not exist.");
+                return BadRequest(new ApiError { Code = "POST_FUND_NOT_FOUND", Message = "The specified fund does not exist.", Status = 400 });
             }
             catch (RpcException ex) when (ex.StatusCode == Grpc.Core.StatusCode.InvalidArgument)
             {
-                return BadRequest("Invalid fund ID.");
+                return BadRequest(new ApiError { Code = "POST_FUND_INVALID_ID", Message = "Invalid fund ID.", Status = 400 });
             }
         }
 
@@ -583,11 +584,11 @@ public class PostActionController(
             {
                 var liveStream = await liveStreams.GetByIdAsync(request.LiveStreamId.Value);
                 if (liveStream == null)
-                    return BadRequest("The specified live stream does not exist.");
+                    return BadRequest(new ApiError { Code = "POST_LIVE_STREAM_NOT_FOUND", Message = "The specified live stream does not exist.", Status = 400 });
 
                 // Check if the live stream belongs to the current user's publisher
                 if (liveStream.PublisherId != publisher.Id)
-                    return BadRequest("You can only share live streams from your own publisher.");
+                    return BadRequest(new ApiError { Code = "POST_LIVE_STREAM_NOT_OWNER", Message = "You can only share live streams from your own publisher.", Status = 400 });
 
                 var liveStreamEmbed = new LiveStreamEmbed { Id = request.LiveStreamId.Value };
                 post.Metadata ??= new Dictionary<string, object>();
@@ -602,7 +603,7 @@ public class PostActionController(
             }
             catch (Exception ex)
             {
-                return BadRequest($"Error attaching live stream: {ex.Message}");
+                return BadRequest(new ApiError { Code = "POST_LIVE_STREAM_EMBED_FAILED", Message = $"Error attaching live stream: {ex.Message}", Status = 400 });
             }
         }
 
@@ -670,7 +671,7 @@ public class PostActionController(
         }
         catch (InvalidOperationException err)
         {
-            return BadRequest(err.Message);
+            return BadRequest(new ApiError { Code = "POST_CREATE_FAILED", Message = err.Message, Status = 400 });
         }
 
         if (request.CollectionIds is { Count: > 0 })
@@ -767,7 +768,7 @@ public class PostActionController(
     )
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var friendsResponse = await accounts.ListFriendsAsync(
             new DyListRelationshipSimpleRequest { RelatedId = currentUser.Id }
@@ -777,7 +778,7 @@ public class PostActionController(
 
         if (!ReactionsAllowedDefault.Contains(request.Symbol))
             if (currentUser.PerkSubscription is null)
-                return BadRequest("You need subscription to send custom reactions");
+                return BadRequest(new ApiError { Code = "POST_REACTION_SUBSCRIPTION_REQUIRED", Message = "You need subscription to send custom reactions", Status = 400 });
 
         var post = await db
             .Posts.Where(e => e.Id == id)
@@ -792,7 +793,7 @@ public class PostActionController(
         if (post.Publisher?.AccountId != null && post.Publisher.AccountId != accountId)
         {
             if (await IsBlockedEitherDirectionAsync(post.Publisher.AccountId.Value, accountId))
-                return BadRequest("You cannot react to this post.");
+                return BadRequest(new ApiError { Code = "POST_REACTION_BLOCKED", Message = "You cannot react to this post.", Status = 400 });
         }
         
         var isSelfReact =
@@ -841,7 +842,7 @@ public class PostActionController(
     public async Task<ActionResult<SnPostBookmark>> BookmarkPost(Guid id)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var friendsResponse = await accounts.ListFriendsAsync(
             new DyListRelationshipSimpleRequest { RelatedId = currentUser.Id }
@@ -893,7 +894,7 @@ public class PostActionController(
     public async Task<ActionResult> UnbookmarkPost(Guid id)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var accountId = Guid.Parse(currentUser.Id);
         var bookmark = await db.PostBookmarks
@@ -924,7 +925,7 @@ public class PostActionController(
     public async Task<ActionResult<SnPostBookmark?>> GetBookmarkStatus(Guid id)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var accountId = Guid.Parse(currentUser.Id);
         var bookmark = await db.PostBookmarks
@@ -991,9 +992,9 @@ public class PostActionController(
     )
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         if (request.Attitude == PostReactionAttitude.Neutral)
-            return BadRequest("You cannot create a neutral post award");
+            return BadRequest(new ApiError { Code = "POST_AWARD_NEUTRAL_NOT_ALLOWED", Message = "You cannot create a neutral post award", Status = 400 });
 
         var friendsResponse = await accounts.ListFriendsAsync(
             new DyListRelationshipSimpleRequest { AccountId = currentUser.Id }
@@ -1014,7 +1015,7 @@ public class PostActionController(
         if (post.Publisher?.AccountId != null && post.Publisher.AccountId != accountId)
         {
             if (await IsBlockedEitherDirectionAsync(post.Publisher.AccountId.Value, accountId))
-                return BadRequest("You cannot award this post.");
+                return BadRequest(new ApiError { Code = "POST_AWARD_BLOCKED", Message = "You cannot award this post.", Status = 400 });
         }
 
         var orderRemark = string.IsNullOrWhiteSpace(post.Title)
@@ -1060,9 +1061,9 @@ public class PostActionController(
     )
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         if (request.Amount < SponsorService.MinimumBidAmount)
-            return BadRequest($"Minimum sponsorship bid is {SponsorService.MinimumBidAmount} golds.");
+            return BadRequest(new ApiError { Code = "POST_SPONSOR_MINIMUM_BID", Message = $"Minimum sponsorship bid is {SponsorService.MinimumBidAmount} golds.", Status = 400 });
 
         var post = await db
             .Posts.Where(e => e.Id == id)
@@ -1071,11 +1072,11 @@ public class PostActionController(
         if (post is null)
             return NotFound();
         if (post.Visibility != Shared.Models.PostVisibility.Public)
-            return BadRequest("Only public posts can be sponsored.");
+            return BadRequest(new ApiError { Code = "POST_SPONSOR_NOT_PUBLIC", Message = "Only public posts can be sponsored.", Status = 400 });
         if (post.DeletedAt != null)
-            return BadRequest("This post is no longer available.");
+            return BadRequest(new ApiError { Code = "POST_SPONSOR_DELETED", Message = "This post is no longer available.", Status = 400 });
         if (post.ShadowbanReason is not null and not Shared.Models.PostShadowbanReason.None)
-            return BadRequest("This post cannot be sponsored.");
+            return BadRequest(new ApiError { Code = "POST_SPONSOR_SHADOWBANNED", Message = "This post cannot be sponsored.", Status = 400 });
 
         try
         {
@@ -1084,7 +1085,7 @@ public class PostActionController(
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new ApiError { Code = "POST_SPONSOR_CREATE_FAILED", Message = ex.Message, Status = 400 });
         }
     }
 
@@ -1099,7 +1100,7 @@ public class PostActionController(
     public async Task<ActionResult<SnPost>> PinPost(Guid id, [FromBody] PostPinRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var post = await db
             .Posts.Where(e => e.Id == id)
@@ -1112,7 +1113,7 @@ public class PostActionController(
         var accountId = Guid.Parse(currentUser.Id);
         if (post.PublisherId == null ||
             !await pub.IsMemberWithRole(post.PublisherId.Value, accountId, PublisherMemberRole.Editor))
-            return StatusCode(403, "You are not an editor of this publisher");
+            return StatusCode(403, ApiError.Unauthorized("You are not an editor of this publisher", forbidden: true));
 
         if (request.Mode == Shared.Models.PostPinMode.RealmPage && post.RealmId != null)
         {
@@ -1123,7 +1124,7 @@ public class PostActionController(
                     new List<int> { RealmMemberRole.Moderator }
                 )
             )
-                return StatusCode(403, "You are not a moderator of this realm");
+                return StatusCode(403, ApiError.Unauthorized("You are not a moderator of this realm", forbidden: true));
         }
 
         try
@@ -1132,7 +1133,7 @@ public class PostActionController(
         }
         catch (InvalidOperationException err)
         {
-            return BadRequest(err.Message);
+            return BadRequest(new ApiError { Code = "POST_PIN_FAILED", Message = err.Message, Status = 400 });
         }
 
         als.CreateActionLog(
@@ -1156,7 +1157,7 @@ public class PostActionController(
     public async Task<ActionResult<SnPost>> UnpinPost(Guid id)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var post = await db
             .Posts.Where(e => e.Id == id)
@@ -1169,7 +1170,7 @@ public class PostActionController(
         var accountId = Guid.Parse(currentUser.Id);
         if (post.PublisherId == null ||
             !await pub.IsMemberWithRole(post.PublisherId.Value, accountId, PublisherMemberRole.Editor))
-            return StatusCode(403, "You are not an editor of this publisher");
+            return StatusCode(403, ApiError.Unauthorized("You are not an editor of this publisher", forbidden: true));
 
         if (post is { PinMode: Shared.Models.PostPinMode.RealmPage, RealmId: not null })
         {
@@ -1180,7 +1181,7 @@ public class PostActionController(
                     new List<int> { RealmMemberRole.Moderator }
                 )
             )
-                return StatusCode(403, "You are not a moderator of this realm");
+                return StatusCode(403, ApiError.Unauthorized("You are not a moderator of this realm", forbidden: true));
         }
 
         try
@@ -1189,7 +1190,7 @@ public class PostActionController(
         }
         catch (InvalidOperationException err)
         {
-            return BadRequest(err.Message);
+            return BadRequest(new ApiError { Code = "POST_UNPIN_FAILED", Message = err.Message, Status = 400 });
         }
 
         als.CreateActionLog(
@@ -1219,18 +1220,18 @@ public class PostActionController(
         if (request.Type != PostType.Blog)
         {
             if (string.IsNullOrWhiteSpace(request.Content) && request.Attachments is { Count: 0 })
-                return BadRequest("Content is required.");
+                return BadRequest(new ApiError { Code = "POST_CONTENT_REQUIRED", Message = "Content is required.", Status = 400 });
         }
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         if (!string.IsNullOrWhiteSpace(request.ThumbnailId) && request.Type != PostType.Article)
-            return BadRequest("Thumbnail only supported in article.");
+            return BadRequest(new ApiError { Code = "POST_THUMBNAIL_NOT_SUPPORTED", Message = "Thumbnail only supported in article.", Status = 400 });
         if (!string.IsNullOrWhiteSpace(request.ThumbnailId) &&
             !(request.Attachments?.Contains(request.ThumbnailId) ?? false))
-            return BadRequest("Thumbnail must be presented in attachment list.");
+            return BadRequest(new ApiError { Code = "POST_THUMBNAIL_NOT_IN_ATTACHMENTS", Message = "Thumbnail must be presented in attachment list.", Status = 400 });
         if (request.DraftedAt is not null && request.PublishedAt is not null)
-            return BadRequest("Cannot set both draftedAt and publishedAt.");
+            return BadRequest(new ApiError { Code = "POST_DRAFT_PUBLISH_CONFLICT", Message = "Cannot set both draftedAt and publishedAt.", Status = 400 });
 
         var post = await db
             .Posts.Where(e => e.Id == id)
@@ -1243,11 +1244,11 @@ public class PostActionController(
             return NotFound();
 
         if (post.LockedAt is not null)
-            return StatusCode(423, "This post is locked and cannot be edited.");
+            return StatusCode(423, ApiError.WithStatus(423, "This post is locked and cannot be edited.", code: "POST_LOCKED"));
 
         var accountId = Guid.Parse(currentUser.Id);
         if (!await pub.IsMemberWithRole(post.Publisher!.Id, accountId, PublisherMemberRole.Editor))
-            return StatusCode(403, "You need at least be an editor to edit this publisher's post.");
+            return StatusCode(403, ApiError.Unauthorized("You need at least be an editor to edit this publisher's post.", forbidden: true));
 
         if (pubName is not null)
         {
@@ -1257,7 +1258,7 @@ public class PostActionController(
             if (!await pub.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.Editor))
                 return StatusCode(
                     403,
-                    "You need at least be an editor to transfer this post to this publisher."
+                    ApiError.Unauthorized("You need at least be an editor to transfer this post to this publisher.", forbidden: true)
                 );
             post.PublisherId = publisher.Id;
             post.Publisher = publisher;
@@ -1277,7 +1278,7 @@ public class PostActionController(
         if (post.Visibility is Shared.Models.PostVisibility.CloseFriendsOnly or Shared.Models.PostVisibility.Friends)
         {
             if (post.PublisherId is null)
-                return BadRequest("CloseFriendsOnly and Friends visibility require a publisher.");
+                return BadRequest(new ApiError { Code = "POST_VISIBILITY_REQUIRES_PUBLISHER", Message = "CloseFriendsOnly and Friends visibility require a publisher.", Status = 400 });
         }
         if (request.Type is not null)
             post.Type = request.Type.Value;
@@ -1296,13 +1297,13 @@ public class PostActionController(
             {
                 var blogPermission = await CheckBlogCreatePermissionAsync(currentUser, post.Publisher!, post.Content!);
                 if (!blogPermission.PermissionGranted)
-                    return StatusCode(403, "You do not have permission to create blog posts.");
+                    return StatusCode(403, ApiError.Unauthorized("You do not have permission to create blog posts.", forbidden: true));
                 if (!blogPermission.DomainVerified)
-                    return StatusCode(403, "This domain is not verified for your publisher.");
+                    return StatusCode(403, ApiError.Unauthorized("This domain is not verified for your publisher.", forbidden: true));
             }
             catch (InvalidOperationException ex)
             {
-                return BadRequest(ex.Message);
+                return BadRequest(new ApiError { Code = "POST_BLOG_PERMISSION_CHECK_FAILED", Message = ex.Message, Status = 400 });
             }
         }
 
@@ -1340,7 +1341,7 @@ public class PostActionController(
             }
             catch (Exception ex)
             {
-                return BadRequest(ex.Message);
+                return BadRequest(new ApiError { Code = "POST_SURVEY_EMBED_FAILED", Message = ex.Message, Status = 400 });
             }
         }
         else
@@ -1365,7 +1366,7 @@ public class PostActionController(
 
                 // Check if the fund was created by the current user
                 if (fundResponse.CreatorAccountId != currentUser.Id)
-                    return BadRequest("You can only share funds that you created.");
+                    return BadRequest(new ApiError { Code = "POST_FUND_NOT_OWNER", Message = "You can only share funds that you created.", Status = 400 });
 
                 var fundEmbed = new FundEmbed { Id = request.FundId.Value };
                 post.Metadata ??= new Dictionary<string, object>();
@@ -1384,11 +1385,11 @@ public class PostActionController(
             }
             catch (RpcException ex) when (ex.StatusCode == Grpc.Core.StatusCode.NotFound)
             {
-                return BadRequest("The specified fund does not exist.");
+                return BadRequest(new ApiError { Code = "POST_FUND_NOT_FOUND", Message = "The specified fund does not exist.", Status = 400 });
             }
             catch (RpcException ex) when (ex.StatusCode == Grpc.Core.StatusCode.InvalidArgument)
             {
-                return BadRequest("Invalid fund ID.");
+                return BadRequest(new ApiError { Code = "POST_FUND_INVALID_ID", Message = "Invalid fund ID.", Status = 400 });
             }
         }
         else
@@ -1437,11 +1438,11 @@ public class PostActionController(
             {
                 var liveStream = await liveStreams.GetByIdAsync(request.LiveStreamId.Value);
                 if (liveStream == null)
-                    return BadRequest("The specified live stream does not exist.");
+                    return BadRequest(new ApiError { Code = "POST_LIVE_STREAM_NOT_FOUND", Message = "The specified live stream does not exist.", Status = 400 });
 
                 // Check if the live stream belongs to the current user's publisher
                 if (liveStream.PublisherId != post.PublisherId)
-                    return BadRequest("You can only share live streams from your own publisher.");
+                    return BadRequest(new ApiError { Code = "POST_LIVE_STREAM_NOT_OWNER", Message = "You can only share live streams from your own publisher.", Status = 400 });
 
                 var liveStreamEmbed = new LiveStreamEmbed { Id = request.LiveStreamId.Value };
                 post.Metadata ??= new Dictionary<string, object>();
@@ -1460,7 +1461,7 @@ public class PostActionController(
             }
             catch (Exception ex)
             {
-                return BadRequest($"Error attaching live stream: {ex.Message}");
+                return BadRequest(new ApiError { Code = "POST_LIVE_STREAM_EMBED_FAILED", Message = $"Error attaching live stream: {ex.Message}", Status = 400 });
             }
         }
         else
@@ -1576,7 +1577,7 @@ public class PostActionController(
                     new List<int> { RealmMemberRole.Normal }
                 )
             )
-                return StatusCode(403, "You are not a member of this realm.");
+                return StatusCode(403, ApiError.Unauthorized("You are not a member of this realm.", forbidden: true));
             post.RealmId = realm.Id;
         }
         else
@@ -1601,7 +1602,7 @@ public class PostActionController(
         }
         catch (InvalidOperationException err)
         {
-            return BadRequest(err.Message);
+            return BadRequest(new ApiError { Code = "POST_PUBLISH_FAILED", Message = err.Message, Status = 400 });
         }
 
         als.CreateActionLog(
@@ -1622,7 +1623,7 @@ public class PostActionController(
     public async Task<ActionResult<SnPost>> DeletePost(Guid id)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var post = await db
             .Posts.Where(e => e.Id == id)
@@ -1632,7 +1633,7 @@ public class PostActionController(
             return NotFound();
 
         if (post.LockedAt is not null)
-            return StatusCode(423, "This post is locked and cannot be deleted.");
+            return StatusCode(423, ApiError.WithStatus(423, "This post is locked and cannot be deleted.", code: "POST_LOCKED"));
 
         if (
             !await pub.IsMemberWithRole(
@@ -1643,7 +1644,7 @@ public class PostActionController(
         )
             return StatusCode(
                 403,
-                "You need at least be an editor to delete the publisher's post."
+                ApiError.Unauthorized("You need at least be an editor to delete the publisher's post.", forbidden: true)
             );
 
         await ps.DeletePostAsync(post);
@@ -1668,10 +1669,10 @@ public class PostActionController(
     public async Task<ActionResult> BatchDeletePosts([FromBody] BatchDeleteRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         if (request.PostIds.Count == 0)
-            return BadRequest("PostIds list is empty.");
+            return BadRequest(new ApiError { Code = "POST_BATCH_EMPTY", Message = "PostIds list is empty.", Status = 400 });
 
         var posts = await db
             .Posts.Where(e => request.PostIds.Contains(e.Id))
@@ -1682,12 +1683,12 @@ public class PostActionController(
         {
             var foundIds = posts.Select(p => p.Id).ToHashSet();
             var missingIds = request.PostIds.Where(id => !foundIds.Contains(id)).ToList();
-            return BadRequest($"Posts not found: {string.Join(", ", missingIds)}");
+            return BadRequest(new ApiError { Code = "POST_BATCH_NOT_FOUND", Message = $"Posts not found: {string.Join(", ", missingIds)}", Status = 400 });
         }
 
         var lockedPost = posts.FirstOrDefault(p => p.LockedAt is not null);
         if (lockedPost is not null)
-            return StatusCode(423, $"Post {lockedPost.Id} is locked and cannot be deleted.");
+            return StatusCode(423, ApiError.WithStatus(423, $"Post {lockedPost.Id} is locked and cannot be deleted.", code: "POST_LOCKED"));
 
         var accountId = Guid.Parse(currentUser.Id);
         foreach (var postGroup in posts.GroupBy(p => p.Publisher!.Id))
@@ -1695,7 +1696,7 @@ public class PostActionController(
             if (!await pub.IsMemberWithRole(postGroup.Key, accountId, PublisherMemberRole.Editor))
             {
                 var pubName = postGroup.First().Publisher?.Name ?? postGroup.Key.ToString();
-                return StatusCode(403, $"You need at least be an editor to delete posts from publisher '{pubName}'.");
+                return StatusCode(403, ApiError.Unauthorized($"You need at least be an editor to delete posts from publisher '{pubName}'.", forbidden: true));
             }
         }
 
@@ -1724,13 +1725,13 @@ public class PostActionController(
     public async Task<ActionResult> BatchUpdateVisibility([FromBody] BatchVisibilityRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         if (request.PostIds.Count == 0)
-            return BadRequest("PostIds list is empty.");
+            return BadRequest(new ApiError { Code = "POST_BATCH_EMPTY", Message = "PostIds list is empty.", Status = 400 });
 
         if (request.DraftedAt is not null && request.PublishedAt is not null)
-            return BadRequest("Cannot set both draftedAt and publishedAt.");
+            return BadRequest(new ApiError { Code = "POST_DRAFT_PUBLISH_CONFLICT", Message = "Cannot set both draftedAt and publishedAt.", Status = 400 });
 
         var posts = await db
             .Posts.Where(e => request.PostIds.Contains(e.Id))
@@ -1741,12 +1742,12 @@ public class PostActionController(
         {
             var foundIds = posts.Select(p => p.Id).ToHashSet();
             var missingIds = request.PostIds.Where(id => !foundIds.Contains(id)).ToList();
-            return BadRequest($"Posts not found: {string.Join(", ", missingIds)}");
+            return BadRequest(new ApiError { Code = "POST_BATCH_NOT_FOUND", Message = $"Posts not found: {string.Join(", ", missingIds)}", Status = 400 });
         }
 
         var lockedPost = posts.FirstOrDefault(p => p.LockedAt is not null);
         if (lockedPost is not null)
-            return StatusCode(423, $"Post {lockedPost.Id} is locked and cannot be edited.");
+            return StatusCode(423, ApiError.WithStatus(423, $"Post {lockedPost.Id} is locked and cannot be edited.", code: "POST_LOCKED"));
 
         var accountId = Guid.Parse(currentUser.Id);
         foreach (var postGroup in posts.GroupBy(p => p.Publisher!.Id))
@@ -1754,7 +1755,7 @@ public class PostActionController(
             if (!await pub.IsMemberWithRole(postGroup.Key, accountId, PublisherMemberRole.Editor))
             {
                 var pubName = postGroup.First().Publisher?.Name ?? postGroup.Key.ToString();
-                return StatusCode(403, $"You need at least be an editor to edit posts from publisher '{pubName}'.");
+                return StatusCode(403, ApiError.Unauthorized($"You need at least be an editor to edit posts from publisher '{pubName}'.", forbidden: true));
             }
         }
 
@@ -1769,7 +1770,7 @@ public class PostActionController(
             if (request.PublishedAt is not null)
             {
                 if (request.PublishedAt.Value < now && post.DraftedAt is null)
-                    return BadRequest($"Cannot set publishedAt to the past for post {post.Id}.");
+                    return BadRequest(new ApiError { Code = "POST_PUBLISH_PAST_NOT_ALLOWED", Message = $"Cannot set publishedAt to the past for post {post.Id}.", Status = 400 });
 
                 post.PublishedAt = request.PublishedAt;
                 post.DraftedAt = null;
@@ -1792,7 +1793,7 @@ public class PostActionController(
     public async Task<ActionResult<SnPost>> PublishDraft(Guid id)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var post = await db
             .Posts.Where(e => e.Id == id)
@@ -1806,10 +1807,10 @@ public class PostActionController(
 
         var accountId = Guid.Parse(currentUser.Id);
         if (!await pub.IsMemberWithRole(post.Publisher!.Id, accountId, PublisherMemberRole.Editor))
-            return StatusCode(403, "You need at least be an editor to publish this post.");
+            return StatusCode(403, ApiError.Unauthorized("You need at least be an editor to publish this post.", forbidden: true));
 
         if (post.DraftedAt is null)
-            return BadRequest("This post is not a draft.");
+            return BadRequest(new ApiError { Code = "POST_NOT_A_DRAFT", Message = "This post is not a draft.", Status = 400 });
 
         try
         {
@@ -1852,7 +1853,7 @@ public class PostActionController(
     )
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var accountId = Guid.Parse(currentUser.Id);
 
@@ -1874,7 +1875,7 @@ public class PostActionController(
         if (post.Publisher?.AccountId != null && post.Publisher.AccountId != accountId)
         {
             if (await IsBlockedEitherDirectionAsync(post.Publisher.AccountId.Value, accountId))
-                return BadRequest("You cannot boost this post.");
+                return BadRequest(new ApiError { Code = "POST_BOOST_BLOCKED", Message = "You cannot boost this post.", Status = 400 });
         }
 
         SnPublisher? userPublisher = null;
@@ -1891,19 +1892,19 @@ public class PostActionController(
         }
 
         if (userPublisher is null)
-            return BadRequest("You need a publisher to boost posts");
+            return BadRequest(new ApiError { Code = "POST_BOOST_PUBLISHER_REQUIRED", Message = "You need a publisher to boost posts.", Status = 400 });
 
         var existingBoost = await db.Boosts
             .FirstOrDefaultAsync(b => b.PostId == post.Id && b.Actor.PublisherId == userPublisher.Id);
 
         if (existingBoost != null)
-            return BadRequest("You have already boosted this post");
+            return BadRequest(new ApiError { Code = "POST_ALREADY_BOOSTED", Message = "You have already boosted this post.", Status = 400 });
 
         var localActor = await db.FediverseActors
             .FirstOrDefaultAsync(a => a.PublisherId == userPublisher.Id);
 
         if (localActor is null)
-            return BadRequest("Publisher does not have an ActivityPub actor");
+            return BadRequest(new ApiError { Code = "POST_BOOST_ACTOR_NOT_FOUND", Message = "Publisher does not have an ActivityPub actor.", Status = 400 });
 
         var boost = new SnBoost
         {
@@ -1955,7 +1956,7 @@ public class PostActionController(
     public async Task<IActionResult> UnboostPost(Guid id)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var accountId = Guid.Parse(currentUser.Id);
 
@@ -1974,13 +1975,13 @@ public class PostActionController(
         }
 
         if (userPublisher is null)
-            return BadRequest("You need a publisher to unboost posts");
+            return BadRequest(new ApiError { Code = "POST_UNBOOST_PUBLISHER_REQUIRED", Message = "You need a publisher to unboost posts.", Status = 400 });
 
         var localActor = await db.FediverseActors
             .FirstOrDefaultAsync(a => a.PublisherId == userPublisher.Id);
 
         if (localActor is null)
-            return BadRequest("Publisher does not have an ActivityPub actor");
+            return BadRequest(new ApiError { Code = "POST_UNBOOST_ACTOR_NOT_FOUND", Message = "Publisher does not have an ActivityPub actor.", Status = 400 });
 
         var boost = await db.Boosts
             .FirstOrDefaultAsync(b => b.PostId == id && b.ActorId == localActor.Id);
@@ -2043,7 +2044,7 @@ public class PostActionController(
     public async Task<ActionResult> ModeratePostInRealm(Guid id, [FromBody] ModeratePostRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var post = await db.Posts
             .Include(p => p.Publisher)
@@ -2053,17 +2054,17 @@ public class PostActionController(
             return NotFound();
 
         if (post.RealmId is null)
-            return BadRequest("This post is not linked to a realm.");
+            return BadRequest(new ApiError { Code = "POST_NOT_IN_REALM", Message = "This post is not linked to a realm.", Status = 400 });
 
         var accountId = Guid.Parse(currentUser.Id);
 
         // Check if user has permission to moderate posts in this realm
         if (!await rs.HasPermission(post.RealmId.Value, accountId, "post.moderate"))
-            return StatusCode(403, "You do not have permission to moderate posts in this realm.");
+            return StatusCode(403, ApiError.Unauthorized("You do not have permission to moderate posts in this realm.", forbidden: true));
 
         // Check if post is already moderated
         if (await db.RealmPostModerationLogs.AnyAsync(l => l.PostId == post.Id && l.RealmId == post.RealmId.Value && l.DeletedAt == null))
-            return BadRequest("This post has already been removed from the realm.");
+            return BadRequest(new ApiError { Code = "POST_ALREADY_REMOVED_FROM_REALM", Message = "This post has already been removed from the realm.", Status = 400 });
 
         // Create moderation log
         var moderationLog = new SnRealmPostModerationLog

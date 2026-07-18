@@ -4,6 +4,7 @@ using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
+using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Auth;
 using Google.Protobuf.WellKnownTypes;
 using Microsoft.AspNetCore.Authorization;
@@ -34,10 +35,10 @@ public class RealmController(
     [Authorize]
     public async Task<ActionResult<ResourceQuotaResponse<RealmQuotaRecord>>> GetQuota()
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var account = await accounts.GetAccount(currentUser.Id);
-        if (account is null) return Unauthorized();
+        if (account is null) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         if (account.PerkLevel == 0 && currentUser.PerkLevel > 0) account.PerkLevel = currentUser.PerkLevel;
 
         return Ok(await quotaService.GetQuotaAsync(account));
@@ -47,7 +48,7 @@ public class RealmController(
     public async Task<ActionResult<SnRealm>> GetRealm(string slug)
     {
         var realm = await rs.GetBySlug(slug);
-        if (realm is null) return NotFound();
+        if (realm is null) return NotFound(new ApiError { Code = "PASSPORT_REALM_NOT_FOUND", Message = "Realm not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
         return Ok(realm);
     }
@@ -56,7 +57,7 @@ public class RealmController(
     [Authorize]
     public async Task<ActionResult<List<SnRealm>>> ListJoinedRealms()
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         var accountId = currentUser.Id;
 
         var members = await db.RealmMembers
@@ -73,7 +74,7 @@ public class RealmController(
     [Authorize]
     public async Task<ActionResult<List<SnRealmMember>>> ListInvites()
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         var accountId = currentUser.Id;
 
         var members = await db.RealmMembers
@@ -130,11 +131,11 @@ public class RealmController(
     public async Task<ActionResult<SnRealmMember>> InviteMember(string slug,
         [FromBody] RealmMemberRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         var accountId = currentUser.Id;
 
         var relatedUser = await accounts.GetAccount(request.RelatedUserId);
-        if (relatedUser == null) return BadRequest("Related user was not found");
+        if (relatedUser == null) return BadRequest(new ApiError { Code = "REALM_USER_NOT_FOUND", Message = "Related user was not found", Status = 400 });
 
         var hasBlocked = await rels.HasRelationshipWithStatus(
             currentUser.Id,
@@ -142,15 +143,15 @@ public class RealmController(
             RelationshipStatus.Blocked
         );
         if (hasBlocked)
-            return StatusCode(403, "You cannot invite a user that blocked you.");
+            return StatusCode(403, ApiError.Unauthorized("You cannot invite a user that blocked you.", forbidden: true));
 
         var realm = await rs.GetBySlug(slug);
-        if (realm is null) return NotFound();
+        if (realm is null) return NotFound(new ApiError { Code = "PASSPORT_REALM_NOT_FOUND", Message = "Realm not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
         if (request.Role > RealmMemberRole.Normal && realm.BoostLevel < 2)
-            return StatusCode(403, "Realm boost level 2 is required to invite promoted members.");
+            return StatusCode(403, ApiError.Unauthorized("Realm boost level 2 is required to invite promoted members.", forbidden: true));
 
         if (!await rs.IsMemberWithRole(realm.Id, accountId, request.Role))
-            return StatusCode(403, "You cannot invite member has higher permission than yours.");
+            return StatusCode(403, ApiError.Unauthorized("You cannot invite member has higher permission than yours.", forbidden: true));
 
         var existingMember = await db.RealmMembers
             .Where(m => m.AccountId == relatedUser.Id)
@@ -159,7 +160,7 @@ public class RealmController(
         if (existingMember != null)
         {
             if (existingMember.LeaveAt == null)
-                return BadRequest("This user already in the realm cannot be invited again.");
+                return BadRequest(new ApiError { Code = "REALM_MEMBER_EXISTS", Message = "This user already in the realm cannot be invited again.", Status = 400 });
 
             existingMember.LeaveAt = null;
             existingMember.JoinedAt = null;
@@ -214,7 +215,7 @@ public class RealmController(
     [AskPermission(PermissionKeys.RealmsInvitesManage)]
     public async Task<ActionResult<SnRealm>> AcceptMemberInvite(string slug)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         var accountId = currentUser.Id;
 
         var member = await db.RealmMembers
@@ -222,7 +223,7 @@ public class RealmController(
             .Where(m => m.Realm.Slug.ToLower() == slug.ToLowerInvariant())
             .Where(m => m.JoinedAt == null)
             .FirstOrDefaultAsync();
-        if (member is null) return NotFound();
+        if (member is null) return NotFound(new ApiError { Code = "PASSPORT_REALM_MEMBER_NOT_FOUND", Message = "Realm member not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
         member.JoinedAt = NodaTime.Instant.FromDateTimeUtc(DateTime.UtcNow);
         db.Update(member);
@@ -246,7 +247,7 @@ public class RealmController(
     [AskPermission(PermissionKeys.RealmsInvitesManage)]
     public async Task<ActionResult> DeclineMemberInvite(string slug)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         var accountId = currentUser.Id;
 
         var member = await db.RealmMembers
@@ -254,7 +255,7 @@ public class RealmController(
             .Where(m => m.Realm.Slug.ToLower() == slug.ToLowerInvariant())
             .Where(m => m.JoinedAt == null)
             .FirstOrDefaultAsync();
-        if (member is null) return NotFound();
+        if (member is null) return NotFound(new ApiError { Code = "PASSPORT_REALM_MEMBER_NOT_FOUND", Message = "Realm member not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
         member.LeaveAt = SystemClock.Instance.GetCurrentInstant();
         await db.SaveChangesAsync();
@@ -287,13 +288,13 @@ public class RealmController(
         var realm = await db.Realms
             .Where(r => r.Slug.ToLower() == slug.ToLowerInvariant())
             .FirstOrDefaultAsync();
-        if (realm is null) return NotFound();
+        if (realm is null) return NotFound(new ApiError { Code = "PASSPORT_REALM_NOT_FOUND", Message = "Realm not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
         if (!realm.IsPublic)
         {
-            if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+            if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
             if (!await rs.IsMemberWithRole(realm.Id, currentUser.Id, RealmMemberRole.Normal))
-                return StatusCode(403, "You must be a member to view this realm's members.");
+                return StatusCode(403, ApiError.Unauthorized("You must be a member to view this realm's members.", forbidden: true));
         }
 
         var query = db.RealmMembers
@@ -371,7 +372,7 @@ public class RealmController(
     [Authorize]
     public async Task<ActionResult<SnRealmMember>> GetCurrentIdentity(string slug)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         var accountId = currentUser.Id;
 
         var member = await db.RealmMembers
@@ -380,7 +381,7 @@ public class RealmController(
             .Where(m => m.JoinedAt != null && m.LeaveAt == null)
             .FirstOrDefaultAsync();
 
-        if (member is null) return NotFound();
+        if (member is null) return NotFound(new ApiError { Code = "PASSPORT_REALM_MEMBER_NOT_FOUND", Message = "Realm member not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
         return Ok(await rs.LoadMemberAccount(member));
     }
 
@@ -389,15 +390,15 @@ public class RealmController(
     [AskPermission(PermissionKeys.RealmsMembersManage)]
     public async Task<ActionResult<SnRealmMember>> UpdateCurrentIdentity(string slug, [FromBody] RealmMemberProfileRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         if (currentUser.PerkLevel < 2)
-            return StatusCode(403, "Perk level 2 is required to customize realm profile.");
+            return StatusCode(403, ApiError.Unauthorized("Perk level 2 is required to customize realm profile.", forbidden: true));
 
         var realm = await rs.GetBySlug(slug);
-        if (realm is null) return NotFound();
+        if (realm is null) return NotFound(new ApiError { Code = "PASSPORT_REALM_NOT_FOUND", Message = "Realm not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
         var member = await rs.GetActiveMember(realm.Id, currentUser.Id);
-        if (member is null) return NotFound();
+        if (member is null) return NotFound(new ApiError { Code = "PASSPORT_REALM_MEMBER_NOT_FOUND", Message = "Realm member not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
         member.Nick = request.Nick;
         member.Bio = request.Bio;
@@ -411,13 +412,13 @@ public class RealmController(
     [AskPermission(PermissionKeys.RealmsMembersManage)]
     public async Task<ActionResult<SnRealmMember>> DeleteCurrentIdentity(string slug)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var realm = await rs.GetBySlug(slug);
-        if (realm is null) return NotFound();
+        if (realm is null) return NotFound(new ApiError { Code = "PASSPORT_REALM_NOT_FOUND", Message = "Realm not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
         var member = await rs.GetActiveMember(realm.Id, currentUser.Id);
-        if (member is null) return NotFound();
+        if (member is null) return NotFound(new ApiError { Code = "PASSPORT_REALM_MEMBER_NOT_FOUND", Message = "Realm member not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
         member.Nick = null;
         member.Bio = null;
@@ -430,13 +431,13 @@ public class RealmController(
     public async Task<ActionResult<List<SnRealmLabel>>> ListLabels(string slug)
     {
         var realm = await rs.GetBySlug(slug);
-        if (realm is null) return NotFound();
+        if (realm is null) return NotFound(new ApiError { Code = "PASSPORT_REALM_NOT_FOUND", Message = "Realm not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
         if (!realm.IsPublic)
         {
-            if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+            if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
             if (!await rs.IsMemberWithRole(realm.Id, currentUser.Id, RealmMemberRole.Normal))
-                return StatusCode(403, "You must be a member to view this realm.");
+                return StatusCode(403, ApiError.Unauthorized("You must be a member to view this realm.", forbidden: true));
         }
 
         var labels = await db.RealmLabels
@@ -452,18 +453,18 @@ public class RealmController(
     [AskPermission(PermissionKeys.RealmsLabelsManage)]
     public async Task<ActionResult<SnRealmLabel>> CreateLabel(string slug, [FromBody] RealmLabelRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         var realm = await rs.GetBySlug(slug);
-        if (realm is null) return NotFound();
+        if (realm is null) return NotFound(new ApiError { Code = "PASSPORT_REALM_NOT_FOUND", Message = "Realm not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
         if (!await rs.IsMemberWithRole(realm.Id, currentUser.Id, RealmMemberRole.Moderator))
-            return StatusCode(403, "You do not have permission to manage labels.");
+            return StatusCode(403, ApiError.Unauthorized("You do not have permission to manage labels.", forbidden: true));
         if (realm.BoostLevel < 1)
-            return StatusCode(403, "Realm boost level 1 is required to manage labels.");
+            return StatusCode(403, ApiError.Unauthorized("Realm boost level 1 is required to manage labels.", forbidden: true));
 
         var labelCap = RealmBoostPolicy.GetLabelCap(realm.BoostLevel);
         var labelCount = await rs.GetRealmLabelCount(realm.Id);
         if (labelCount >= labelCap)
-            return BadRequest("Realm label limit reached for current boost level.");
+            return BadRequest(new ApiError { Code = "REALM_LABEL_LIMIT_REACHED", Message = "Realm label limit reached for current boost level.", Status = 400 });
 
         var label = new SnRealmLabel
         {
@@ -484,16 +485,16 @@ public class RealmController(
     [AskPermission(PermissionKeys.RealmsLabelsManage)]
     public async Task<ActionResult<SnRealmLabel>> UpdateLabel(string slug, Guid labelId, [FromBody] RealmLabelRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         var realm = await rs.GetBySlug(slug);
-        if (realm is null) return NotFound();
+        if (realm is null) return NotFound(new ApiError { Code = "PASSPORT_REALM_NOT_FOUND", Message = "Realm not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
         if (!await rs.IsMemberWithRole(realm.Id, currentUser.Id, RealmMemberRole.Moderator))
-            return StatusCode(403, "You do not have permission to manage labels.");
+            return StatusCode(403, ApiError.Unauthorized("You do not have permission to manage labels.", forbidden: true));
         if (realm.BoostLevel < 1)
-            return StatusCode(403, "Realm boost level 1 is required to manage labels.");
+            return StatusCode(403, ApiError.Unauthorized("Realm boost level 1 is required to manage labels.", forbidden: true));
 
         var label = await db.RealmLabels.FirstOrDefaultAsync(l => l.Id == labelId && l.RealmId == realm.Id);
-        if (label is null) return NotFound();
+        if (label is null) return NotFound(new ApiError { Code = "PASSPORT_REALM_LABEL_NOT_FOUND", Message = "Realm label not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
         label.Name = request.Name;
         label.Description = request.Description;
@@ -509,16 +510,16 @@ public class RealmController(
     [AskPermission(PermissionKeys.RealmsLabelsManage)]
     public async Task<ActionResult> DeleteLabel(string slug, Guid labelId)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         var realm = await rs.GetBySlug(slug);
-        if (realm is null) return NotFound();
+        if (realm is null) return NotFound(new ApiError { Code = "PASSPORT_REALM_NOT_FOUND", Message = "Realm not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
         if (!await rs.IsMemberWithRole(realm.Id, currentUser.Id, RealmMemberRole.Moderator))
-            return StatusCode(403, "You do not have permission to manage labels.");
+            return StatusCode(403, ApiError.Unauthorized("You do not have permission to manage labels.", forbidden: true));
         if (realm.BoostLevel < 1)
-            return StatusCode(403, "Realm boost level 1 is required to manage labels.");
+            return StatusCode(403, ApiError.Unauthorized("Realm boost level 1 is required to manage labels.", forbidden: true));
 
         var label = await db.RealmLabels.FirstOrDefaultAsync(l => l.Id == labelId && l.RealmId == realm.Id);
-        if (label is null) return NotFound();
+        if (label is null) return NotFound(new ApiError { Code = "PASSPORT_REALM_LABEL_NOT_FOUND", Message = "Realm label not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
         await db.RealmMembers
             .Where(m => m.RealmId == realm.Id && m.LabelId == label.Id)
@@ -533,21 +534,21 @@ public class RealmController(
     [AskPermission(PermissionKeys.RealmsMembersManage)]
     public async Task<ActionResult<SnRealmMember>> UpdateMemberLabel(string slug, Guid memberId, [FromBody] RealmLabelAssignmentRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         var realm = await rs.GetBySlug(slug);
-        if (realm is null) return NotFound();
+        if (realm is null) return NotFound(new ApiError { Code = "PASSPORT_REALM_NOT_FOUND", Message = "Realm not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
         if (!await rs.IsMemberWithRole(realm.Id, currentUser.Id, RealmMemberRole.Moderator))
-            return StatusCode(403, "You do not have permission to manage labels.");
+            return StatusCode(403, ApiError.Unauthorized("You do not have permission to manage labels.", forbidden: true));
         if (realm.BoostLevel < 1)
-            return StatusCode(403, "Realm boost level 1 is required to manage labels.");
+            return StatusCode(403, ApiError.Unauthorized("Realm boost level 1 is required to manage labels.", forbidden: true));
 
         var member = await rs.GetActiveMember(realm.Id, memberId);
-        if (member is null) return NotFound();
+        if (member is null) return NotFound(new ApiError { Code = "PASSPORT_REALM_MEMBER_NOT_FOUND", Message = "Realm member not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
         if (request.LabelId.HasValue)
         {
             var label = await db.RealmLabels.FirstOrDefaultAsync(l => l.Id == request.LabelId.Value && l.RealmId == realm.Id);
-            if (label is null) return BadRequest("Label does not belong to this realm.");
+            if (label is null) return BadRequest(new ApiError { Code = "REALM_LABEL_NOT_BELONG", Message = "Label does not belong to this realm.", Status = 400 });
             member.LabelId = label.Id;
         }
         else
@@ -564,11 +565,11 @@ public class RealmController(
     [AskPermission(PermissionKeys.RealmsBoostsManage)]
     public async Task<ActionResult<RealmBoostResponse>> BoostRealm(string slug, [FromBody] RealmBoostRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         var realm = await rs.GetBySlug(slug);
-        if (realm is null) return NotFound();
+        if (realm is null) return NotFound(new ApiError { Code = "PASSPORT_REALM_NOT_FOUND", Message = "Realm not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
         if (!await rs.IsMemberWithRole(realm.Id, currentUser.Id, RealmMemberRole.Normal))
-            return StatusCode(403, "You must be a member to boost this realm.");
+            return StatusCode(403, ApiError.Unauthorized("You must be a member to boost this realm.", forbidden: true));
 
         string currency;
         try
@@ -577,7 +578,7 @@ public class RealmController(
         }
         catch (ArgumentException)
         {
-            return BadRequest("Unsupported boost currency. Use golds or points.");
+            return BadRequest(new ApiError { Code = "REALM_BAD_BOOST_CURRENCY", Message = "Unsupported boost currency. Use golds or points.", Status = 400 });
         }
 
         var amount = RealmBoostPolicy.GetAmountForShares(currency, request.Shares);
@@ -611,7 +612,7 @@ public class RealmController(
     public async Task<ActionResult<object>> GetBoostStatus(string slug)
     {
         var realm = await rs.GetBySlug(slug);
-        if (realm is null) return NotFound();
+        if (realm is null) return NotFound(new ApiError { Code = "PASSPORT_REALM_NOT_FOUND", Message = "Realm not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
         return Ok(new
         {
@@ -632,7 +633,7 @@ public class RealmController(
     public async Task<ActionResult<object>> GetBoostLeaderboard(string slug, [FromQuery] int take = 20)
     {
         var realm = await rs.GetBySlug(slug);
-        if (realm is null) return NotFound();
+        if (realm is null) return NotFound(new ApiError { Code = "PASSPORT_REALM_NOT_FOUND", Message = "Realm not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
         var cutoff = RealmBoostPolicy.GetActiveCutoff(SystemClock.Instance.GetCurrentInstant());
 
         var contributions = await db.RealmBoostContributions
@@ -679,13 +680,13 @@ public class RealmController(
     public async Task<ActionResult<List<SnRealmExperienceRecord>>> GetMemberExperience(string slug, Guid memberId, [FromQuery] int take = 50)
     {
         var realm = await rs.GetBySlug(slug);
-        if (realm is null) return NotFound();
+        if (realm is null) return NotFound(new ApiError { Code = "PASSPORT_REALM_NOT_FOUND", Message = "Realm not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
         if (!realm.IsPublic)
         {
-            if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+            if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
             if (!await rs.IsMemberWithRole(realm.Id, currentUser.Id, RealmMemberRole.Normal))
-                return StatusCode(403, "You must be a member to view this realm.");
+                return StatusCode(403, ApiError.Unauthorized("You must be a member to view this realm.", forbidden: true));
         }
 
         var records = await db.RealmExperienceRecords
@@ -702,7 +703,7 @@ public class RealmController(
     [AskPermission(PermissionKeys.RealmsMembersManage)]
     public async Task<ActionResult> LeaveRealm(string slug)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         var accountId = currentUser.Id;
 
         var member = await db.RealmMembers
@@ -710,10 +711,10 @@ public class RealmController(
             .Where(m => m.Realm.Slug.ToLower() == slug.ToLowerInvariant())
             .Where(m => m.JoinedAt != null && m.LeaveAt == null)
             .FirstOrDefaultAsync();
-        if (member is null) return NotFound();
+        if (member is null) return NotFound(new ApiError { Code = "PASSPORT_REALM_MEMBER_NOT_FOUND", Message = "Realm member not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
         if (member.Role == RealmMemberRole.Owner)
-            return StatusCode(403, "Owner cannot leave their own realm.");
+            return StatusCode(403, ApiError.Unauthorized("Owner cannot leave their own realm.", forbidden: true));
 
         member.LeaveAt = SystemClock.Instance.GetCurrentInstant();
         await db.SaveChangesAsync();
@@ -747,20 +748,20 @@ public class RealmController(
     [Authorize]
     public async Task<ActionResult<SnRealm>> CreateRealm(RealmRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
-        if (string.IsNullOrWhiteSpace(request.Name)) return BadRequest("You cannot create a realm without a name.");
-        if (string.IsNullOrWhiteSpace(request.Slug)) return BadRequest("You cannot create a realm without a slug.");
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
+        if (string.IsNullOrWhiteSpace(request.Name)) return BadRequest(new ApiError { Code = "REALM_NAME_REQUIRED", Message = "You cannot create a realm without a name.", Status = 400 });
+        if (string.IsNullOrWhiteSpace(request.Slug)) return BadRequest(new ApiError { Code = "REALM_SLUG_REQUIRED", Message = "You cannot create a realm without a slug.", Status = 400 });
 
         var account = await accounts.GetAccount(currentUser.Id);
-        if (account is null) return Unauthorized();
+        if (account is null) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         if (account.PerkLevel == 0 && currentUser.PerkLevel > 0) account.PerkLevel = currentUser.PerkLevel;
 
         var quota = await quotaService.GetQuotaAsync(account);
         if (quota.Used >= quota.Total)
-            return StatusCode(403, $"Realm quota exceeded ({quota.Used}/{quota.Total}).");
+            return StatusCode(403, ApiError.Unauthorized($"Realm quota exceeded ({quota.Used}/{quota.Total}).", forbidden: true));
 
         var slugExists = await db.Realms.AnyAsync(r => r.Slug.ToLower() == request.Slug.ToLowerInvariant());
-        if (slugExists) return BadRequest("Realm with this slug already exists.");
+        if (slugExists) return BadRequest(new ApiError { Code = "REALM_SLUG_CONFLICT", Message = "Realm with this slug already exists.", Status = 400 });
 
         var realm = new SnRealm
         {
@@ -784,14 +785,14 @@ public class RealmController(
         if (request.PictureId is not null)
         {
             var pictureResult = await files.GetFileAsync(new DyGetFileRequest { Id = request.PictureId });
-            if (pictureResult is null) return BadRequest("Invalid picture id, unable to find the file on cloud.");
+            if (pictureResult is null) return BadRequest(new ApiError { Code = "REALM_PICTURE_NOT_FOUND", Message = "Invalid picture id, unable to find the file on cloud.", Status = 400 });
             realm.Picture = SnCloudFileReferenceObject.FromProtoValue(pictureResult);
         }
 
         if (request.BackgroundId is not null)
         {
             var backgroundResult = await files.GetFileAsync(new DyGetFileRequest { Id = request.BackgroundId });
-            if (backgroundResult is null) return BadRequest("Invalid background id, unable to find the file on cloud.");
+            if (backgroundResult is null) return BadRequest(new ApiError { Code = "REALM_BACKGROUND_NOT_FOUND", Message = "Invalid background id, unable to find the file on cloud.", Status = 400 });
             realm.Background = SnCloudFileReferenceObject.FromProtoValue(backgroundResult);
         }
 
@@ -819,24 +820,24 @@ public class RealmController(
     [AskPermission(PermissionKeys.RealmsUpdate)]
     public async Task<ActionResult<SnRealm>> Update(string slug, [FromBody] RealmRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var realm = await db.Realms
             .Where(r => r.Slug.ToLower() == slug.ToLowerInvariant())
             .FirstOrDefaultAsync();
-        if (realm is null) return NotFound();
+        if (realm is null) return NotFound(new ApiError { Code = "PASSPORT_REALM_NOT_FOUND", Message = "Realm not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
         var accountId = currentUser.Id;
         var member = await db.RealmMembers
             .Where(m => m.AccountId == accountId && m.RealmId == realm.Id && m.JoinedAt != null && m.LeaveAt == null)
             .FirstOrDefaultAsync();
         if (member is null || member.Role < RealmMemberRole.Moderator)
-            return StatusCode(403, "You do not have permission to update this realm.");
+            return StatusCode(403, ApiError.Unauthorized("You do not have permission to update this realm.", forbidden: true));
 
         if (request.Slug is not null && request.Slug != realm.Slug)
         {
             var slugExists = await db.Realms.AnyAsync(r => r.Slug.ToLower() == request.Slug.ToLowerInvariant());
-            if (slugExists) return BadRequest("Realm with this slug already exists.");
+            if (slugExists) return BadRequest(new ApiError { Code = "REALM_SLUG_CONFLICT", Message = "Realm with this slug already exists.", Status = 400 });
             realm.Slug = request.Slug;
         }
 
@@ -852,7 +853,7 @@ public class RealmController(
         if (request.PictureId is not null)
         {
             var pictureResult = await files.GetFileAsync(new DyGetFileRequest { Id = request.PictureId });
-            if (pictureResult is null) return BadRequest("Invalid picture id, unable to find the file on cloud.");
+            if (pictureResult is null) return BadRequest(new ApiError { Code = "REALM_PICTURE_NOT_FOUND", Message = "Invalid picture id, unable to find the file on cloud.", Status = 400 });
 
             realm.Picture = SnCloudFileReferenceObject.FromProtoValue(pictureResult);
         }
@@ -860,7 +861,7 @@ public class RealmController(
         if (request.BackgroundId is not null)
         {
             var backgroundResult = await files.GetFileAsync(new DyGetFileRequest { Id = request.BackgroundId });
-            if (backgroundResult is null) return BadRequest("Invalid background id, unable to find the file on cloud.");
+            if (backgroundResult is null) return BadRequest(new ApiError { Code = "REALM_BACKGROUND_NOT_FOUND", Message = "Invalid background id, unable to find the file on cloud.", Status = 400 });
 
             realm.Background = SnCloudFileReferenceObject.FromProtoValue(backgroundResult);
         }
@@ -894,15 +895,15 @@ public class RealmController(
     [AskPermission(PermissionKeys.RealmsMembersManage)]
     public async Task<ActionResult<SnRealmMember>> JoinRealm(string slug)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var realm = await db.Realms
             .Where(r => r.Slug.ToLower() == slug.ToLowerInvariant())
             .FirstOrDefaultAsync();
-        if (realm is null) return NotFound();
+        if (realm is null) return NotFound(new ApiError { Code = "PASSPORT_REALM_NOT_FOUND", Message = "Realm not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
         if (!realm.IsCommunity)
-            return StatusCode(403, "Only community realms can be joined without invitation.");
+            return StatusCode(403, ApiError.Unauthorized("Only community realms can be joined without invitation.", forbidden: true));
 
         var existingMember = await db.RealmMembers
             .Where(m => m.AccountId == currentUser.Id && m.RealmId == realm.Id)
@@ -910,7 +911,7 @@ public class RealmController(
         if (existingMember is not null)
         {
             if (existingMember.LeaveAt == null)
-                return BadRequest("You are already a member of this realm.");
+                return BadRequest(new ApiError { Code = "REALM_MEMBER_EXISTS", Message = "You are already a member of this realm.", Status = 400 });
 
             existingMember.LeaveAt = null;
             existingMember.JoinedAt = SystemClock.Instance.GetCurrentInstant();
@@ -962,20 +963,20 @@ public class RealmController(
     [AskPermission(PermissionKeys.RealmsMembersManage)]
     public async Task<ActionResult> RemoveMember(string slug, Guid memberId)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var realm = await db.Realms
             .Where(r => r.Slug.ToLower() == slug.ToLowerInvariant())
             .FirstOrDefaultAsync();
-        if (realm is null) return NotFound();
+        if (realm is null) return NotFound(new ApiError { Code = "PASSPORT_REALM_NOT_FOUND", Message = "Realm not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
         var member = await db.RealmMembers
             .Where(m => m.AccountId == memberId && m.RealmId == realm.Id && m.JoinedAt != null && m.LeaveAt == null)
             .FirstOrDefaultAsync();
-        if (member is null) return NotFound();
+        if (member is null) return NotFound(new ApiError { Code = "PASSPORT_REALM_MEMBER_NOT_FOUND", Message = "Realm member not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
         if (!await rs.IsMemberWithRole(realm.Id, currentUser.Id, RealmMemberRole.Moderator, member.Role))
-            return StatusCode(403, "You do not have permission to remove members from this realm.");
+            return StatusCode(403, ApiError.Unauthorized("You do not have permission to remove members from this realm.", forbidden: true));
 
         member.LeaveAt = SystemClock.Instance.GetCurrentInstant();
         await db.SaveChangesAsync();
@@ -999,22 +1000,22 @@ public class RealmController(
     [AskPermission(PermissionKeys.RealmsMembersManage)]
     public async Task<ActionResult<SnRealmMember>> UpdateMemberRole(string slug, Guid memberId, [FromBody] int newRole)
     {
-        if (newRole >= RealmMemberRole.Owner) return BadRequest("Unable to set realm member to owner or greater role.");
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (newRole >= RealmMemberRole.Owner) return BadRequest(new ApiError { Code = "REALM_ROLE_INVALID", Message = "Unable to set realm member to owner or greater role.", Status = 400 });
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var realm = await rs.GetBySlug(slug);
-        if (realm is null) return NotFound();
+        if (realm is null) return NotFound(new ApiError { Code = "PASSPORT_REALM_NOT_FOUND", Message = "Realm not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
         if (newRole > RealmMemberRole.Normal && realm.BoostLevel < 2)
-            return StatusCode(403, "Realm boost level 2 is required to promote members.");
+            return StatusCode(403, ApiError.Unauthorized("Realm boost level 2 is required to promote members.", forbidden: true));
 
         var member = await db.RealmMembers
             .Where(m => m.AccountId == memberId && m.RealmId == realm.Id && m.JoinedAt != null && m.LeaveAt == null)
             .FirstOrDefaultAsync();
-        if (member is null) return NotFound();
+        if (member is null) return NotFound(new ApiError { Code = "PASSPORT_REALM_MEMBER_NOT_FOUND", Message = "Realm member not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
         if (!await rs.IsMemberWithRole(realm.Id, currentUser.Id, RealmMemberRole.Moderator, member.Role,
                 newRole))
-            return StatusCode(403, "You do not have permission to update member roles in this realm.");
+            return StatusCode(403, ApiError.Unauthorized("You do not have permission to update member roles in this realm.", forbidden: true));
 
         member.Role = newRole;
         db.RealmMembers.Update(member);
@@ -1040,17 +1041,17 @@ public class RealmController(
     [AskPermission(PermissionKeys.RealmsDelete)]
     public async Task<ActionResult> Delete(string slug)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var transaction = await db.Database.BeginTransactionAsync();
 
         var realm = await db.Realms
             .Where(r => r.Slug.ToLower() == slug.ToLowerInvariant())
             .FirstOrDefaultAsync();
-        if (realm is null) return NotFound();
+        if (realm is null) return NotFound(new ApiError { Code = "PASSPORT_REALM_NOT_FOUND", Message = "Realm not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
         if (!await rs.IsMemberWithRole(realm.Id, currentUser.Id, RealmMemberRole.Owner))
-            return StatusCode(403, "Only the owner can delete this realm.");
+            return StatusCode(403, ApiError.Unauthorized("Only the owner can delete this realm.", forbidden: true));
 
         try
         {
@@ -1121,13 +1122,13 @@ public class RealmController(
     [Authorize]
     public async Task<ActionResult<List<SnRealmRolePermission>>> GetRolePermissions(string slug)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var realm = await rs.GetBySlug(slug);
-        if (realm is null) return NotFound();
+        if (realm is null) return NotFound(new ApiError { Code = "PASSPORT_REALM_NOT_FOUND", Message = "Realm not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
         if (!await rs.HasPermission(realm.Id, currentUser.Id, "realm.manage"))
-            return StatusCode(403, "You do not have permission to manage realm permissions.");
+            return StatusCode(403, ApiError.Unauthorized("You do not have permission to manage realm permissions.", forbidden: true));
 
         var permissions = await rs.GetRolePermissions(realm.Id);
         return Ok(permissions);
@@ -1138,13 +1139,13 @@ public class RealmController(
     [AskPermission(PermissionKeys.RealmsPermissionsManage)]
     public async Task<ActionResult<SnRealmRolePermission>> UpdateRolePermissions(string slug, [FromBody] RealmRolePermissionRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var realm = await rs.GetBySlug(slug);
-        if (realm is null) return NotFound();
+        if (realm is null) return NotFound(new ApiError { Code = "PASSPORT_REALM_NOT_FOUND", Message = "Realm not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
         if (!await rs.HasPermission(realm.Id, currentUser.Id, "realm.manage"))
-            return StatusCode(403, "You do not have permission to manage realm permissions.");
+            return StatusCode(403, ApiError.Unauthorized("You do not have permission to manage realm permissions.", forbidden: true));
 
         var permission = new SnRealmRolePermission
         {
@@ -1177,13 +1178,13 @@ public class RealmController(
     [Authorize]
     public async Task<ActionResult<SnRealmUserPermission>> GetUserPermissions(string slug, Guid accountId)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var realm = await rs.GetBySlug(slug);
-        if (realm is null) return NotFound();
+        if (realm is null) return NotFound(new ApiError { Code = "PASSPORT_REALM_NOT_FOUND", Message = "Realm not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
         if (!await rs.HasPermission(realm.Id, currentUser.Id, "realm.manage"))
-            return StatusCode(403, "You do not have permission to manage realm permissions.");
+            return StatusCode(403, ApiError.Unauthorized("You do not have permission to manage realm permissions.", forbidden: true));
 
         var permission = await rs.GetUserPermission(realm.Id, accountId);
         return Ok(permission);
@@ -1194,13 +1195,13 @@ public class RealmController(
     [AskPermission(PermissionKeys.RealmsPermissionsManage)]
     public async Task<ActionResult<SnRealmUserPermission>> UpdateUserPermissions(string slug, [FromBody] RealmUserPermissionRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var realm = await rs.GetBySlug(slug);
-        if (realm is null) return NotFound();
+        if (realm is null) return NotFound(new ApiError { Code = "PASSPORT_REALM_NOT_FOUND", Message = "Realm not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
         if (!await rs.HasPermission(realm.Id, currentUser.Id, "realm.manage"))
-            return StatusCode(403, "You do not have permission to manage realm permissions.");
+            return StatusCode(403, ApiError.Unauthorized("You do not have permission to manage realm permissions.", forbidden: true));
 
         var permission = new SnRealmUserPermission
         {
@@ -1233,13 +1234,13 @@ public class RealmController(
     [Authorize]
     public async Task<ActionResult> GetModerationLogs(string slug, [FromQuery] int offset = 0, [FromQuery] int take = 20)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var realm = await rs.GetBySlug(slug);
-        if (realm is null) return NotFound();
+        if (realm is null) return NotFound(new ApiError { Code = "PASSPORT_REALM_NOT_FOUND", Message = "Realm not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
         if (!await rs.HasPermission(realm.Id, currentUser.Id, "post.moderate"))
-            return StatusCode(403, "You do not have permission to view moderation logs.");
+            return StatusCode(403, ApiError.Unauthorized("You do not have permission to view moderation logs.", forbidden: true));
 
         var logs = await rs.GetModerationLogs(realm.Id, offset, take);
         var total = await rs.GetModerationLogsCount(realm.Id);

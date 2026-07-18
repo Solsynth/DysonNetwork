@@ -1,5 +1,6 @@
-using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Networking;
 using Microsoft.AspNetCore.Mvc;
 
 namespace DysonNetwork.Passport.Account;
@@ -45,7 +46,7 @@ public class PresenceActivityController(
     )
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var hasFilters = !string.IsNullOrWhiteSpace(query)
             || type.HasValue
@@ -88,7 +89,7 @@ public class PresenceActivityController(
             ? await accounts.GetAccount(identifierGuid)
             : await accounts.LookupAccount(identifier);
         if (account is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PASSPORT_ACCOUNT_NOT_FOUND", Message = "Account not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
         var activities = await service.GetActiveActivities(account.Id);
         return Ok(activities);
@@ -111,7 +112,7 @@ public class PresenceActivityController(
     )
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         try
         {
@@ -122,11 +123,11 @@ public class PresenceActivityController(
         }
         catch (KeyNotFoundException ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new ApiError { Code = "PASSPORT_ACTIVITY_ARTWORK_NOT_FOUND", Message = ex.Message, Status = 400, TraceId = HttpContext.TraceIdentifier });
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new ApiError { Code = "PASSPORT_ACTIVITY_ARTWORK_INVALID", Message = ex.Message, Status = 400, TraceId = HttpContext.TraceIdentifier });
         }
 
         if (!string.IsNullOrWhiteSpace(request.ManualId))
@@ -160,7 +161,7 @@ public class PresenceActivityController(
         }
 
         if (!request.Type.HasValue)
-            return BadRequest("Type is required when creating a new activity");
+            return BadRequest(new ApiError { Code = "PASSPORT_ACTIVITY_TYPE_REQUIRED", Message = "Type is required when creating a new activity.", Status = 400, TraceId = HttpContext.TraceIdentifier });
 
         var newActivity = new SnPresenceActivity
         {
@@ -204,7 +205,7 @@ public class PresenceActivityController(
     )
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         try
         {
@@ -215,11 +216,11 @@ public class PresenceActivityController(
         }
         catch (KeyNotFoundException ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new ApiError { Code = "PASSPORT_ACTIVITY_ARTWORK_NOT_FOUND", Message = ex.Message, Status = 400, TraceId = HttpContext.TraceIdentifier });
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new ApiError { Code = "PASSPORT_ACTIVITY_ARTWORK_INVALID", Message = ex.Message, Status = 400, TraceId = HttpContext.TraceIdentifier });
         }
 
         var result = await service.UpdateActivity(
@@ -275,23 +276,23 @@ public class PresenceActivityController(
     )
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         if (!string.IsNullOrWhiteSpace(manualId))
         {
             var deleted = await service.DeleteActivityByManualId(manualId, currentUser.Id);
             if (!deleted)
-                return NotFound();
+                return NotFound(new ApiError { Code = "PASSPORT_ACTIVITY_NOT_FOUND", Message = "Activity not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
             return NoContent();
         }
 
         if (string.IsNullOrWhiteSpace(id) || !Guid.TryParse(id, out var activityGuid))
-            return BadRequest("Either 'id' (GUID) or 'manualId' must be provided");
+            return BadRequest(new ApiError { Code = "PASSPORT_ACTIVITY_ID_REQUIRED", Message = "Either 'id' (GUID) or 'manualId' must be provided.", Status = 400, TraceId = HttpContext.TraceIdentifier });
         {
             var deleted = await service.DeleteActivity(activityGuid, currentUser.Id);
             if (!deleted)
-                return NotFound();
+                return NotFound(new ApiError { Code = "PASSPORT_ACTIVITY_NOT_FOUND", Message = "Activity not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
             return NoContent();
         }

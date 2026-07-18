@@ -21,7 +21,7 @@ public class ProgressionAdminController(
     [HttpGet("achievements")]
     public async Task<ActionResult<List<SnAchievementDefinition>>> ListAchievements()
     {
-        if (!await IsAdminAsync()) return Forbid();
+        if (!await IsAdminAsync()) return StatusCode(403, ApiError.Unauthorized("You do not have permission to perform this action.", forbidden: true));
         return Ok(await db.AchievementDefinitions.OrderBy(m => m.SortOrder).ThenBy(m => m.Title).ToListAsync());
     }
 
@@ -29,7 +29,7 @@ public class ProgressionAdminController(
     [AskPermission(PermissionKeys.ProgressionAchievementsManage)]
     public async Task<ActionResult<SnAchievementDefinition>> CreateAchievement([FromBody] ProgressionDefinitionUpsertRequest request)
     {
-        if (!await IsAdminAsync()) return Forbid();
+        if (!await IsAdminAsync()) return StatusCode(403, ApiError.Unauthorized("You do not have permission to perform this action.", forbidden: true));
         var entity = new SnAchievementDefinition();
         ApplyAchievement(entity, request);
         db.AchievementDefinitions.Add(entity);
@@ -41,7 +41,7 @@ public class ProgressionAdminController(
     [AskPermission(PermissionKeys.ProgressionAchievementsManage)]
     public async Task<ActionResult<SnAchievementDefinition>> UpdateAchievement(string identifier, [FromBody] ProgressionDefinitionUpsertRequest request)
     {
-        if (!await IsAdminAsync()) return Forbid();
+        if (!await IsAdminAsync()) return StatusCode(403, ApiError.Unauthorized("You do not have permission to perform this action.", forbidden: true));
         var entity = await db.AchievementDefinitions.FirstOrDefaultAsync(m => m.Identifier == identifier);
         if (entity is null) return NotFound(ApiError.NotFound(identifier, traceId: HttpContext.TraceIdentifier));
         ApplyAchievement(entity, request);
@@ -53,7 +53,7 @@ public class ProgressionAdminController(
     [AskPermission(PermissionKeys.ProgressionAchievementsManage)]
     public async Task<ActionResult<SnAchievementDefinition>> ToggleAchievement(string identifier, [FromQuery] bool enabled = true)
     {
-        if (!await IsAdminAsync()) return Forbid();
+        if (!await IsAdminAsync()) return StatusCode(403, ApiError.Unauthorized("You do not have permission to perform this action.", forbidden: true));
         var entity = await db.AchievementDefinitions.FirstOrDefaultAsync(m => m.Identifier == identifier);
         if (entity is null) return NotFound(ApiError.NotFound(identifier, traceId: HttpContext.TraceIdentifier));
         entity.IsEnabled = enabled;
@@ -64,7 +64,7 @@ public class ProgressionAdminController(
     [HttpGet("quests")]
     public async Task<ActionResult<List<SnQuestDefinition>>> ListQuests()
     {
-        if (!await IsAdminAsync()) return Forbid();
+        if (!await IsAdminAsync()) return StatusCode(403, ApiError.Unauthorized("You do not have permission to perform this action.", forbidden: true));
         return Ok(await db.QuestDefinitions.OrderBy(m => m.SortOrder).ThenBy(m => m.Title).ToListAsync());
     }
 
@@ -72,7 +72,7 @@ public class ProgressionAdminController(
     [AskPermission(PermissionKeys.ProgressionQuestsManage)]
     public async Task<ActionResult<SnQuestDefinition>> CreateQuest([FromBody] QuestDefinitionUpsertRequest request)
     {
-        if (!await IsAdminAsync()) return Forbid();
+        if (!await IsAdminAsync()) return StatusCode(403, ApiError.Unauthorized("You do not have permission to perform this action.", forbidden: true));
         var entity = new SnQuestDefinition();
         ApplyQuest(entity, request);
         db.QuestDefinitions.Add(entity);
@@ -84,7 +84,7 @@ public class ProgressionAdminController(
     [AskPermission(PermissionKeys.ProgressionQuestsManage)]
     public async Task<ActionResult<SnQuestDefinition>> UpdateQuest(string identifier, [FromBody] QuestDefinitionUpsertRequest request)
     {
-        if (!await IsAdminAsync()) return Forbid();
+        if (!await IsAdminAsync()) return StatusCode(403, ApiError.Unauthorized("You do not have permission to perform this action.", forbidden: true));
         var entity = await db.QuestDefinitions.FirstOrDefaultAsync(m => m.Identifier == identifier);
         if (entity is null) return NotFound(ApiError.NotFound(identifier, traceId: HttpContext.TraceIdentifier));
         ApplyQuest(entity, request);
@@ -96,7 +96,7 @@ public class ProgressionAdminController(
     [AskPermission(PermissionKeys.ProgressionQuestsManage)]
     public async Task<ActionResult<SnQuestDefinition>> ToggleQuest(string identifier, [FromQuery] bool enabled = true)
     {
-        if (!await IsAdminAsync()) return Forbid();
+        if (!await IsAdminAsync()) return StatusCode(403, ApiError.Unauthorized("You do not have permission to perform this action.", forbidden: true));
         var entity = await db.QuestDefinitions.FirstOrDefaultAsync(m => m.Identifier == identifier);
         if (entity is null) return NotFound(ApiError.NotFound(identifier, traceId: HttpContext.TraceIdentifier));
         entity.IsEnabled = enabled;
@@ -108,7 +108,7 @@ public class ProgressionAdminController(
     [AskPermission(PermissionKeys.ProgressionSync)]
     public async Task<IActionResult> SyncSeeds()
     {
-        if (!await IsAdminAsync()) return Forbid();
+        if (!await IsAdminAsync()) return StatusCode(403, ApiError.Unauthorized("You do not have permission to perform this action.", forbidden: true));
         await seedService.EnsureSeededAsync(HttpContext.RequestAborted);
         return Ok();
     }
@@ -116,10 +116,10 @@ public class ProgressionAdminController(
     [HttpPost("test-ws-packet")]
     public async Task<IActionResult> TestWebSocketPacket([FromQuery] string? accountId, [FromQuery] string kind = "achievement", [FromQuery] string? identifier = null, [FromQuery] string? title = null)
     {
-        if (!await IsAdminAsync()) return Forbid();
+        if (!await IsAdminAsync()) return StatusCode(403, ApiError.Unauthorized("You do not have permission to perform this action.", forbidden: true));
         var currentUser = HttpContext.Items["CurrentUser"] as SnAccount;
         var userId = accountId is not null ? Guid.Parse(accountId) : currentUser?.Id;
-        if (userId is null) return BadRequest("No account specified and no current user");
+        if (userId is null) return BadRequest(new ApiError { Code = "PASSPORT_PROGRESSION_NO_ACCOUNT", Message = "No account specified and no current user.", Status = 400, TraceId = HttpContext.TraceIdentifier });
         await progressionService.SendTestPacketAsync(userId.Value, kind, identifier ?? "test", title ?? "Test Packet");
         return Ok();
     }

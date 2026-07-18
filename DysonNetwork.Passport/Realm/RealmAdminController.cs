@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Passport.Account;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Proto;
 using Google.Protobuf.WellKnownTypes;
 using Microsoft.AspNetCore.Authorization;
@@ -110,7 +111,7 @@ public class RealmAdminController(
         var realm = await db.Realms
             .FirstOrDefaultAsync(r => r.Slug.ToLower() == slug.ToLowerInvariant(), HttpContext.RequestAborted);
         if (realm is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PASSPORT_REALM_NOT_FOUND", Message = "Realm not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
         await realmService.RefreshBoostState(realm, HttpContext.RequestAborted);
 
@@ -149,13 +150,13 @@ public class RealmAdminController(
         var realm = await db.Realms
             .FirstOrDefaultAsync(r => r.Slug.ToLower() == slug.ToLowerInvariant(), HttpContext.RequestAborted);
         if (realm is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PASSPORT_REALM_NOT_FOUND", Message = "Realm not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
         if (request.Slug is not null)
         {
             var normalized = request.Slug.Trim();
             if (string.IsNullOrWhiteSpace(normalized))
-                return BadRequest("Slug cannot be empty.");
+                return BadRequest(new ApiError { Code = "PASSPORT_REALM_SLUG_REQUIRED", Message = "Slug cannot be empty.", Status = 400, TraceId = HttpContext.TraceIdentifier });
 
             if (!string.Equals(normalized, realm.Slug, StringComparison.OrdinalIgnoreCase))
             {
@@ -164,7 +165,7 @@ public class RealmAdminController(
                     HttpContext.RequestAborted
                 );
                 if (exists)
-                    return BadRequest("A realm with this slug already exists.");
+                    return BadRequest(new ApiError { Code = "PASSPORT_REALM_SLUG_EXISTS", Message = "A realm with this slug already exists.", Status = 400, TraceId = HttpContext.TraceIdentifier });
                 realm.Slug = normalized;
             }
         }
@@ -172,7 +173,7 @@ public class RealmAdminController(
         if (request.Name is not null)
         {
             if (string.IsNullOrWhiteSpace(request.Name))
-                return BadRequest("Name cannot be empty.");
+                return BadRequest(new ApiError { Code = "PASSPORT_REALM_NAME_REQUIRED", Message = "Name cannot be empty.", Status = 400, TraceId = HttpContext.TraceIdentifier });
             realm.Name = request.Name.Trim();
         }
 
@@ -212,7 +213,7 @@ public class RealmAdminController(
         var realm = await db.Realms
             .FirstOrDefaultAsync(r => r.Slug.ToLower() == slug.ToLowerInvariant(), HttpContext.RequestAborted);
         if (realm is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PASSPORT_REALM_NOT_FOUND", Message = "Realm not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
         realm.Verification = new SnVerificationMark
         {
@@ -244,7 +245,7 @@ public class RealmAdminController(
         var realm = await db.Realms
             .FirstOrDefaultAsync(r => r.Slug.ToLower() == slug.ToLowerInvariant(), HttpContext.RequestAborted);
         if (realm is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PASSPORT_REALM_NOT_FOUND", Message = "Realm not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
         realm.Verification = null;
         await db.SaveChangesAsync(HttpContext.RequestAborted);
@@ -279,7 +280,7 @@ public class RealmAdminController(
             .AsNoTracking()
             .FirstOrDefaultAsync(r => r.Slug.ToLower() == slug.ToLowerInvariant(), HttpContext.RequestAborted);
         if (realm is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PASSPORT_REALM_NOT_FOUND", Message = "Realm not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
         var query = db.RealmMembers
             .AsNoTracking()
@@ -320,7 +321,7 @@ public class RealmAdminController(
         var realm = await db.Realms
             .FirstOrDefaultAsync(r => r.Slug.ToLower() == slug.ToLowerInvariant(), HttpContext.RequestAborted);
         if (realm is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PASSPORT_REALM_NOT_FOUND", Message = "Realm not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
         var member = await db.RealmMembers
             .FirstOrDefaultAsync(
@@ -328,7 +329,7 @@ public class RealmAdminController(
                 HttpContext.RequestAborted
             );
         if (member is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PASSPORT_REALM_MEMBER_NOT_FOUND", Message = "Realm member not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
         // Admin may promote/demote freely, including transfer-level ownership.
         member.Role = request.Role;
@@ -356,7 +357,7 @@ public class RealmAdminController(
         var realm = await db.Realms
             .FirstOrDefaultAsync(r => r.Slug.ToLower() == slug.ToLowerInvariant(), HttpContext.RequestAborted);
         if (realm is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PASSPORT_REALM_NOT_FOUND", Message = "Realm not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
         var member = await db.RealmMembers
             .FirstOrDefaultAsync(
@@ -364,7 +365,7 @@ public class RealmAdminController(
                 HttpContext.RequestAborted
             );
         if (member is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PASSPORT_REALM_MEMBER_NOT_FOUND", Message = "Realm member not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
         member.LeaveAt = SystemClock.Instance.GetCurrentInstant();
         await db.SaveChangesAsync(HttpContext.RequestAborted);
@@ -390,7 +391,7 @@ public class RealmAdminController(
         var realm = await db.Realms
             .FirstOrDefaultAsync(r => r.Slug.ToLower() == slug.ToLowerInvariant(), HttpContext.RequestAborted);
         if (realm is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PASSPORT_REALM_NOT_FOUND", Message = "Realm not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
         var realmId = realm.Id;
         var realmName = realm.Name;

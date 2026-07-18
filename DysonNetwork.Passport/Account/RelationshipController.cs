@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Networking;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -61,7 +62,7 @@ public class RelationshipController(AppDatabase db, RelationshipService rls, Act
     public async Task<ActionResult<List<SnAccountRelationship>>> ListRelationships([FromQuery] int offset = 0,
         [FromQuery] int take = 20)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         var accountId = currentUser.Id;
 
         var query = db.AccountRelationships.AsQueryable()
@@ -84,7 +85,7 @@ public class RelationshipController(AppDatabase db, RelationshipService rls, Act
     [Authorize]
     public async Task<ActionResult<List<SnAccountRelationship>>> ListRelationshipRequests()
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var relationships = await db.AccountRelationships
             .Where(r => r.Status == RelationshipStatus.Pending)
@@ -106,10 +107,10 @@ public class RelationshipController(AppDatabase db, RelationshipService rls, Act
     public async Task<ActionResult<SnAccountRelationship>> CreateRelationship(Guid accountId,
         [FromBody] RelationshipRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var relatedUser = await accounts.GetAccount(accountId);
-        if (relatedUser is null) return NotFound("Account was not found.");
+        if (relatedUser is null) return NotFound(new ApiError { Code = "PASSPORT_RELATED_ACCOUNT_NOT_FOUND", Message = "Account was not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
         try
         {
@@ -131,7 +132,7 @@ public class RelationshipController(AppDatabase db, RelationshipService rls, Act
         }
         catch (InvalidOperationException err)
         {
-            return BadRequest(err.Message);
+            return BadRequest(new ApiError { Code = "PASSPORT_RELATIONSHIP_CREATE_FAILED", Message = err.Message, Status = 400, TraceId = HttpContext.TraceIdentifier });
         }
     }
 
@@ -141,7 +142,7 @@ public class RelationshipController(AppDatabase db, RelationshipService rls, Act
     public async Task<ActionResult<SnAccountRelationship>> UpdateRelationship(Guid accountId,
         [FromBody] RelationshipRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         try
         {
@@ -161,11 +162,11 @@ public class RelationshipController(AppDatabase db, RelationshipService rls, Act
         }
         catch (ArgumentException err)
         {
-            return NotFound(err.Message);
+            return NotFound(new ApiError { Code = "PASSPORT_RELATIONSHIP_NOT_FOUND", Message = err.Message, Status = 404, TraceId = HttpContext.TraceIdentifier });
         }
         catch (InvalidOperationException err)
         {
-            return BadRequest(err.Message);
+            return BadRequest(new ApiError { Code = "PASSPORT_RELATIONSHIP_UPDATE_FAILED", Message = err.Message, Status = 400, TraceId = HttpContext.TraceIdentifier });
         }
     }
 
@@ -174,7 +175,7 @@ public class RelationshipController(AppDatabase db, RelationshipService rls, Act
     [AskPermission(PermissionKeys.RelationshipsDelete)]
     public async Task<ActionResult<SnAccountRelationship>> DeleteRelationship(Guid accountId)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         try
         {
@@ -193,11 +194,11 @@ public class RelationshipController(AppDatabase db, RelationshipService rls, Act
         }
         catch (ArgumentException err)
         {
-            return BadRequest(err.Message);
+            return BadRequest(new ApiError { Code = "PASSPORT_RELATIONSHIP_DELETE_FAILED", Message = err.Message, Status = 400, TraceId = HttpContext.TraceIdentifier });
         }
         catch (InvalidOperationException err)
         {
-            return BadRequest(err.Message);
+            return BadRequest(new ApiError { Code = "PASSPORT_RELATIONSHIP_DELETE_FAILED", Message = err.Message, Status = 400, TraceId = HttpContext.TraceIdentifier });
         }
     }
 
@@ -205,7 +206,7 @@ public class RelationshipController(AppDatabase db, RelationshipService rls, Act
     [Authorize]
     public async Task<ActionResult<SnAccountRelationship>> GetRelationship(Guid accountId)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var now = Instant.FromDateTimeUtc(DateTime.UtcNow);
         var queries = db.AccountRelationships.AsQueryable()
@@ -213,7 +214,7 @@ public class RelationshipController(AppDatabase db, RelationshipService rls, Act
             .Where(r => r.ExpiredAt == null || r.ExpiredAt > now);
         var relationship = await queries
             .FirstOrDefaultAsync();
-        if (relationship is null) return NotFound();
+        if (relationship is null) return NotFound(new ApiError { Code = "PASSPORT_RELATIONSHIP_NOT_FOUND", Message = "Relationship not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
         await HydrateRelationshipAsync(relationship);
         return Ok(relationship);
@@ -224,15 +225,15 @@ public class RelationshipController(AppDatabase db, RelationshipService rls, Act
     [AskPermission(PermissionKeys.RelationshipsFriendsManage)]
     public async Task<ActionResult<SnAccountRelationship>> SendFriendRequest(Guid accountId)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var relatedUser = await accounts.GetAccount(accountId);
-        if (relatedUser is null) return NotFound("Account was not found.");
+        if (relatedUser is null) return NotFound(new ApiError { Code = "PASSPORT_RELATED_ACCOUNT_NOT_FOUND", Message = "Account was not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
         var existing = await db.AccountRelationships.FirstOrDefaultAsync(r =>
             (r.AccountId == currentUser.Id && r.RelatedId == accountId) ||
             (r.AccountId == accountId && r.RelatedId == currentUser.Id));
-        if (existing != null) return BadRequest("Relationship already exists.");
+        if (existing != null) return BadRequest(new ApiError { Code = "PASSPORT_RELATIONSHIP_ALREADY_EXISTS", Message = "Relationship already exists.", Status = 400, TraceId = HttpContext.TraceIdentifier });
 
         try
         {
@@ -241,7 +242,7 @@ public class RelationshipController(AppDatabase db, RelationshipService rls, Act
         }
         catch (InvalidOperationException err)
         {
-            return BadRequest(err.Message);
+            return BadRequest(new ApiError { Code = "PASSPORT_FRIEND_REQUEST_FAILED", Message = err.Message, Status = 400, TraceId = HttpContext.TraceIdentifier });
         }
     }
 
@@ -250,7 +251,7 @@ public class RelationshipController(AppDatabase db, RelationshipService rls, Act
     [AskPermission(PermissionKeys.RelationshipsFriendsManage)]
     public async Task<ActionResult> DeleteFriendRequest(Guid accountId)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         try
         {
@@ -259,7 +260,7 @@ public class RelationshipController(AppDatabase db, RelationshipService rls, Act
         }
         catch (ArgumentException err)
         {
-            return NotFound(err.Message);
+            return NotFound(new ApiError { Code = "PASSPORT_FRIEND_REQUEST_NOT_FOUND", Message = err.Message, Status = 404, TraceId = HttpContext.TraceIdentifier });
         }
     }
 
@@ -268,10 +269,10 @@ public class RelationshipController(AppDatabase db, RelationshipService rls, Act
     [AskPermission(PermissionKeys.RelationshipsFriendsManage)]
     public async Task<ActionResult<SnAccountRelationship>> AcceptFriendRequest(Guid accountId)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var relationship = await rls.GetRelationship(accountId, currentUser.Id, RelationshipStatus.Pending);
-        if (relationship is null) return NotFound("Friend request was not found.");
+        if (relationship is null) return NotFound(new ApiError { Code = "PASSPORT_FRIEND_REQUEST_NOT_FOUND", Message = "Friend request was not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
         try
         {
@@ -280,7 +281,7 @@ public class RelationshipController(AppDatabase db, RelationshipService rls, Act
         }
         catch (InvalidOperationException err)
         {
-            return BadRequest(err.Message);
+            return BadRequest(new ApiError { Code = "PASSPORT_FRIEND_ACCEPT_FAILED", Message = err.Message, Status = 400, TraceId = HttpContext.TraceIdentifier });
         }
     }
 
@@ -289,10 +290,10 @@ public class RelationshipController(AppDatabase db, RelationshipService rls, Act
     [AskPermission(PermissionKeys.RelationshipsFriendsManage)]
     public async Task<ActionResult<SnAccountRelationship>> DeclineFriendRequest(Guid accountId)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var relationship = await rls.GetRelationship(accountId, currentUser.Id, RelationshipStatus.Pending);
-        if (relationship is null) return NotFound("Friend request was not found.");
+        if (relationship is null) return NotFound(new ApiError { Code = "PASSPORT_FRIEND_REQUEST_NOT_FOUND", Message = "Friend request was not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
         try
         {
@@ -301,7 +302,7 @@ public class RelationshipController(AppDatabase db, RelationshipService rls, Act
         }
         catch (InvalidOperationException err)
         {
-            return BadRequest(err.Message);
+            return BadRequest(new ApiError { Code = "PASSPORT_FRIEND_DECLINE_FAILED", Message = err.Message, Status = 400, TraceId = HttpContext.TraceIdentifier });
         }
     }
 
@@ -313,10 +314,10 @@ public class RelationshipController(AppDatabase db, RelationshipService rls, Act
         [FromBody] RelationshipActionRequest? request = null
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var relatedUser = await accounts.GetAccount(accountId);
-        if (relatedUser is null) return NotFound("Account was not found.");
+        if (relatedUser is null) return NotFound(new ApiError { Code = "PASSPORT_RELATED_ACCOUNT_NOT_FOUND", Message = "Account was not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
         try
         {
@@ -329,11 +330,11 @@ public class RelationshipController(AppDatabase db, RelationshipService rls, Act
         }
         catch (ArgumentException err)
         {
-            return BadRequest(err.Message);
+            return BadRequest(new ApiError { Code = "PASSPORT_BLOCK_FAILED", Message = err.Message, Status = 400, TraceId = HttpContext.TraceIdentifier });
         }
         catch (InvalidOperationException err)
         {
-            return BadRequest(err.Message);
+            return BadRequest(new ApiError { Code = "PASSPORT_BLOCK_FAILED", Message = err.Message, Status = 400, TraceId = HttpContext.TraceIdentifier });
         }
     }
 
@@ -342,10 +343,10 @@ public class RelationshipController(AppDatabase db, RelationshipService rls, Act
     [AskPermission(PermissionKeys.RelationshipsBlockManage)]
     public async Task<ActionResult<SnAccountRelationship>> UnblockUser(Guid accountId)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var relatedUser = await accounts.GetAccount(accountId);
-        if (relatedUser is null) return NotFound("Account was not found.");
+        if (relatedUser is null) return NotFound(new ApiError { Code = "PASSPORT_RELATED_ACCOUNT_NOT_FOUND", Message = "Account was not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
         try
         {
@@ -354,7 +355,7 @@ public class RelationshipController(AppDatabase db, RelationshipService rls, Act
         }
         catch (InvalidOperationException err)
         {
-            return BadRequest(err.Message);
+            return BadRequest(new ApiError { Code = "PASSPORT_UNBLOCK_FAILED", Message = err.Message, Status = 400, TraceId = HttpContext.TraceIdentifier });
         }
     }
 
@@ -366,10 +367,10 @@ public class RelationshipController(AppDatabase db, RelationshipService rls, Act
         [FromBody] RelationshipActionRequest? request = null
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var relatedUser = await accounts.GetAccount(accountId);
-        if (relatedUser is null) return NotFound("Account was not found.");
+        if (relatedUser is null) return NotFound(new ApiError { Code = "PASSPORT_RELATED_ACCOUNT_NOT_FOUND", Message = "Account was not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
         try
         {
@@ -382,11 +383,11 @@ public class RelationshipController(AppDatabase db, RelationshipService rls, Act
         }
         catch (ArgumentException err)
         {
-            return BadRequest(err.Message);
+            return BadRequest(new ApiError { Code = "PASSPORT_MUTE_FAILED", Message = err.Message, Status = 400, TraceId = HttpContext.TraceIdentifier });
         }
         catch (InvalidOperationException err)
         {
-            return BadRequest(err.Message);
+            return BadRequest(new ApiError { Code = "PASSPORT_MUTE_FAILED", Message = err.Message, Status = 400, TraceId = HttpContext.TraceIdentifier });
         }
     }
 
@@ -395,10 +396,10 @@ public class RelationshipController(AppDatabase db, RelationshipService rls, Act
     [AskPermission(PermissionKeys.RelationshipsMuteManage)]
     public async Task<ActionResult<SnAccountRelationship>> UnmuteUser(Guid accountId)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var relatedUser = await accounts.GetAccount(accountId);
-        if (relatedUser is null) return NotFound("Account was not found.");
+        if (relatedUser is null) return NotFound(new ApiError { Code = "PASSPORT_RELATED_ACCOUNT_NOT_FOUND", Message = "Account was not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
         try
         {
@@ -407,7 +408,7 @@ public class RelationshipController(AppDatabase db, RelationshipService rls, Act
         }
         catch (InvalidOperationException err)
         {
-            return BadRequest(err.Message);
+            return BadRequest(new ApiError { Code = "PASSPORT_UNMUTE_FAILED", Message = err.Message, Status = 400, TraceId = HttpContext.TraceIdentifier });
         }
     }
 
@@ -416,10 +417,10 @@ public class RelationshipController(AppDatabase db, RelationshipService rls, Act
     [AskPermission(PermissionKeys.RelationshipsCloseFriendsManage)]
     public async Task<ActionResult<SnAccountRelationship>> AddCloseFriend(Guid accountId)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var relatedUser = await accounts.GetAccount(accountId);
-        if (relatedUser is null) return NotFound("Account was not found.");
+        if (relatedUser is null) return NotFound(new ApiError { Code = "PASSPORT_RELATED_ACCOUNT_NOT_FOUND", Message = "Account was not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
         try
         {
@@ -428,7 +429,7 @@ public class RelationshipController(AppDatabase db, RelationshipService rls, Act
         }
         catch (InvalidOperationException err)
         {
-            return BadRequest(err.Message);
+            return BadRequest(new ApiError { Code = "PASSPORT_CLOSE_FRIEND_ADD_FAILED", Message = err.Message, Status = 400, TraceId = HttpContext.TraceIdentifier });
         }
     }
 
@@ -437,10 +438,10 @@ public class RelationshipController(AppDatabase db, RelationshipService rls, Act
     [AskPermission(PermissionKeys.RelationshipsCloseFriendsManage)]
     public async Task<ActionResult<SnAccountRelationship>> RemoveCloseFriend(Guid accountId)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var relatedUser = await accounts.GetAccount(accountId);
-        if (relatedUser is null) return NotFound("Account was not found.");
+        if (relatedUser is null) return NotFound(new ApiError { Code = "PASSPORT_RELATED_ACCOUNT_NOT_FOUND", Message = "Account was not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
         try
         {
@@ -449,7 +450,7 @@ public class RelationshipController(AppDatabase db, RelationshipService rls, Act
         }
         catch (ArgumentException err)
         {
-            return NotFound(err.Message);
+            return NotFound(new ApiError { Code = "PASSPORT_CLOSE_FRIEND_NOT_FOUND", Message = err.Message, Status = 404, TraceId = HttpContext.TraceIdentifier });
         }
     }
 
@@ -457,7 +458,7 @@ public class RelationshipController(AppDatabase db, RelationshipService rls, Act
     [Authorize]
     public async Task<ActionResult<List<SnAccount>>> ListCloseFriends()
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var closeFriendIds = await rls.ListCloseFriends(currentUser.Id);
         if (closeFriendIds.Count == 0)
@@ -515,7 +516,7 @@ public class RelationshipController(AppDatabase db, RelationshipService rls, Act
     [AskPermission(PermissionKeys.RelationshipsAliasManage)]
     public async Task<ActionResult<SnAccountRelationship>> UpdateAlias(Guid accountId, [FromBody] AliasRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         try
         {
@@ -525,7 +526,7 @@ public class RelationshipController(AppDatabase db, RelationshipService rls, Act
         }
         catch (ArgumentException err)
         {
-            return NotFound(err.Message);
+            return NotFound(new ApiError { Code = "PASSPORT_RELATIONSHIP_NOT_FOUND", Message = err.Message, Status = 404, TraceId = HttpContext.TraceIdentifier });
         }
     }
 
@@ -533,7 +534,7 @@ public class RelationshipController(AppDatabase db, RelationshipService rls, Act
     [Authorize]
     public async Task<ActionResult<List<SnAccount>>> GetMutualFriends(Guid accountId)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var mutualIds = await rls.GetMutualFriends(currentUser.Id, accountId);
         if (mutualIds.Count == 0)
@@ -567,7 +568,7 @@ public class RelationshipController(AppDatabase db, RelationshipService rls, Act
     [AskPermission(PermissionKeys.RelationshipsSync)]
     public async Task<ActionResult<RelationshipSyncResponse>> SyncRelationships([FromBody] SyncRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var since = Instant.FromUnixTimeMilliseconds(request.LastSyncTimestamp);
         var delta = await rls.GetRelationshipDelta(currentUser.Id, since);

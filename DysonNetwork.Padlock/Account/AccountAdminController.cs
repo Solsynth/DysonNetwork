@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Text;
 using System.Text.Json;
 using DysonNetwork.Padlock.Models;
+using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Localization;
 using DysonNetwork.Shared.Models;
@@ -280,7 +281,7 @@ public class AccountAdminController(
     {
         var account = await LookupAccountAsync(name);
         if (account is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PADLOCK_ACCOUNT_NOT_FOUND", Message = "Account not found.", Status = 404 });
 
         var hydratedAccount = (await HydrateAccountsAsync([account])).First();
         var localAccount = await db.Accounts
@@ -289,7 +290,7 @@ public class AccountAdminController(
             .Include(a => a.AuthFactors)
             .FirstOrDefaultAsync(a => a.Id == account.Id);
         if (localAccount is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PADLOCK_ACCOUNT_NOT_FOUND", Message = "Account not found.", Status = 404 });
 
         hydratedAccount.Contacts = localAccount.Contacts;
         hydratedAccount.AuthFactors = localAccount.AuthFactors;
@@ -337,7 +338,7 @@ public class AccountAdminController(
 
         var account = await LookupAccountAsync(name);
         if (account is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PADLOCK_ACCOUNT_NOT_FOUND", Message = "Account not found.", Status = 404 });
 
         var query = db.AuthClients
             .AsNoTracking()
@@ -382,11 +383,11 @@ public class AccountAdminController(
     )
     {
         if (string.IsNullOrWhiteSpace(request.Label))
-            return BadRequest("label is required.");
+            return BadRequest(new ApiError { Code = "PADLOCK_DEVICE_LABEL_REQUIRED", Message = "Label is required.", Status = 400 });
 
         var account = await LookupAccountAsync(name);
         if (account is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PADLOCK_ACCOUNT_NOT_FOUND", Message = "Account not found.", Status = 404 });
 
         await accounts.UpdateDeviceName(account, deviceId, request.Label.Trim());
         return NoContent();
@@ -398,7 +399,7 @@ public class AccountAdminController(
     {
         var account = await LookupAccountAsync(name);
         if (account is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PADLOCK_ACCOUNT_NOT_FOUND", Message = "Account not found.", Status = 404 });
 
         try
         {
@@ -407,7 +408,7 @@ public class AccountAdminController(
         }
         catch (InvalidOperationException ex)
         {
-            return NotFound(ex.Message);
+            return NotFound(new ApiError { Code = "PADLOCK_ACCOUNT_NOT_FOUND", Message = ex.Message, Status = 404 });
         }
     }
 
@@ -417,7 +418,7 @@ public class AccountAdminController(
     {
         var account = await LookupAccountAsync(name);
         if (account is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PADLOCK_ACCOUNT_NOT_FOUND", Message = "Account not found.", Status = 404 });
 
         try
         {
@@ -426,7 +427,7 @@ public class AccountAdminController(
         }
         catch (InvalidOperationException ex)
         {
-            return NotFound(ex.Message);
+            return NotFound(new ApiError { Code = "PADLOCK_ACCOUNT_NOT_FOUND", Message = ex.Message, Status = 404 });
         }
     }
 
@@ -447,7 +448,7 @@ public class AccountAdminController(
 
         var account = await LookupAccountAsync(name);
         if (account is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PADLOCK_ACCOUNT_NOT_FOUND", Message = "Account not found.", Status = 404 });
 
         var query = db.AuthSessions
             .AsNoTracking()
@@ -504,13 +505,13 @@ public class AccountAdminController(
 
         var account = await LookupAccountAsync(name);
         if (account is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PADLOCK_ACCOUNT_NOT_FOUND", Message = "Account not found.", Status = 404 });
 
         var parentSession = await db.AuthSessions
             .AsNoTracking()
             .FirstOrDefaultAsync(s => s.Id == sessionId && s.AccountId == account.Id);
         if (parentSession is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PADLOCK_ACCOUNT_NOT_FOUND", Message = "Account not found.", Status = 404 });
 
         var query = db.AuthSessions
             .AsNoTracking()
@@ -547,7 +548,7 @@ public class AccountAdminController(
     {
         var account = await LookupAccountAsync(name);
         if (account is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PADLOCK_ACCOUNT_NOT_FOUND", Message = "Account not found.", Status = 404 });
 
         try
         {
@@ -556,7 +557,7 @@ public class AccountAdminController(
         }
         catch (InvalidOperationException ex)
         {
-            return NotFound(ex.Message);
+            return NotFound(new ApiError { Code = "PADLOCK_ACCOUNT_NOT_FOUND", Message = ex.Message, Status = 404 });
         }
     }
 
@@ -566,7 +567,7 @@ public class AccountAdminController(
     {
         var account = await LookupAccountAsync(name);
         if (account is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PADLOCK_ACCOUNT_NOT_FOUND", Message = "Account not found.", Status = 404 });
 
         var contacts = await db.AccountContacts
             .AsNoTracking()
@@ -587,11 +588,11 @@ public class AccountAdminController(
     )
     {
         if (string.IsNullOrWhiteSpace(request.Content))
-            return BadRequest("Content is required.");
+            return BadRequest(new ApiError { Code = "PADLOCK_CONTACT_CONTENT_REQUIRED", Message = "Content is required.", Status = 400 });
 
         var account = await LookupAccountAsync(name);
         if (account is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PADLOCK_ACCOUNT_NOT_FOUND", Message = "Account not found.", Status = 404 });
 
         var contact = await accounts.CreateContactMethod(account, request.Type, request.Content.Trim());
         return Ok(contact);
@@ -607,12 +608,12 @@ public class AccountAdminController(
     {
         var account = await LookupAccountAsync(name);
         if (account is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PADLOCK_ACCOUNT_NOT_FOUND", Message = "Account not found.", Status = 404 });
 
         var contact = await db.AccountContacts
             .FirstOrDefaultAsync(c => c.AccountId == account.Id && c.Id == contactId);
         if (contact is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PADLOCK_ACCOUNT_NOT_FOUND", Message = "Account not found.", Status = 404 });
 
         var typeChanged = request.Type.HasValue && contact.Type != request.Type.Value;
         var contentChanged = request.Content is not null && !string.Equals(contact.Content, request.Content, StringComparison.Ordinal);
@@ -636,12 +637,12 @@ public class AccountAdminController(
     {
         var account = await LookupAccountAsync(name);
         if (account is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PADLOCK_ACCOUNT_NOT_FOUND", Message = "Account not found.", Status = 404 });
 
         var contact = await db.AccountContacts
             .FirstOrDefaultAsync(c => c.AccountId == account.Id && c.Id == contactId);
         if (contact is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PADLOCK_ACCOUNT_NOT_FOUND", Message = "Account not found.", Status = 404 });
 
         try
         {
@@ -649,7 +650,7 @@ public class AccountAdminController(
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new ApiError { Code = "PADLOCK_OPERATION_FAILED", Message = ex.Message, Status = 400 });
         }
 
         return Ok(contact);
@@ -665,12 +666,12 @@ public class AccountAdminController(
     {
         var account = await LookupAccountAsync(name);
         if (account is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PADLOCK_ACCOUNT_NOT_FOUND", Message = "Account not found.", Status = 404 });
 
         var verifiedAt = request?.VerifiedAt ?? SystemClock.Instance.GetCurrentInstant();
         var updated = await accounts.MarkContactMethodVerified(account.Id, contactId, verifiedAt);
         if (!updated)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PADLOCK_ACCOUNT_NOT_FOUND", Message = "Account not found.", Status = 404 });
 
         var contact = await db.AccountContacts
             .AsNoTracking()
@@ -684,12 +685,12 @@ public class AccountAdminController(
     {
         var account = await LookupAccountAsync(name);
         if (account is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PADLOCK_ACCOUNT_NOT_FOUND", Message = "Account not found.", Status = 404 });
 
         var contact = await db.AccountContacts
             .FirstOrDefaultAsync(c => c.AccountId == account.Id && c.Id == contactId);
         if (contact is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PADLOCK_ACCOUNT_NOT_FOUND", Message = "Account not found.", Status = 404 });
 
         contact.VerifiedAt = null;
         db.AccountContacts.Update(contact);
@@ -703,12 +704,12 @@ public class AccountAdminController(
     {
         var account = await LookupAccountAsync(name);
         if (account is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PADLOCK_ACCOUNT_NOT_FOUND", Message = "Account not found.", Status = 404 });
 
         var contact = await db.AccountContacts
             .FirstOrDefaultAsync(c => c.AccountId == account.Id && c.Id == contactId);
         if (contact is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PADLOCK_ACCOUNT_NOT_FOUND", Message = "Account not found.", Status = 404 });
 
         contact = await accounts.SetContactMethodPrimary(account, contact);
         return Ok(contact);
@@ -724,12 +725,12 @@ public class AccountAdminController(
     {
         var account = await LookupAccountAsync(name);
         if (account is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PADLOCK_ACCOUNT_NOT_FOUND", Message = "Account not found.", Status = 404 });
 
         var contact = await db.AccountContacts
             .FirstOrDefaultAsync(c => c.AccountId == account.Id && c.Id == contactId);
         if (contact is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PADLOCK_ACCOUNT_NOT_FOUND", Message = "Account not found.", Status = 404 });
 
         contact = await accounts.SetContactMethodPublic(account, contact, request.IsPublic);
         return Ok(contact);
@@ -741,12 +742,12 @@ public class AccountAdminController(
     {
         var account = await LookupAccountAsync(name);
         if (account is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PADLOCK_ACCOUNT_NOT_FOUND", Message = "Account not found.", Status = 404 });
 
         var contact = await db.AccountContacts
             .FirstOrDefaultAsync(c => c.AccountId == account.Id && c.Id == contactId);
         if (contact is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PADLOCK_ACCOUNT_NOT_FOUND", Message = "Account not found.", Status = 404 });
 
         await accounts.DeleteContactMethod(account, contact);
         return NoContent();
@@ -758,7 +759,7 @@ public class AccountAdminController(
     {
         var account = await LookupAccountAsync(name);
         if (account is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PADLOCK_ACCOUNT_NOT_FOUND", Message = "Account not found.", Status = 404 });
 
         var factors = await db.AccountAuthFactors
             .AsNoTracking()
@@ -779,16 +780,16 @@ public class AccountAdminController(
     {
         var account = await LookupAccountAsync(name);
         if (account is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PADLOCK_ACCOUNT_NOT_FOUND", Message = "Account not found.", Status = 404 });
 
         if (await accounts.CheckAuthFactorExists(account, request.Type))
-            return BadRequest($"Auth factor with type {request.Type} already exists.");
+            return BadRequest(new ApiError { Code = "PADLOCK_AUTH_FACTOR_ALREADY_EXISTS", Message = $"Auth factor with type {request.Type} already exists.", Status = 400 });
 
         try
         {
             var factor = await accounts.CreateAuthFactor(account, request.Type, request.Secret);
             if (factor is null)
-                return BadRequest("Invalid factor request.");
+                return BadRequest(new ApiError { Code = "PADLOCK_AUTH_FACTOR_INVALID", Message = "Invalid factor request.", Status = 400 });
 
             if (request.Enable && factor.EnabledAt is null)
                 factor = await accounts.EnableAuthFactor(factor, request.Code);
@@ -797,7 +798,7 @@ public class AccountAdminController(
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new ApiError { Code = "PADLOCK_OPERATION_FAILED", Message = ex.Message, Status = 400 });
         }
     }
 
@@ -811,12 +812,12 @@ public class AccountAdminController(
     {
         var account = await LookupAccountAsync(name);
         if (account is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PADLOCK_ACCOUNT_NOT_FOUND", Message = "Account not found.", Status = 404 });
 
         var factor = await db.AccountAuthFactors
             .FirstOrDefaultAsync(f => f.AccountId == account.Id && f.Id == factorId);
         if (factor is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PADLOCK_ACCOUNT_NOT_FOUND", Message = "Account not found.", Status = 404 });
 
         try
         {
@@ -825,7 +826,7 @@ public class AccountAdminController(
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new ApiError { Code = "PADLOCK_OPERATION_FAILED", Message = ex.Message, Status = 400 });
         }
     }
 
@@ -835,12 +836,12 @@ public class AccountAdminController(
     {
         var account = await LookupAccountAsync(name);
         if (account is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PADLOCK_ACCOUNT_NOT_FOUND", Message = "Account not found.", Status = 404 });
 
         var factor = await db.AccountAuthFactors
             .FirstOrDefaultAsync(f => f.AccountId == account.Id && f.Id == factorId);
         if (factor is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PADLOCK_ACCOUNT_NOT_FOUND", Message = "Account not found.", Status = 404 });
 
         try
         {
@@ -849,7 +850,7 @@ public class AccountAdminController(
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new ApiError { Code = "PADLOCK_OPERATION_FAILED", Message = ex.Message, Status = 400 });
         }
     }
 
@@ -861,11 +862,11 @@ public class AccountAdminController(
     )
     {
         if (string.IsNullOrWhiteSpace(request.NewPassword))
-            return BadRequest("new_password is required.");
+            return BadRequest(new ApiError { Code = "PADLOCK_PASSWORD_REQUIRED", Message = "New password is required.", Status = 400 });
 
         var account = await LookupAccountAsync(name);
         if (account is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PADLOCK_ACCOUNT_NOT_FOUND", Message = "Account not found.", Status = 404 });
 
         var factor = await accounts.ResetPasswordFactor(account.Id, request.NewPassword);
         if (request.RevokeSessions)
@@ -880,12 +881,12 @@ public class AccountAdminController(
     {
         var account = await LookupAccountAsync(name);
         if (account is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PADLOCK_ACCOUNT_NOT_FOUND", Message = "Account not found.", Status = 404 });
 
         var factor = await db.AccountAuthFactors
             .FirstOrDefaultAsync(f => f.AccountId == account.Id && f.Id == factorId);
         if (factor is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PADLOCK_ACCOUNT_NOT_FOUND", Message = "Account not found.", Status = 404 });
 
         await accounts.DeleteAuthFactor(factor);
         return NoContent();
@@ -898,9 +899,9 @@ public class AccountAdminController(
     )
     {
         if (!request.BroadcastToAll && !request.AccountId.HasValue && request.AccountIds is not { Count: > 0 })
-            return BadRequest("Provide account_id, account_ids, or set broadcast_to_all=true.");
+            return BadRequest(new ApiError { Code = "PADLOCK_NOTIFICATION_TARGET_REQUIRED", Message = "Provide account_id, account_ids, or set broadcast_to_all=true.", Status = 400 });
         if (string.IsNullOrWhiteSpace(request.Topic))
-            return BadRequest("Topic is required.");
+            return BadRequest(new ApiError { Code = "PADLOCK_NOTIFICATION_TOPIC_REQUIRED", Message = "Topic is required.", Status = 400 });
 
         var targetIds = await ResolveTargetAccountIds(request.AccountId, request.AccountIds, request.BroadcastToAll);
         if (targetIds.Count == 0)
@@ -949,11 +950,11 @@ public class AccountAdminController(
     )
     {
         if (!request.BroadcastToAll && !request.AccountId.HasValue && request.AccountIds is not { Count: > 0 })
-            return BadRequest("Provide account_id, account_ids, or set broadcast_to_all=true.");
+            return BadRequest(new ApiError { Code = "PADLOCK_NOTIFICATION_TARGET_REQUIRED", Message = "Provide account_id, account_ids, or set broadcast_to_all=true.", Status = 400 });
         if (string.IsNullOrWhiteSpace(request.Subject))
-            return BadRequest("Subject is required.");
+            return BadRequest(new ApiError { Code = "PADLOCK_EMAIL_SUBJECT_REQUIRED", Message = "Subject is required.", Status = 400 });
         if (string.IsNullOrWhiteSpace(request.HtmlBody))
-            return BadRequest("Html body is required.");
+            return BadRequest(new ApiError { Code = "PADLOCK_EMAIL_BODY_REQUIRED", Message = "HTML body is required.", Status = 400 });
 
         var targetIds = await ResolveTargetAccountIds(request.AccountId, request.AccountIds, request.BroadcastToAll);
         if (targetIds.Count == 0)
@@ -1008,7 +1009,7 @@ public class AccountAdminController(
     )
     {
         if (!request.BroadcastToAll && !request.AccountId.HasValue && request.AccountIds is not { Count: > 0 })
-            return BadRequest("Provide account_id, account_ids, or set broadcast_to_all=true.");
+            return BadRequest(new ApiError { Code = "PADLOCK_NOTIFICATION_TARGET_REQUIRED", Message = "Provide account_id, account_ids, or set broadcast_to_all=true.", Status = 400 });
 
         var targetIds = await ResolveTargetAccountIds(request.AccountId, request.AccountIds, request.BroadcastToAll);
         var emailContacts = await db.AccountContacts
@@ -1052,7 +1053,7 @@ public class AccountAdminController(
     )
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var userId = currentUser.Id;
 
@@ -1090,10 +1091,10 @@ public class AccountAdminController(
         [FromBody] CreatePunishmentRequest request
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var account = await accounts.LookupAccount(name);
-        if (account is null) return NotFound();
+        if (account is null) return NotFound(new ApiError { Code = "PADLOCK_ACCOUNT_NOT_FOUND", Message = "Account not found.", Status = 404 });
         var punishment = await CreatePunishmentInternal(account, currentUser, request, true);
         return Ok(punishment);
     }
@@ -1114,14 +1115,14 @@ public class AccountAdminController(
         [FromBody] UpdatePunishmentRequest request
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var account = await accounts.LookupAccount(name);
-        if (account is null) return NotFound();
+        if (account is null) return NotFound(new ApiError { Code = "PADLOCK_ACCOUNT_NOT_FOUND", Message = "Account not found.", Status = 404 });
 
         var punishment = await db.Punishments
             .FirstOrDefaultAsync(p => p.Id == punishmentId && p.AccountId == account.Id);
-        if (punishment is null) return NotFound();
+        if (punishment is null) return NotFound(new ApiError { Code = "PADLOCK_PUNISHMENT_NOT_FOUND", Message = "Punishment not found.", Status = 404 });
 
         if (request.Reason is not null) punishment.Reason = request.Reason;
         if (request.ExpiredAt is not null) punishment.ExpiredAt = request.ExpiredAt;
@@ -1145,14 +1146,14 @@ public class AccountAdminController(
     )
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         if (request.Type is not PunishmentType.BlockLogin and not PunishmentType.DisableAccount)
-            return BadRequest("Suspend endpoint only supports block_login or disable_account punishments.");
+            return BadRequest(new ApiError { Code = "PADLOCK_SUSPEND_TYPE_UNSUPPORTED", Message = "Suspend endpoint only supports block_login or disable_account punishments.", Status = 400 });
 
         var account = await LookupAccountAsync(name);
         if (account is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PADLOCK_ACCOUNT_NOT_FOUND", Message = "Account not found.", Status = 404 });
 
         var punishment = await CreatePunishmentInternal(
             account,
@@ -1178,7 +1179,7 @@ public class AccountAdminController(
     {
         var account = await LookupAccountAsync(name);
         if (account is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PADLOCK_ACCOUNT_NOT_FOUND", Message = "Account not found.", Status = 404 });
 
         await accounts.DeleteAllSessions(account);
         return Ok();
@@ -1190,7 +1191,7 @@ public class AccountAdminController(
     {
         var account = await LookupAccountAsync(name);
         if (account is null)
-            return NotFound();
+            return NotFound(new ApiError { Code = "PADLOCK_ACCOUNT_NOT_FOUND", Message = "Account not found.", Status = 404 });
 
         await accounts.ActivateAccountAndGrantDefaultPermissions(
             account.Id,
@@ -1205,7 +1206,7 @@ public class AccountAdminController(
     public async Task<ActionResult> DeletePunishment(string name, Guid punishmentId)
     {
         var account = await accounts.LookupAccount(name);
-        if (account is null) return NotFound();
+        if (account is null) return NotFound(new ApiError { Code = "PADLOCK_ACCOUNT_NOT_FOUND", Message = "Account not found.", Status = 404 });
 
         var remoteAccount = await profiles.GetAccountAsync(new DyGetAccountRequest { Id = account.Id.ToString() });
         if (remoteAccount is not null)
@@ -1218,7 +1219,7 @@ public class AccountAdminController(
 
         var punishment = await db.Punishments
             .FirstOrDefaultAsync(p => p.Id == punishmentId && p.AccountId == account.Id);
-        if (punishment is null) return NotFound();
+        if (punishment is null) return NotFound(new ApiError { Code = "PADLOCK_PUNISHMENT_NOT_FOUND", Message = "Punishment not found.", Status = 404 });
 
         var punishmentType = punishment.Type;
         db.Punishments.Remove(punishment);
@@ -1253,7 +1254,7 @@ public class AccountAdminController(
     public async Task<IActionResult> AdminDeleteAccount(string name)
     {
         var account = await accounts.LookupAccount(name);
-        if (account is null) return NotFound();
+        if (account is null) return NotFound(new ApiError { Code = "PADLOCK_ACCOUNT_NOT_FOUND", Message = "Account not found.", Status = 404 });
         await accounts.DeleteAccount(account);
         return Ok();
     }

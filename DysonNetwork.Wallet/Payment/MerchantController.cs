@@ -33,13 +33,13 @@ public class MerchantController(
     public async Task<IActionResult> GetMerchant([FromRoute] string merchant)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var merchantEntity = await GetMerchantAsync(merchant);
         if (merchantEntity == null) return MerchantNotFound(merchant);
 
         if (!await IsMerchantOwner(currentUser, merchantEntity))
-            return StatusCode(403, "You do not have access to this merchant");
+            return StatusCode(403, ApiError.Unauthorized("You do not have access to this merchant.", forbidden: true));
 
         return Ok(new
         {
@@ -63,13 +63,13 @@ public class MerchantController(
         [FromQuery] int take = 20)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var merchantEntity = await GetMerchantAsync(merchant);
         if (merchantEntity == null) return MerchantNotFound(merchant);
 
         if (!await IsMerchantOwner(currentUser, merchantEntity))
-            return StatusCode(403, "You do not have access to this merchant");
+            return StatusCode(403, ApiError.Unauthorized("You do not have access to this merchant.", forbidden: true));
 
         var query = db.MerchantSettlements
             .Where(s => s.MerchantId == merchantEntity.Id)
@@ -115,16 +115,16 @@ public class MerchantController(
         [FromQuery] int take = 20)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var merchantEntity = await GetMerchantAsync(merchant);
         if (merchantEntity == null) return MerchantNotFound(merchant);
 
         if (!await IsMerchantOwner(currentUser, merchantEntity))
-            return StatusCode(403, "You do not have access to this merchant");
+            return StatusCode(403, ApiError.Unauthorized("You do not have access to this merchant.", forbidden: true));
 
         if (!merchantEntity.PaymentWalletId.HasValue)
-            return BadRequest("No payment wallet configured for this merchant");
+            return BadRequest(new ApiError { Code = "WALLET_MERCHANT_NO_PAYMENT_WALLET", Message = "No payment wallet configured for this merchant.", Status = 400 });
 
         var query = db.PaymentOrders
             .Include(o => o.Items)
@@ -183,31 +183,29 @@ public class MerchantController(
     public async Task<IActionResult> UpdateWallet([FromRoute] string merchant, [FromBody] UpdateMerchantWalletRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var merchantEntity = await GetMerchantAsync(merchant);
         if (merchantEntity == null)
         {
-            // Auto-provision merchant from publisher name so settings can configure payouts
-            // before any orders/awards exist.
             var publisher = await publishers.GetPublisherByName(merchant);
             if (publisher == null)
                 return MerchantNotFound(merchant);
 
             if (!Guid.TryParse(currentUser.Id, out var accountId))
-                return Unauthorized();
+                return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
             if (!await publishers.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.Owner)
                 && !await publishers.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.Manager))
-                return StatusCode(403, "You do not have access to this merchant");
+                return StatusCode(403, ApiError.Unauthorized("You do not have access to this merchant.", forbidden: true));
 
             if (request.WalletId.HasValue)
             {
                 var wallet = await db.Wallets.FirstOrDefaultAsync(w => w.Id == request.WalletId.Value);
                 if (wallet == null)
-                    return BadRequest("Wallet was not found.");
+                    return BadRequest(new ApiError { Code = "WALLET_NOT_FOUND", Message = "Wallet was not found.", Status = 400 });
                 if (!await CanManageWalletAsync(currentUser, wallet))
-                    return StatusCode(403, "You do not have access to this wallet");
+                    return StatusCode(403, ApiError.Unauthorized("You do not have access to this wallet.", forbidden: true));
             }
 
             merchantEntity = await merchantService.UpsertMerchantAsync(
@@ -225,15 +223,15 @@ public class MerchantController(
         }
 
         if (!await IsMerchantOwner(currentUser, merchantEntity))
-            return StatusCode(403, "You do not have access to this merchant");
+            return StatusCode(403, ApiError.Unauthorized("You do not have access to this merchant.", forbidden: true));
 
         if (request.WalletId.HasValue)
         {
             var wallet = await db.Wallets.FirstOrDefaultAsync(w => w.Id == request.WalletId.Value);
             if (wallet == null)
-                return BadRequest("Wallet was not found.");
+                return BadRequest(new ApiError { Code = "WALLET_NOT_FOUND", Message = "Wallet was not found.", Status = 400 });
             if (!await CanManageWalletAsync(currentUser, wallet))
-                return StatusCode(403, "You do not have access to this wallet");
+                return StatusCode(403, ApiError.Unauthorized("You do not have access to this wallet.", forbidden: true));
         }
 
         merchantEntity.PaymentWalletId = request.WalletId;
@@ -256,16 +254,16 @@ public class MerchantController(
     public async Task<IActionResult> GetPendingSummary([FromRoute] string merchant)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var merchantEntity = await GetMerchantAsync(merchant);
         if (merchantEntity == null) return MerchantNotFound(merchant);
 
         if (!await IsMerchantOwner(currentUser, merchantEntity))
-            return StatusCode(403, "You do not have access to this merchant");
+            return StatusCode(403, ApiError.Unauthorized("You do not have access to this merchant.", forbidden: true));
 
         if (!merchantEntity.PaymentWalletId.HasValue)
-            return BadRequest("No payment wallet configured for this merchant");
+            return BadRequest(new ApiError { Code = "WALLET_MERCHANT_NO_PAYMENT_WALLET", Message = "No payment wallet configured for this merchant.", Status = 400 });
 
         var totals = await merchantService.GetPendingTotalsAsync(merchantEntity.PaymentWalletId.Value);
 
@@ -289,16 +287,16 @@ public class MerchantController(
     public async Task<IActionResult> ManualSettle([FromRoute] string merchant)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var merchantEntity = await GetMerchantAsync(merchant);
         if (merchantEntity == null) return MerchantNotFound(merchant);
 
         if (!await IsMerchantOwner(currentUser, merchantEntity))
-            return StatusCode(403, "You do not have permission to settle this merchant");
+            return StatusCode(403, ApiError.Unauthorized("You do not have permission to settle this merchant.", forbidden: true));
 
         if (!merchantEntity.PaymentWalletId.HasValue)
-            return BadRequest("No payment wallet configured for this merchant");
+            return BadRequest(new ApiError { Code = "WALLET_MERCHANT_NO_PAYMENT_WALLET", Message = "No payment wallet configured for this merchant.", Status = 400 });
 
         var transactions = await merchantService.SettleWalletAsync(
             merchantEntity.PaymentWalletId.Value,
@@ -324,13 +322,13 @@ public class MerchantController(
     public async Task<IActionResult> GetOverviewStats([FromRoute] string merchant)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var merchantEntity = await GetMerchantAsync(merchant);
         if (merchantEntity == null) return MerchantNotFound(merchant);
 
         if (!await IsMerchantOwner(currentUser, merchantEntity))
-            return StatusCode(403, "You do not have access to this merchant");
+            return StatusCode(403, ApiError.Unauthorized("You do not have access to this merchant.", forbidden: true));
 
         var stats = await merchantService.GetOverviewStatsAsync(merchantEntity.Id);
 
@@ -358,13 +356,13 @@ public class MerchantController(
         [FromQuery] string? currency = null)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var merchantEntity = await GetMerchantAsync(merchant);
         if (merchantEntity == null) return MerchantNotFound(merchant);
 
         if (!await IsMerchantOwner(currentUser, merchantEntity))
-            return StatusCode(403, "You do not have access to this merchant");
+            return StatusCode(403, ApiError.Unauthorized("You do not have access to this merchant.", forbidden: true));
 
         var fromInstant = from.HasValue
             ? Instant.FromDateTimeUtc(from.Value.ToUniversalTime())
@@ -413,13 +411,13 @@ public class MerchantController(
         [FromQuery] string? currency = null)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var merchantEntity = await GetMerchantAsync(merchant);
         if (merchantEntity == null) return MerchantNotFound(merchant);
 
         if (!await IsMerchantOwner(currentUser, merchantEntity))
-            return StatusCode(403, "You do not have access to this merchant");
+            return StatusCode(403, ApiError.Unauthorized("You do not have access to this merchant.", forbidden: true));
 
         var fromInstant = from.HasValue
             ? Instant.FromDateTimeUtc(from.Value.ToUniversalTime())

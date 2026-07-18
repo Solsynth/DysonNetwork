@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Proto;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -23,7 +24,8 @@ public class NotificationController(
     public async Task<ActionResult<int>> CountUnreadNotifications([FromQuery] string? app = null)
     {
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
-        if (currentUserValue is not DyAccount currentUser) return Unauthorized();
+        if (currentUserValue is not DyAccount currentUser)
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Status = 401 });
         var accountId = Guid.Parse(currentUser.Id);
         var count = await nty.ApplyNotificationAppFilter(
                 db.Notifications.Where(s => s.AccountId == accountId && s.ViewedAt == null),
@@ -44,7 +46,8 @@ public class NotificationController(
     )
     {
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
-        if (currentUserValue is not DyAccount currentUser) return Unauthorized();
+        if (currentUserValue is not DyAccount currentUser)
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Status = 401 });
         var accountId = Guid.Parse(currentUser.Id);
         var baseQuery = nty.ApplyNotificationAppFilter(
             db.Notifications.Where(s => s.AccountId == accountId),
@@ -73,7 +76,8 @@ public class NotificationController(
     public async Task<ActionResult> MarkAllNotificationsViewed([FromQuery] string? app = null)
     {
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
-        if (currentUserValue is not DyAccount currentUser) return Unauthorized();
+        if (currentUserValue is not DyAccount currentUser)
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Status = 401 });
         var accountId = Guid.Parse(currentUser.Id);
 
         await nty.MarkAllNotificationsViewed(accountId, app);
@@ -99,13 +103,13 @@ public class NotificationController(
         HttpContext.Items.TryGetValue("CurrentSession", out var currentSessionValue);
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
         if (currentUserValue is not DyAccount currentUser || currentSessionValue is not DyAuthSession currentSession)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Status = 401 });
         if (request.Provider == PushProvider.Sop)
-            return BadRequest("Use /api/notifications/sop/subscription to register SOP provider.");
+            return BadRequest(new ApiError { Code = "RING_NOTIFICATION_SOP_NOT_SUPPORTED", Message = "Use /api/notifications/sop/subscription to register SOP provider.", Status = 400 });
         if (string.IsNullOrWhiteSpace(request.DeviceToken))
-            return BadRequest("DeviceToken is required.");
+            return BadRequest(new ApiError { Code = "RING_NOTIFICATION_DEVICE_TOKEN_REQUIRED", Message = "DeviceToken is required.", Status = 400 });
         if (request.Provider == PushProvider.UnifiedPush && !IsValidUnifiedPushEndpoint(request.DeviceToken))
-            return BadRequest("For UnifiedPush, DeviceToken must be a valid absolute HTTP(S) endpoint URL.");
+            return BadRequest(new ApiError { Code = "RING_NOTIFICATION_INVALID_UP_ENDPOINT", Message = "For UnifiedPush, DeviceToken must be a valid absolute HTTP(S) endpoint URL.", Status = 400 });
 
         var accountId = Guid.Parse(currentUser.Id);
         if (!force)
@@ -148,7 +152,8 @@ public class NotificationController(
     )
     {
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
-        if (currentUserValue is not DyAccount currentUser) return Unauthorized();
+        if (currentUserValue is not DyAccount currentUser)
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Status = 401 });
         var accountId = Guid.Parse(currentUser.Id);
         var query = nty.ApplySubscriptionAppFilter(
             db.PushSubscriptions.Where(s => s.AccountId == accountId),
@@ -170,7 +175,7 @@ public class NotificationController(
         HttpContext.Items.TryGetValue("CurrentSession", out var currentSessionValue);
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
         if (currentUserValue is not DyAccount currentUser || currentSessionValue is not DyAuthSession currentSession)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Status = 401 });
 
         var accountId = Guid.Parse(currentUser.Id);
         var subscription = await nty.GetCurrentDeviceActiveSubscription(accountId, currentSession.ClientId);
@@ -183,7 +188,8 @@ public class NotificationController(
     public async Task<ActionResult<int>> UnsubscribeFromPushNotification(Guid subscriptionId)
     {
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
-        if (currentUserValue is not DyAccount currentUser) return Unauthorized();
+        if (currentUserValue is not DyAccount currentUser)
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Status = 401 });
         var accountId = Guid.Parse(currentUser.Id);
 
         var affectedRows = await db.PushSubscriptions
@@ -243,7 +249,8 @@ public class NotificationController(
     public async Task<ActionResult<List<SnNotificationPreference>>> ListPreferences([FromQuery] string? app = null)
     {
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
-        if (currentUserValue is not DyAccount currentUser) return Unauthorized();
+        if (currentUserValue is not DyAccount currentUser)
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Status = 401 });
         var accountId = Guid.Parse(currentUser.Id);
 
         var preferences = await preferenceService.GetPreferencesAsync(accountId);
@@ -255,7 +262,8 @@ public class NotificationController(
     public async Task<ActionResult<NotificationPreferenceLevel>> GetPreference(string topic)
     {
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
-        if (currentUserValue is not DyAccount currentUser) return Unauthorized();
+        if (currentUserValue is not DyAccount currentUser)
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Status = 401 });
         var accountId = Guid.Parse(currentUser.Id);
 
         var preference = await preferenceService.GetPreferenceAsync(accountId, topic);
@@ -273,7 +281,8 @@ public class NotificationController(
     public async Task<ActionResult> SetPreference(string topic, [FromBody] SetPreferenceRequest request)
     {
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
-        if (currentUserValue is not DyAccount currentUser) return Unauthorized();
+        if (currentUserValue is not DyAccount currentUser)
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Status = 401 });
         var accountId = Guid.Parse(currentUser.Id);
 
         await preferenceService.SetPreferenceAsync(accountId, topic, request.Preference);
@@ -286,7 +295,8 @@ public class NotificationController(
     public async Task<ActionResult> DeletePreference(string topic)
     {
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
-        if (currentUserValue is not DyAccount currentUser) return Unauthorized();
+        if (currentUserValue is not DyAccount currentUser)
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Status = 401 });
         var accountId = Guid.Parse(currentUser.Id);
 
         await preferenceService.DeletePreferenceAsync(accountId, topic);

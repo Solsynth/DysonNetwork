@@ -1,3 +1,4 @@
+using DysonNetwork.Shared.Networking;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -20,7 +21,7 @@ public class ApiKeyController(
     public async Task<IActionResult> ListApiKeys(CancellationToken ct)
     {
         var user = HttpContext.Items["CurrentUser"] as SnAccount;
-        if (user is null) return Unauthorized();
+        if (user is null) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var keys = await db.ApiKeys
             .Where(k => k.AccountId == user.Id)
@@ -37,7 +38,7 @@ public class ApiKeyController(
     public async Task<IActionResult> CreateApiKey([FromBody] CreateApiKeyRequest request, CancellationToken ct)
     {
         var user = HttpContext.Items["CurrentUser"] as SnAccount;
-        if (user is null) return Unauthorized();
+        if (user is null) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var session = HttpContext.Items["CurrentSession"] as SnAuthSession;
 
@@ -56,10 +57,10 @@ public class ApiKeyController(
     public async Task<IActionResult> RevokeApiKey(Guid id, CancellationToken ct)
     {
         var user = HttpContext.Items["CurrentUser"] as SnAccount;
-        if (user is null) return Unauthorized();
+        if (user is null) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var key = await auth.GetApiKey(id, user.Id);
-        if (key is null) return NotFound();
+        if (key is null) return NotFound(new ApiError { Code = "PADLOCK_API_KEY_NOT_FOUND", Message = "API key not found.", Status = 404 });
 
         await auth.RevokeApiKeyToken(key);
         return Ok();
@@ -71,10 +72,10 @@ public class ApiKeyController(
     public async Task<IActionResult> RotateApiKey(Guid id, CancellationToken ct)
     {
         var user = HttpContext.Items["CurrentUser"] as SnAccount;
-        if (user is null) return Unauthorized();
+        if (user is null) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var key = await auth.GetApiKey(id, user.Id);
-        if (key is null) return NotFound();
+        if (key is null) return NotFound(new ApiError { Code = "PADLOCK_API_KEY_NOT_FOUND", Message = "API key not found.", Status = 404 });
 
         var rotated = await auth.RotateApiKeyToken(key);
         var token = await auth.IssueApiKeyToken(rotated);

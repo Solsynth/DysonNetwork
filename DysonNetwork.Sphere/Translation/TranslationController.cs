@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using DysonNetwork.Shared.Cache;
+using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Proto;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -28,9 +29,9 @@ public class TranslationController(ITranslationProvider provider, ICacheService 
         [FromQuery(Name = "from")] string? sourceLanguage
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         if (currentUser.PerkLevel == 0)
-            return StatusCode(403, "You need a subscription to use this feature.");
+            return StatusCode(403, ApiError.Unauthorized("You need a subscription to use this feature.", forbidden: true));
 
         // Generate cache key
         var cacheKey = GenerateCacheKey(text, targetLanguage);

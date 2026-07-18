@@ -3,6 +3,7 @@ using DysonNetwork.Develop.Project;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Networking;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -45,21 +46,21 @@ public class AppProductController(
     private async Task<IActionResult> ResolveAppAsync(string dev, Guid proj, Guid appId, string role)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var developer = await ds.GetDeveloperByName(dev);
-        if (developer is null) return NotFound("Developer not found");
+        if (developer is null) return NotFound(new ApiError { Code = "APP_PRODUCT_DEVELOPER_NOT_FOUND", Message = "Developer not found", Status = 404 });
 
         var accountId = Guid.Parse(currentUser.Id);
         if (!await ds.IsMemberWithRole(developer.PublisherId, accountId,
                 role == "editor" ? DyPublisherMemberRole.DyEditor : DyPublisherMemberRole.DyViewer))
-            return StatusCode(403, $"You must be a {role} of the developer.");
+            return StatusCode(403, ApiError.Unauthorized($"You must be a {role} of the developer.", forbidden: true));
 
         var project = await projectService.GetProjectAsync(proj, developer.Id);
-        if (project is null) return NotFound("Project not found");
+        if (project is null) return NotFound(new ApiError { Code = "APP_PRODUCT_PROJECT_NOT_FOUND", Message = "Project not found", Status = 404 });
 
         var app = await customApps.GetAppAsync(appId, proj);
-        if (app is null) return NotFound("App not found");
+        if (app is null) return NotFound(new ApiError { Code = "APP_PRODUCT_NOT_FOUND", Message = "App not found", Status = 404 });
 
         return Ok((developer, project, app));
     }
@@ -91,7 +92,7 @@ public class AppProductController(
         if (resolved is not OkObjectResult) return resolved;
 
         var product = await productService.GetProductAsync(productId, appId);
-        if (product is null) return NotFound();
+        if (product is null) return NotFound(new ApiError { Code = "APP_PRODUCT_NOT_FOUND", Message = "Product not found", Status = 404 });
 
         return Ok(product);
     }
@@ -109,11 +110,11 @@ public class AppProductController(
 
         if (string.IsNullOrWhiteSpace(request.Identifier) || string.IsNullOrWhiteSpace(request.DisplayName) ||
             string.IsNullOrWhiteSpace(request.Currency))
-            return BadRequest("Identifier, displayName, and currency are required.");
+            return BadRequest(new ApiError { Code = "APP_PRODUCT_FIELD_REQUIRED", Message = "Identifier, displayName, and currency are required.", Status = 400 });
 
         var existing = await productService.GetProductByIdentifierAsync(appId, request.Identifier);
         if (existing is not null)
-            return Conflict("A product with this identifier already exists.");
+            return Conflict(ApiError.Conflict("A product with this identifier already exists.", code: "APP_PRODUCT_IDENTIFIER_CONFLICT"));
 
         var product = new SnAppProduct
         {
@@ -155,7 +156,7 @@ public class AppProductController(
         if (resolved is not OkObjectResult) return resolved;
 
         var product = await productService.GetProductAsync(productId, appId);
-        if (product is null) return NotFound();
+        if (product is null) return NotFound(new ApiError { Code = "APP_PRODUCT_NOT_FOUND", Message = "Product not found", Status = 404 });
 
         if (request.Identifier is not null) product.Identifier = request.Identifier;
         if (request.DisplayName is not null) product.DisplayName = request.DisplayName;
@@ -211,7 +212,7 @@ public class AppProductController(
         if (resolved is not OkObjectResult) return resolved;
 
         var result = await productService.DeleteProductAsync(productId, appId);
-        if (!result) return NotFound();
+        if (!result) return NotFound(new ApiError { Code = "APP_PRODUCT_NOT_FOUND", Message = "Product not found", Status = 404 });
 
         return NoContent();
     }
