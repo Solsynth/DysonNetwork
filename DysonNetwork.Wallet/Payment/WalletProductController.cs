@@ -1,4 +1,5 @@
 using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Capabilities;
 using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Wallet.Payment.PaymentHandlers;
@@ -9,6 +10,7 @@ namespace DysonNetwork.Wallet.Payment;
 
 [ApiController]
 [Route("/api/wallet-products")]
+[ApiFeature("wallet-products", Revision = 1)]
 public class WalletProductController(
     WalletProductService walletProducts,
     AfdianPaymentHandler afdian,

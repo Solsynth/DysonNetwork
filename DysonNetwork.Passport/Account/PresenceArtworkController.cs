@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Capabilities;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Networking;
 using Microsoft.AspNetCore.Authorization;
@@ -14,6 +15,7 @@ public class UploadArtworkRequest
 
 [ApiController]
 [Route("/api/presence/artworks")]
+[ApiFeature("presences.artworks", Revision = 1)]
 public class PresenceArtworkController(PresenceArtworkService artworkService) : ControllerBase
 {
     [HttpPost]

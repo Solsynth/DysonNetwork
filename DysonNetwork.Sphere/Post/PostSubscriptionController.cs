@@ -1,7 +1,8 @@
+using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Capabilities;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Proto;
-using DysonNetwork.Shared.Auth;
 using DysonNetwork.Sphere.Publisher;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -11,6 +12,7 @@ namespace DysonNetwork.Sphere.Post;
 
 [ApiController]
 [Route("/api/posts")]
+[ApiFeature("posts.subscriptions", Revision = 1)]
 public class PostSubscriptionController(
     AppDatabase db,
     PublisherService pub,

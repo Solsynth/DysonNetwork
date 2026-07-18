@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Passport.Account;
 using DysonNetwork.Passport.Mailer;
 using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Capabilities;
 using DysonNetwork.Shared.Localization;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Networking;
@@ -14,6 +15,7 @@ namespace DysonNetwork.Passport.Ticket;
 
 [ApiController]
 [Route("/api/tickets")]
+[ApiFeature("tickets", Revision = 1)]
 public class TicketController(
     TicketService ticketService,
     DyPermissionService.DyPermissionServiceClient permissionService,

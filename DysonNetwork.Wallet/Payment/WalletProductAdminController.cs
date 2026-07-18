@@ -1,4 +1,5 @@
 using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Capabilities;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Networking;
 using Microsoft.AspNetCore.Authorization;
@@ -9,6 +10,7 @@ namespace DysonNetwork.Wallet.Payment;
 [ApiController]
 [Route("/api/admin/wallet-products")]
 [Authorize]
+[ApiFeature("admin.wallet-products", Revision = 1)]
 public class WalletProductAdminController(
     WalletProductService walletProducts
 ) : ControllerBase

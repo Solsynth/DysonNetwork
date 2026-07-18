@@ -1,8 +1,9 @@
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
+using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Capabilities;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Networking;
-using DysonNetwork.Shared.Auth;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
@@ -15,6 +16,7 @@ namespace DysonNetwork.Passport.Meet;
 
 [ApiController]
 [Route("/api/meets")]
+[ApiFeature("meets", Revision = 1)]
 public class MeetController(
     MeetService meetService,
     LocationPinService locationPinService,

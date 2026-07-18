@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Capabilities;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Networking;
 using Microsoft.AspNetCore.Authorization;
@@ -11,6 +12,10 @@ namespace DysonNetwork.Passport.Account;
 
 [ApiController]
 [Route("/api/relationships")]
+[ApiFeature("relationships", Revision = 1)]
+[ApiFeature("relationships.friends", Revision = 1)]
+[ApiFeature("relationships.block", Revision = 1)]
+[ApiFeature("relationships.mute", Revision = 1)]
 public class RelationshipController(AppDatabase db, RelationshipService rls, ActionLogService als, AccountService accounts) : ControllerBase
 {
     public class RelationshipActionRequest

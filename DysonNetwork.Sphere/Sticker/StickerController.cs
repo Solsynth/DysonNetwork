@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.Text.RegularExpressions;
 using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Capabilities;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Networking;
@@ -13,6 +14,8 @@ namespace DysonNetwork.Sphere.Sticker;
 
 [ApiController]
 [Route("/api/stickers")]
+[ApiFeature("stickers", Revision = 1)]
+[ApiFeature("stickers.packs", Revision = 1)]
 public class StickerController(
     AppDatabase db,
     StickerService st,

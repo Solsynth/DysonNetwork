@@ -1,12 +1,13 @@
 using DysonNetwork.Messager.Chat.Realtime;
 using DysonNetwork.Messager.Models;
+using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Capabilities;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Localization;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
-using DysonNetwork.Shared.Auth;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -21,6 +22,7 @@ public class RealtimeChatConfiguration
 
 [ApiController]
 [Route("/api/chat/realtime")]
+[ApiFeature("chat.realtime", Revision = 1)]
 public class RealtimeCallController(
     IConfiguration configuration,
     AppDatabase db,

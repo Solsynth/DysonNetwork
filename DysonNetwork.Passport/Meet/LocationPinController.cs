@@ -1,8 +1,9 @@
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
+using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Capabilities;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Networking;
-using DysonNetwork.Shared.Auth;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
@@ -15,6 +16,7 @@ namespace DysonNetwork.Passport.Meet;
 [ApiController]
 [Route("/api/pins")]
 [Obsolete("Pins are now a sub-feature of Meet. Use /api/meets/{id}/pin instead.")]
+[ApiFeature("meets.pins", Revision = 1)]
 public class LocationPinController(
     LocationPinService locationPinService,
     LocationPinSubscriptionHub subscriptions,

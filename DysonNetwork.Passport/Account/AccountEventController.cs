@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Capabilities;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Extensions;
 using DysonNetwork.Shared.Geometry;
@@ -19,6 +20,11 @@ namespace DysonNetwork.Passport.Account;
 [Authorize]
 [ApiController]
 [Route("/api/accounts/me")]
+[ApiFeature("accounts.statuses", Revision = 1)]
+[ApiFeature("accounts.check-in", Revision = 1)]
+[ApiFeature("accounts.calendar", Revision = 1)]
+[ApiFeature("accounts.calendar.events", Revision = 1)]
+[ApiFeature("accounts.calendar.subscriptions", Revision = 1)]
 public class AccountEventController(
     AppDatabase db,
     AccountEventService events,

@@ -1,4 +1,5 @@
 using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Capabilities;
 using DysonNetwork.Shared.Networking;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -10,6 +11,7 @@ namespace DysonNetwork.Padlock.Account;
 [ApiController]
 [Route("/api/admin/stats/users/geography")]
 [Authorize]
+[ApiFeature("admin.stats.geography", Revision = 1)]
 public class AccountGeographyStatsAdminController(AppDatabase db) : ControllerBase
 {
     public class AccountGeographyBucket

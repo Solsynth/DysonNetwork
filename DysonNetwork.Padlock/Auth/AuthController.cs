@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Padlock.Models;
 using DysonNetwork.Padlock.Account;
 using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Capabilities;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Extensions;
 using DysonNetwork.Shared.Geometry;
@@ -19,6 +20,12 @@ namespace DysonNetwork.Padlock.Auth;
 
 [ApiController]
 [Route("/api/auth")]
+[ApiFeature("auth", Revision = 1)]
+[ApiFeature("auth.challenge", Revision = 1)]
+[ApiFeature("auth.passkey", Revision = 1)]
+[ApiFeature("auth.session", Revision = 1)]
+[ApiFeature("auth.token", Revision = 1)]
+[ApiFeature("auth.sudo", Revision = 1)]
 public class AuthController(
     AppDatabase db,
     AccountService accounts,

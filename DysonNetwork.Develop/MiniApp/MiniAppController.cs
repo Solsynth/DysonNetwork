@@ -2,10 +2,11 @@ using System.ComponentModel.DataAnnotations;
 using System.Text.RegularExpressions;
 using DysonNetwork.Develop.Models;
 using DysonNetwork.Develop.Project;
-using DysonNetwork.Shared.Models;
-using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Capabilities;
+using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Networking;
+using DysonNetwork.Shared.Proto;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -13,6 +14,7 @@ namespace DysonNetwork.Develop.MiniApp;
 
 [ApiController]
 [Route("/api/private/miniapps")]
+[ApiFeature("developers.miniapps", Revision = 1)]
 public class MiniAppController(
     MiniAppService miniAppService,
     MiniAppStorageService storageService,

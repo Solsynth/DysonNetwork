@@ -5,6 +5,7 @@ using DysonNetwork.Shared.Models;
 using NodaTime;
 using System.Text.Json;
 using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Capabilities;
 using DysonNetwork.Shared.Networking;
 
 namespace DysonNetwork.Padlock.Permission;
@@ -12,6 +13,8 @@ namespace DysonNetwork.Padlock.Permission;
 [ApiController]
 [Route("/api/permissions")]
 [Authorize]
+[ApiFeature("permissions", Revision = 1)]
+[ApiFeature("permissions.groups", Revision = 1)]
 public class PermissionController(
     PermissionService permissionService,
     AppDatabase db

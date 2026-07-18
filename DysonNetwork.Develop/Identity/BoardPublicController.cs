@@ -1,4 +1,5 @@
 using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Capabilities;
 using DysonNetwork.Shared.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -7,6 +8,7 @@ namespace DysonNetwork.Develop.Identity;
 
 [ApiController]
 [Route("/api/apps")]
+[ApiFeature("developers.apps.board.public", Revision = 1)]
 public class BoardPublicController(
     CustomAppService customApps,
     DeveloperService developers,

@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Capabilities;
 using DysonNetwork.Shared.Extensions;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Networking;
@@ -16,6 +17,8 @@ namespace DysonNetwork.Sphere.Post;
 
 [ApiController]
 [Route("/api/posts/tags")]
+[ApiFeature("posts.tags", Revision = 1)]
+[ApiFeature("admin.tags", Revision = 1)]
 public class PostTagController(
     AppDatabase db,
     PostTagService tagService,

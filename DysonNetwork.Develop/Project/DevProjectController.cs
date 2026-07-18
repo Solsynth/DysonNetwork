@@ -2,14 +2,16 @@ using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Develop.Identity;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Capabilities;
 using DysonNetwork.Shared.Networking;
+using DysonNetwork.Shared.Proto;
 
 namespace DysonNetwork.Develop.Project;
 
 [ApiController]
 [Route("/api/private/projects")]
+[ApiFeature("developers.projects", Revision = 1)]
 public class DevProjectController(DevProjectService ps, DeveloperService ds) : ControllerBase
 {
     public record DevProjectRequest(

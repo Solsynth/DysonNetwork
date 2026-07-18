@@ -1,4 +1,5 @@
 using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Capabilities;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Proto;
@@ -11,6 +12,7 @@ namespace DysonNetwork.Sphere.Timeline;
 [ApiController]
 [Route("/api/timeline/discovery")]
 [Authorize]
+[ApiFeature("timeline.discovery", Revision = 1)]
 public class TimelineDiscoveryController(TimelineService timeline) : ControllerBase
 {
     [HttpGet("profile")]

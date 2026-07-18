@@ -3,15 +3,17 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 using System.ComponentModel.DataAnnotations;
+using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Capabilities;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Proto;
-using DysonNetwork.Shared.Auth;
 
 namespace DysonNetwork.Wallet.Payment;
 
 [ApiController]
 [Route("/api/subscriptions/gifts")]
+[ApiFeature("subscriptions.gifts", Revision = 1)]
 public class SubscriptionGiftController(
     SubscriptionService subscriptions,
     AppDatabase db

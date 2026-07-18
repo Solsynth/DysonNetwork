@@ -1,8 +1,9 @@
+using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Capabilities;
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
-using DysonNetwork.Shared.Auth;
-using DysonNetwork.Shared.Networking;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -12,6 +13,7 @@ namespace DysonNetwork.Wallet.Payment;
 
 [ApiController]
 [Route("/api/merchants")]
+[ApiFeature("merchants", Revision = 1)]
 public class MerchantController(
     AppDatabase db,
     MerchantService merchantService,

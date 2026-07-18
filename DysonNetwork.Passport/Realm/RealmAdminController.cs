@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Passport.Account;
 using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Capabilities;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Proto;
@@ -16,6 +17,8 @@ namespace DysonNetwork.Passport.Realm;
 [ApiController]
 [Route("/api/admin/realms")]
 [Authorize]
+[ApiFeature("admin.realms", Revision = 1)]
+[ApiFeature("admin.realms.members", Revision = 1)]
 public class RealmAdminController(
     AppDatabase db,
     RealmService realmService,

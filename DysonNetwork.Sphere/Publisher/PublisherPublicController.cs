@@ -1,3 +1,4 @@
+using DysonNetwork.Shared.Capabilities;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Sphere.Models;
 using DysonNetwork.Shared.Proto;
@@ -9,6 +10,8 @@ namespace DysonNetwork.Sphere.Publisher;
 
 [ApiController]
 [Route("/api/publishers")]
+[ApiFeature("publishers", Revision = 1)]
+[ApiFeature("publishers.rating", Revision = 1)]
 public class PublisherPublicController(
     AppDatabase db,
     RemoteAccountService accounts,

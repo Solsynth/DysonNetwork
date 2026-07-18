@@ -1,3 +1,4 @@
+using DysonNetwork.Shared.Capabilities;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Proto;
@@ -12,6 +13,7 @@ namespace DysonNetwork.Sphere.Timeline;
 /// </summary>
 [ApiController]
 [Route("/api/timeline")]
+[ApiFeature("timeline", Revision = 1)]
 public class ActivityController(TimelineService acts) : ControllerBase
 {
     /// <summary>

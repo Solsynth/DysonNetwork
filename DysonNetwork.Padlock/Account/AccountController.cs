@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Padlock.Auth;
+using DysonNetwork.Shared.Capabilities;
 using DysonNetwork.Shared.Extensions;
 using DysonNetwork.Shared.Geometry;
 using DysonNetwork.Shared.Models;
@@ -10,6 +11,7 @@ namespace DysonNetwork.Padlock.Account;
 
 [ApiController]
 [Route("/api/accounts")]
+[ApiFeature("accounts.registration", Revision = 1)]
 public class AccountController(
     AuthService auth,
     AccountService accounts,

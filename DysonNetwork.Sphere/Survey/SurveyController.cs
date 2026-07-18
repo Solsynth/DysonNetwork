@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
 using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Capabilities;
 using DysonNetwork.Shared.Extensions;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Networking;
@@ -16,6 +17,7 @@ namespace DysonNetwork.Sphere.Survey;
 
 [ApiController]
 [Route("/api/surveys")]
+[ApiFeature("surveys", Revision = 1)]
 public class SurveyController(
     AppDatabase db,
     SurveyService surveys,

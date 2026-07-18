@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
 using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Capabilities;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Networking;
 using Microsoft.AspNetCore.Authorization;
@@ -13,6 +14,8 @@ namespace DysonNetwork.Padlock.Permission;
 [ApiController]
 [Route("/api/admin/permissions")]
 [Authorize]
+[ApiFeature("admin.permissions", Revision = 1)]
+[ApiFeature("admin.permissions.groups", Revision = 1)]
 public class PermissionAdminController(
     AppDatabase db,
     PermissionService permissionService

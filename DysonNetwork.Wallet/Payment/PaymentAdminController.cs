@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Capabilities;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Proto;
@@ -13,6 +14,7 @@ namespace DysonNetwork.Wallet.Payment;
 [ApiController]
 [Route("/api/admin/payments")]
 [Authorize]
+[ApiFeature("admin.payments", Revision = 1)]
 public class PaymentAdminController(
     AppDatabase db,
     PaymentService payment,

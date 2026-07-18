@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Capabilities;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Networking;
 using DysonNetwork.Wallet.Models;
@@ -12,6 +13,7 @@ namespace DysonNetwork.Wallet.Payment;
 [ApiController]
 [Route("/api/admin/subscriptions")]
 [Authorize]
+[ApiFeature("admin.subscriptions", Revision = 1)]
 public class SubscriptionAdminController(
     AppDatabase db,
     SubscriptionService subscriptions,

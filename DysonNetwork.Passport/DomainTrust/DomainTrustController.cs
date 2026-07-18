@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Cache;
+using DysonNetwork.Shared.Capabilities;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Networking;
 using Microsoft.AspNetCore.Authorization;
@@ -11,6 +12,7 @@ namespace DysonNetwork.Passport.DomainTrust;
 
 [ApiController]
 [Route("/api/domain-blocks")]
+[ApiFeature("domain-blocks", Revision = 1)]
 public class DomainTrustController(
     DomainTrustService service,
     FlushBufferService flushBuffer,

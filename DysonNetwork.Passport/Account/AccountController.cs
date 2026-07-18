@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using DysonNetwork.Shared.Capabilities;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Proto;
@@ -10,6 +11,9 @@ namespace DysonNetwork.Passport.Account;
 
 [ApiController]
 [Route("/api/accounts")]
+[ApiFeature("accounts", Revision = 1)]
+[ApiFeature("accounts.timeline", Revision = 1)]
+[ApiFeature("accounts.calendar", Revision = 1)]
 public class AccountController(
     DyAuthService.DyAuthServiceClient auth,
     AccountService accounts,

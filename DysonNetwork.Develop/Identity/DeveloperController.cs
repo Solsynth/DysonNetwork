@@ -1,4 +1,5 @@
 using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Capabilities;
 using DysonNetwork.Shared.Extensions;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Networking;
@@ -13,6 +14,7 @@ namespace DysonNetwork.Develop.Identity;
 
 [ApiController]
 [Route("/api/developers")]
+[ApiFeature("developers", Revision = 1)]
 public class DeveloperController(
     AppDatabase db,
     DyPublisherService.DyPublisherServiceClient ps,

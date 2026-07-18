@@ -1,4 +1,5 @@
 using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Capabilities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -9,6 +10,7 @@ namespace DysonNetwork.Ring;
 [ApiController]
 [Route("/api/admin/stats")]
 [Authorize]
+[ApiFeature("admin.stats", Revision = 1)]
 public class NotificationStatsAdminController(AppDatabase db, IClock clock) : ControllerBase
 {
     public class NotificationStatsResponse

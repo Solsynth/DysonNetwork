@@ -1,3 +1,4 @@
+using DysonNetwork.Shared.Capabilities;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Networking;
 using Microsoft.AspNetCore.Mvc;
@@ -6,6 +7,7 @@ namespace DysonNetwork.Develop.Identity;
 
 [ApiController]
 [Route("api/bots")]
+[ApiFeature("developers.bots.public", Revision = 1)]
 public class BotAccountPublicController(BotAccountService botService, DeveloperService developerService) : ControllerBase
 {
     [HttpGet("{botId:guid}")]

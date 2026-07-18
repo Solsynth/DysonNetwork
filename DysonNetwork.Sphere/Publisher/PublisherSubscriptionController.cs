@@ -1,4 +1,5 @@
 using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Capabilities;
 using DysonNetwork.Shared.Localization;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Networking;
@@ -14,6 +15,7 @@ namespace DysonNetwork.Sphere.Publisher;
 
 [ApiController]
 [Route("/api/publishers")]
+[ApiFeature("publishers.subscriptions", Revision = 1)]
 public class PublisherSubscriptionController(
     PublisherSubscriptionService subs,
     PublisherService pub,

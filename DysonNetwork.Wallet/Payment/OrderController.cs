@@ -1,9 +1,10 @@
 using System.Text.Json;
+using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Capabilities;
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
-using DysonNetwork.Shared.Auth;
-using DysonNetwork.Shared.Networking;
 using Grpc.Core;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -14,6 +15,7 @@ namespace DysonNetwork.Wallet.Payment;
 
 [ApiController]
 [Route("/api/orders")]
+[ApiFeature("orders", Revision = 1)]
 public class OrderController(
     PaymentService payment,
     AppDatabase db,

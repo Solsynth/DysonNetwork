@@ -1,4 +1,5 @@
 using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Capabilities;
 using DysonNetwork.Shared.Models.Embed;
 using DysonNetwork.Shared.Networking;
 using Microsoft.AspNetCore.Authorization;
@@ -8,6 +9,7 @@ namespace DysonNetwork.Sphere.Reader;
 
 [ApiController]
 [Route("/api/scrap")]
+[ApiFeature("scrap", Revision = 1)]
 public class WebReaderController(WebReaderService reader, ILogger<WebReaderController> logger)
     : ControllerBase
 {

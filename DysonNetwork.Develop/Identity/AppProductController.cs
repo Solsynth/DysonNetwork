@@ -1,9 +1,10 @@
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Develop.Project;
-using DysonNetwork.Shared.Models;
-using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Capabilities;
+using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Networking;
+using DysonNetwork.Shared.Proto;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -11,6 +12,7 @@ namespace DysonNetwork.Develop.Identity;
 
 [ApiController]
 [Route("/api/private/apps/{appId:guid}/products")]
+[ApiFeature("developers.apps.products", Revision = 1)]
 public class AppProductController(
     AppProductService productService,
     CustomAppService customApps,

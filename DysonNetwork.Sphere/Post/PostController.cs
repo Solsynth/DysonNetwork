@@ -1,8 +1,9 @@
+using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Capabilities;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
-using DysonNetwork.Shared.Auth;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -17,6 +18,10 @@ namespace DysonNetwork.Sphere.Post;
 
 [ApiController]
 [Route("/api/posts")]
+[ApiFeature("posts", Revision = 1)]
+[ApiFeature("posts.reactions", Revision = 1)]
+[ApiFeature("posts.replies", Revision = 1)]
+[ApiFeature("posts.sponsor", Revision = 1)]
 public class PostController(
     AppDatabase db,
     PostService ps,

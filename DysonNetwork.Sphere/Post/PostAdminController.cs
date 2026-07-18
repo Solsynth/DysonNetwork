@@ -1,7 +1,8 @@
 using System.ComponentModel.DataAnnotations;
-using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Capabilities;
 using DysonNetwork.Shared.Extensions;
+using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
@@ -15,6 +16,9 @@ namespace DysonNetwork.Sphere.Post;
 [ApiController]
 [Route("/api/admin/posts")]
 [Authorize]
+[ApiFeature("admin.posts", Revision = 1)]
+[ApiFeature("admin.posts.lock", Revision = 1)]
+[ApiFeature("admin.posts.shadowban", Revision = 1)]
 public class PostAdminController(
     AppDatabase db,
     PostService postService,

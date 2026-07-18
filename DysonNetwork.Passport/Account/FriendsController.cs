@@ -1,3 +1,4 @@
+using DysonNetwork.Shared.Capabilities;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Proto;
@@ -10,6 +11,7 @@ namespace DysonNetwork.Passport.Account;
 
 [ApiController]
 [Route("/api/friends")]
+[ApiFeature("friends", Revision = 1)]
 public class FriendsController(
     AppDatabase db,
     RelationshipService rels,

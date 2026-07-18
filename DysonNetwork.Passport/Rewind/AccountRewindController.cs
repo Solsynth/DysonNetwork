@@ -1,5 +1,6 @@
 using DysonNetwork.Passport.Models;
 using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Capabilities;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Networking;
 using Microsoft.AspNetCore.Authorization;
@@ -9,6 +10,7 @@ namespace DysonNetwork.Passport.Rewind;
 
 [ApiController]
 [Route("/api/rewind")]
+[ApiFeature("rewind", Revision = 1)]
 public class AccountRewindController(AccountRewindService rewindSrv) : ControllerBase
 {
     [HttpGet("{code}")]

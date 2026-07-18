@@ -2,10 +2,11 @@ using System.ComponentModel.DataAnnotations;
 using System.Text;
 using System.Text.Json;
 using DysonNetwork.Padlock.Models;
-using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Capabilities;
 using DysonNetwork.Shared.Localization;
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
 using Microsoft.AspNetCore.Authorization;
@@ -19,6 +20,12 @@ namespace DysonNetwork.Padlock.Account;
 [ApiController]
 [Route("/api/admin/accounts")]
 [Authorize]
+[ApiFeature("admin.accounts", Revision = 1)]
+[ApiFeature("admin.accounts.devices", Revision = 1)]
+[ApiFeature("admin.accounts.sessions", Revision = 1)]
+[ApiFeature("admin.accounts.contacts", Revision = 1)]
+[ApiFeature("admin.accounts.factors", Revision = 1)]
+[ApiFeature("admin.accounts.punishments", Revision = 1)]
 public class AccountAdminController(
     AppDatabase db,
     AccountService accounts,

@@ -1,5 +1,6 @@
-using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Capabilities;
+using DysonNetwork.Shared.Networking;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -8,6 +9,7 @@ namespace DysonNetwork.Passport.Account;
 [ApiController]
 [AllowAnonymous]
 [Route("/api/passkit/v1")]
+[ApiFeature("passkit", Revision = 1)]
 public class PassKitController(ApplePassService passService) : ControllerBase
 {
     public class PassRegistrationRequest

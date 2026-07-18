@@ -3,6 +3,7 @@ using System.Text.Json;
 using DysonNetwork.Passport.Credit;
 using DysonNetwork.Passport.Account.Presences;
 using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Capabilities;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Networking;
@@ -18,6 +19,12 @@ namespace DysonNetwork.Passport.Account;
 [ApiController]
 [Route("/api/admin/accounts")]
 [Authorize]
+[ApiFeature("admin.accounts", Revision = 1)]
+[ApiFeature("admin.accounts.spells", Revision = 1)]
+[ApiFeature("admin.accounts.badges", Revision = 1)]
+[ApiFeature("admin.accounts.board", Revision = 1)]
+[ApiFeature("admin.accounts.credits", Revision = 1)]
+[ApiFeature("admin.presences.steam", Revision = 1)]
 public class AccountAdminController(
     AppDatabase db,
     SocialCreditService socialCreditService,

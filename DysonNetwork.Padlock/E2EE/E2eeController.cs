@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using DysonNetwork.Shared.Capabilities;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Networking;
 using Microsoft.AspNetCore.Authorization;
@@ -10,6 +11,8 @@ namespace DysonNetwork.Padlock.E2EE;
 [ApiController]
 [Route("/api/e2ee")]
 [Authorize]
+[ApiFeature("e2ee", Revision = 1)]
+[ApiFeature("e2ee.mls", Revision = 1)]
 public class E2EeController(IE2EeModule e2EeModule) : ControllerBase
 {
 

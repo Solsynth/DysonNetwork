@@ -1,5 +1,6 @@
-using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Capabilities;
+using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Networking;
 using DysonNetwork.Sphere.Models;
 using DysonNetwork.Sphere.Automod;
@@ -11,6 +12,7 @@ namespace DysonNetwork.Sphere.Automod;
 
 [ApiController]
 [Route("/api/automod")]
+[ApiFeature("automod", Revision = 1)]
 public class AutomodController(
     AppDatabase db,
     AutomodService automodService

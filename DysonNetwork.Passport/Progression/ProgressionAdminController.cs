@@ -1,7 +1,8 @@
+using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Capabilities;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Proto;
-using DysonNetwork.Shared.Auth;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -11,6 +12,8 @@ namespace DysonNetwork.Passport.Progression;
 [Authorize]
 [ApiController]
 [Route("/api/admin/progression")]
+[ApiFeature("admin.progression.achievements", Revision = 1)]
+[ApiFeature("admin.progression.quests", Revision = 1)]
 public class ProgressionAdminController(
     AppDatabase db,
     ProgressionSeedService seedService,

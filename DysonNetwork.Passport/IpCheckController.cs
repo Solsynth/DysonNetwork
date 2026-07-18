@@ -1,3 +1,4 @@
+using DysonNetwork.Shared.Capabilities;
 using DysonNetwork.Shared.Extensions;
 using DysonNetwork.Shared.Geometry;
 using DysonNetwork.Shared.Networking;
@@ -8,6 +9,7 @@ namespace DysonNetwork.Passport;
 
 [ApiController]
 [Route("/api/ip-check")]
+[ApiFeature("ip-check", Revision = 1)]
 public class IpCheckController(GeoService geoService) : ControllerBase
 {
     public class GeoIpResponse

@@ -1,3 +1,4 @@
+using DysonNetwork.Shared.Capabilities;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Proto;
@@ -7,6 +8,7 @@ namespace DysonNetwork.Sphere.Autocompletion;
 
 [ApiController]
 [Route("/api/autocomplete")]
+[ApiFeature("autocomplete", Revision = 1)]
 public class AutocompletionController(AutocompletionService aus) : ControllerBase
 {
     [HttpPost]

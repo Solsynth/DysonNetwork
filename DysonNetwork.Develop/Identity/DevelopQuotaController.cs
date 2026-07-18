@@ -1,3 +1,5 @@
+using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Capabilities;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Proto;
@@ -10,6 +12,7 @@ namespace DysonNetwork.Develop.Identity;
 [ApiController]
 [Route("/api/develop/quota")]
 [Authorize]
+[ApiFeature("developers.quota", Revision = 1)]
 public class DevelopQuotaController(
     DeveloperQuotaService quotaService,
     RemoteAccountService remoteAccounts

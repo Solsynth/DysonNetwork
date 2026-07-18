@@ -1,3 +1,4 @@
+using DysonNetwork.Shared.Capabilities;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
@@ -9,6 +10,7 @@ namespace DysonNetwork.Messager.Chat;
 
 [ApiController]
 [Route("/api/realms/{slug}")]
+[ApiFeature("chat.realms", Revision = 1)]
 public class RealmChatController(AppDatabase db, ChatRoomService crs, RemoteRealmService rs) : ControllerBase
 {
     [HttpGet("chat")]

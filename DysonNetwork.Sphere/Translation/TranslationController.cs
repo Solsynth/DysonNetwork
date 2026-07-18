@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using DysonNetwork.Shared.Cache;
+using DysonNetwork.Shared.Capabilities;
 using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Proto;
 using Microsoft.AspNetCore.Authorization;
@@ -10,6 +11,7 @@ namespace DysonNetwork.Sphere.Translation;
 
 [ApiController]
 [Route("/api/translate")]
+[ApiFeature("translate", Revision = 1)]
 public class TranslationController(ITranslationProvider provider, ICacheService cache) : ControllerBase
 {
     private const string CacheKeyPrefix = "translation:";

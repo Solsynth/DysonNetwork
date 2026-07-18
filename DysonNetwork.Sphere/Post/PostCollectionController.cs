@@ -1,8 +1,9 @@
 using System.ComponentModel.DataAnnotations;
+using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Capabilities;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Proto;
-using DysonNetwork.Shared.Auth;
 using DysonNetwork.Sphere.Publisher;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -12,6 +13,7 @@ namespace DysonNetwork.Sphere.Post;
 
 [ApiController]
 [Route("/api/publishers/{publisherName}/collections")]
+[ApiFeature("posts.collections", Revision = 1)]
 public class PostCollectionController(
     AppDatabase db,
     PostCollectionService collectionService,

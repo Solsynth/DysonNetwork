@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.Globalization;
 using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Capabilities;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.EventBus;
 using DysonNetwork.Shared.Extensions;
@@ -34,6 +35,14 @@ namespace DysonNetwork.Sphere.Post;
 
 [ApiController]
 [Route("/api/posts")]
+[ApiFeature("posts.publish", Revision = 1)]
+[ApiFeature("posts.reactions", Revision = 1)]
+[ApiFeature("posts.bookmark", Revision = 1)]
+[ApiFeature("posts.awards", Revision = 1)]
+[ApiFeature("posts.sponsor", Revision = 1)]
+[ApiFeature("posts.pin", Revision = 1)]
+[ApiFeature("posts.boost", Revision = 1)]
+[ApiFeature("posts.moderation", Revision = 1)]
 public class PostActionController(
     AppDatabase db,
     PostService ps,

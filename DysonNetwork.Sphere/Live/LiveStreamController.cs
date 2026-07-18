@@ -2,6 +2,7 @@ using System.Globalization;
 using DysonNetwork.Sphere.Models;
 using System.Text.Json;
 using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Capabilities;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Extensions;
 using DysonNetwork.Shared.Models;
@@ -19,6 +20,9 @@ namespace DysonNetwork.Sphere.Live;
 
 [ApiController]
 [Route("api/livestreams")]
+[ApiFeature("livestreams", Revision = 1)]
+[ApiFeature("livestreams.chat", Revision = 1)]
+[ApiFeature("livestreams.awards", Revision = 1)]
 public class LiveStreamController(
     AppDatabase db,
     LiveStreamService liveStreamService,

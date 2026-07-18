@@ -1,3 +1,4 @@
+using DysonNetwork.Shared.Capabilities;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Networking;
 using Microsoft.AspNetCore.Authorization;
@@ -8,6 +9,8 @@ namespace DysonNetwork.Passport.Progression;
 [Authorize]
 [ApiController]
 [Route("/api/accounts/me/progression")]
+[ApiFeature("progression.achievements", Revision = 1)]
+[ApiFeature("progression.quests", Revision = 1)]
 public class ProgressionController(ProgressionService progression) : ControllerBase
 {
     [HttpGet("achievements")]

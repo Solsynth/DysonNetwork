@@ -1,8 +1,9 @@
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Padlock.Models;
-using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Capabilities;
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
 using Microsoft.AspNetCore.Authorization;
@@ -15,6 +16,7 @@ namespace DysonNetwork.Padlock.Account;
 
 [ApiController]
 [Route("/api/accounts")]
+[ApiFeature("accounts.punishments", Revision = 1)]
 public class AccountPunishmentController(
     AppDatabase db,
     AccountService accounts

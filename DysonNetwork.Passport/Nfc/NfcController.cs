@@ -1,10 +1,11 @@
 using System.ComponentModel.DataAnnotations;
 using System.Security.Cryptography;
 using DysonNetwork.Passport.Account;
+using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Capabilities;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Registry;
-using DysonNetwork.Shared.Auth;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -13,6 +14,8 @@ namespace DysonNetwork.Passport.Nfc;
 
 [ApiController]
 [Route("/api/nfc")]
+[ApiFeature("nfc", Revision = 1)]
+[ApiFeature("nfc.tags", Revision = 1)]
 public class NfcController(
     NfcService nfc,
     AppDatabase db,

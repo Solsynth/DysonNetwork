@@ -1,11 +1,12 @@
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Passport.Account;
+using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Capabilities;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
-using DysonNetwork.Shared.Networking;
-using DysonNetwork.Shared.Auth;
 using Google.Protobuf.WellKnownTypes;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -18,6 +19,13 @@ namespace DysonNetwork.Passport.Realm;
 
 [ApiController]
 [Route("/api/realms")]
+[ApiFeature("realms", Revision = 1)]
+[ApiFeature("realms.members", Revision = 1)]
+[ApiFeature("realms.labels", Revision = 1)]
+[ApiFeature("realms.boosts", Revision = 1)]
+[ApiFeature("realms.experience", Revision = 1)]
+[ApiFeature("realms.permissions", Revision = 1)]
+[ApiFeature("realms.moderation", Revision = 1)]
 public class RealmController(
     AppDatabase db,
     RealmService rs,

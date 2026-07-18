@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Capabilities;
 using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Proto;
 using Microsoft.AspNetCore.Authorization;
@@ -12,6 +13,7 @@ namespace DysonNetwork.Ring.Email;
 [ApiController]
 [Route("/api/admin/email-plans")]
 [Authorize]
+[ApiFeature("admin.email-plans", Revision = 1)]
 public class EmailSendingPlanAdminController(EmailSendingPlanService plans) : ControllerBase
 {
     public class CreateEmailSendingPlanRequest

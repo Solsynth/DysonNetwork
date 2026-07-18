@@ -1,4 +1,5 @@
 using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Capabilities;
 using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Models;
 using Microsoft.AspNetCore.Authorization;
@@ -11,6 +12,7 @@ namespace DysonNetwork.Padlock.Account;
 [RequireInteractiveSession]
 [ApiController]
 [Route("/api/actions")]
+[ApiFeature("accounts.action-log", Revision = 1)]
 public class AccountActionLogController(AppDatabase db) : ControllerBase
 {
     [HttpGet]

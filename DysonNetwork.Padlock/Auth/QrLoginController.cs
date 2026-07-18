@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Cache;
+using DysonNetwork.Shared.Capabilities;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Extensions;
 using DysonNetwork.Shared.Geometry;
@@ -16,6 +17,7 @@ namespace DysonNetwork.Padlock.Auth;
 
 [ApiController]
 [Route("/api/auth/qr")]
+[ApiFeature("auth.qr-login", Revision = 1)]
 public class QrLoginController(
     AppDatabase db,
     ICacheService cache,

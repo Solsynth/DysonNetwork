@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Capabilities;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Extensions;
 using DysonNetwork.Shared.Localization;
@@ -17,6 +18,11 @@ namespace DysonNetwork.Messager.Chat;
 
 [ApiController]
 [Route("/api/chat")]
+[ApiFeature("chat.rooms", Revision = 1)]
+[ApiFeature("chat.groups", Revision = 1)]
+[ApiFeature("chat.invites", Revision = 1)]
+[ApiFeature("chat.members", Revision = 1)]
+[ApiFeature("chat.e2ee", Revision = 1)]
 public class ChatRoomController(
     AppDatabase db,
     ChatRoomService crs,

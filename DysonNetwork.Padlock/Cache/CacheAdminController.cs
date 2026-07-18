@@ -1,7 +1,8 @@
 using System.ComponentModel.DataAnnotations;
-using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Cache;
+using DysonNetwork.Shared.Capabilities;
+using DysonNetwork.Shared.Networking;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -10,6 +11,7 @@ namespace DysonNetwork.Padlock.Cache;
 [ApiController]
 [Route("/api/admin/cache")]
 [Authorize]
+[ApiFeature("admin.cache", Revision = 1)]
 public class CacheAdminController(
     ICacheService cache,
     ILogger<CacheAdminController> logger

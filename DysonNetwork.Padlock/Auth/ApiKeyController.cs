@@ -1,3 +1,4 @@
+using DysonNetwork.Shared.Capabilities;
 using DysonNetwork.Shared.Networking;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -12,6 +13,7 @@ namespace DysonNetwork.Padlock.Auth;
 [ApiController]
 [Route("/api/api-keys")]
 [Authorize]
+[ApiFeature("auth.api-keys", Revision = 1)]
 public class ApiKeyController(
     AuthService auth,
     AppDatabase db

@@ -1,3 +1,4 @@
+using DysonNetwork.Shared.Capabilities;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Networking;
 using DysonNetwork.Develop.Models;
@@ -7,6 +8,7 @@ namespace DysonNetwork.Develop.MiniApp;
 
 [ApiController]
 [Route("api/miniapps")]
+[ApiFeature("developers.miniapps.public", Revision = 1)]
 public class MiniAppPublicController(MiniAppService miniAppService, Identity.DeveloperService developerService) : ControllerBase
 {
     [HttpGet]

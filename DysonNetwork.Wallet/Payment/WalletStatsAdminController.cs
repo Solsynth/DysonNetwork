@@ -1,4 +1,5 @@
 using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Capabilities;
 using DysonNetwork.Shared.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -10,6 +11,7 @@ namespace DysonNetwork.Wallet.Payment;
 [ApiController]
 [Route("/api/admin/stats")]
 [Authorize]
+[ApiFeature("admin.stats", Revision = 1)]
 public class WalletStatsAdminController(AppDatabase db) : ControllerBase
 {
     public class WalletStatsResponse

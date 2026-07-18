@@ -7,17 +7,19 @@ using System.Security.Cryptography;
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
 using DysonNetwork.Wallet.Payment.PaymentHandlers;
+using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Capabilities;
 using DysonNetwork.Shared.Extensions;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
-using DysonNetwork.Shared.Auth;
 
 namespace DysonNetwork.Wallet.Payment;
 
 [ApiController]
 [Route("/api/subscriptions")]
+[ApiFeature("subscriptions", Revision = 1)]
 public class SubscriptionController(
     SubscriptionService subscriptions,
     WalletProductService walletProducts,

@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Capabilities;
 using DysonNetwork.Shared.Extensions;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Networking;
@@ -18,6 +19,13 @@ namespace DysonNetwork.Sphere.Publisher;
 
 [ApiController]
 [Route("/api/publishers")]
+[ApiFeature("publishers", Revision = 1)]
+[ApiFeature("publishers.members", Revision = 1)]
+[ApiFeature("publishers.features", Revision = 1)]
+[ApiFeature("publishers.rewards", Revision = 1)]
+[ApiFeature("publishers.fediverse", Revision = 1)]
+[ApiFeature("publishers.domains", Revision = 1)]
+[ApiFeature("publishers.ads", Revision = 1)]
 public class PublisherController(
     AppDatabase db,
     PublisherService ps,

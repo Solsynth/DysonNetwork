@@ -1,4 +1,5 @@
 using DysonNetwork.Passport.Credit;
+using DysonNetwork.Shared.Capabilities;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Proto;
@@ -11,6 +12,11 @@ namespace DysonNetwork.Passport.Account;
 
 [ApiController]
 [Route("/api/accounts")]
+[ApiFeature("accounts", Revision = 1)]
+[ApiFeature("accounts.connections", Revision = 1)]
+[ApiFeature("accounts.badges", Revision = 1)]
+[ApiFeature("accounts.board", Revision = 1)]
+[ApiFeature("accounts.credits", Revision = 1)]
 public class AccountPublicController(
     AppDatabase db,
     AccountService accountService,

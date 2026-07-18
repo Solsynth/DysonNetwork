@@ -1,3 +1,4 @@
+using DysonNetwork.Shared.Capabilities;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Proto;
@@ -9,6 +10,7 @@ namespace DysonNetwork.Sphere.Post;
 
 [Route(("/api/categories"))]
 [ApiController]
+[ApiFeature("posts.categories.subscriptions", Revision = 1)]
 public class PostCategorySubController(AppDatabase db) : ControllerBase
 {
     /// <summary>

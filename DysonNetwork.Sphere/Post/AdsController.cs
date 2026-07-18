@@ -1,3 +1,4 @@
+using DysonNetwork.Shared.Capabilities;
 using DysonNetwork.Sphere.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -6,6 +7,7 @@ namespace DysonNetwork.Sphere.Post;
 
 [ApiController]
 [Route("/api/ads")]
+[ApiFeature("ads", Revision = 1)]
 public class AdsController(
     AppDatabase db,
     SponsorService sponsorService

@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Capabilities;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Extensions;
 using DysonNetwork.Shared.Geometry;
@@ -19,6 +20,12 @@ namespace DysonNetwork.Passport.Account;
 [Authorize]
 [ApiController]
 [Route("/api/accounts/me")]
+[ApiFeature("accounts.profile", Revision = 1)]
+[ApiFeature("accounts.board", Revision = 1)]
+[ApiFeature("accounts.badges", Revision = 1)]
+[ApiFeature("accounts.leveling", Revision = 1)]
+[ApiFeature("accounts.credits", Revision = 1)]
+[ApiFeature("accounts.connections", Revision = 1)]
 public class AccountCurrentController(
     AppDatabase db,
     AccountService accounts,

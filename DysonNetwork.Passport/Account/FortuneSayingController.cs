@@ -1,3 +1,4 @@
+using DysonNetwork.Shared.Capabilities;
 using DysonNetwork.Shared.Networking;
 using Microsoft.AspNetCore.Mvc;
 
@@ -11,6 +12,7 @@ public record FortuneSaying(
 
 [ApiController]
 [Route("/api/fortune")]
+[ApiFeature("fortune", Revision = 1)]
 public class FortuneSayingController : ControllerBase
 {
     private static readonly FortuneSaying[] Sayings =

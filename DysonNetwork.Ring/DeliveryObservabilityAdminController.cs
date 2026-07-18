@@ -1,4 +1,5 @@
 using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Capabilities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -9,6 +10,7 @@ namespace DysonNetwork.Ring;
 [ApiController]
 [Route("/api/admin/delivery-observability")]
 [Authorize]
+[ApiFeature("admin.delivery-observability", Revision = 1)]
 public class DeliveryObservabilityAdminController(AppDatabase db, IClock clock) : ControllerBase
 {
     public class DeliverySummary

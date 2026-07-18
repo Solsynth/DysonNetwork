@@ -1,5 +1,6 @@
 using DysonNetwork.Padlock.Models;
 using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Capabilities;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Proto;
@@ -13,6 +14,12 @@ namespace DysonNetwork.Padlock.Account;
 [RequireInteractiveSession]
 [ApiController]
 [Route("/api")]
+[ApiFeature("accounts.identity", Revision = 1)]
+[ApiFeature("accounts.factors", Revision = 1)]
+[ApiFeature("accounts.sessions", Revision = 1)]
+[ApiFeature("accounts.devices", Revision = 1)]
+[ApiFeature("accounts.authorized-apps", Revision = 1)]
+[ApiFeature("accounts.contacts", Revision = 1)]
 public class AccountSecurityController(
     AppDatabase db,
     AccountService accounts,

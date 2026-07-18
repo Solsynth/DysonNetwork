@@ -1,4 +1,5 @@
 using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Capabilities;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Networking;
 using Microsoft.AspNetCore.Mvc;
@@ -11,6 +12,7 @@ namespace DysonNetwork.Passport.Account;
 /// </summary>
 [ApiController]
 [Route("/api/activities")]
+[ApiFeature("presences.activities", Revision = 1)]
 public class PresenceActivityController(
     AccountEventService service,
     AccountService accounts,

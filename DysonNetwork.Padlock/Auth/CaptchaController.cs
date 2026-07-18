@@ -1,3 +1,4 @@
+using DysonNetwork.Shared.Capabilities;
 using DysonNetwork.Shared.Networking;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -8,6 +9,7 @@ namespace DysonNetwork.Padlock.Auth;
 [ApiController]
 [Route("api/auth/captcha")]
 [AllowAnonymous]
+[ApiFeature("auth.captcha", Revision = 1)]
 public class CaptchaController(
     AuthService auth,
     IConfiguration configuration

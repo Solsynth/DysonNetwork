@@ -1,4 +1,5 @@
 using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Capabilities;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Proto;
@@ -15,6 +16,7 @@ namespace DysonNetwork.Sphere.Account;
 [ApiController]
 [Route("api/account/publishing")]
 [Authorize]
+[ApiFeature("accounts.publishing-settings", Revision = 1)]
 public class PublishingSettingsController(
     AppDatabase db,
     ActivityRenderer objFactory,

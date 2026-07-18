@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Capabilities;
 using DysonNetwork.Shared.Extensions;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Networking;
@@ -15,6 +16,8 @@ namespace DysonNetwork.Sphere.Publisher;
 [ApiController]
 [Route("/api/admin/publishers")]
 [Authorize]
+[ApiFeature("admin.publishers", Revision = 1)]
+[ApiFeature("admin.publishers.shadowban", Revision = 1)]
 public class PublisherAdminController(
     AppDatabase db,
     PublisherService publisherService,
