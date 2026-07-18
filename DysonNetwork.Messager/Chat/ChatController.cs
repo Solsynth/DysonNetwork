@@ -105,7 +105,7 @@ public partial class ChatController(
     {
         if (ChatMessageHelpers.TryParseLocation(locationWkt, out location, out var error))
             return null;
-        return BadRequest(new ApiError { Code = "CHAT_MESSAGE_LOCATION_INVALID", Message = error, Status = 400 });
+        return BadRequest(new ApiError { Code = "CHAT_MESSAGE_LOCATION_INVALID", Message = error ?? "Invalid location format.", Status = 400 });
     }
 
     /// <summary>

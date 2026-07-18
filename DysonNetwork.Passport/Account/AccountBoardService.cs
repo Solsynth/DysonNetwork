@@ -124,7 +124,7 @@ public class AccountBoardService(
                 x => x.AccountId == accountId
                      && x.Kind == SnAccountBoardItemKind.CustomApp
                      && x.CustomAppId == customAppId
-                     && EF.Functions.ILike(x.CustomAppWidgetKey, customAppWidgetKey),
+                      && EF.Functions.ILike(x.CustomAppWidgetKey!, customAppWidgetKey),
                 cancellationToken
               )
             : await db.AccountBoardItems.FirstOrDefaultAsync(
