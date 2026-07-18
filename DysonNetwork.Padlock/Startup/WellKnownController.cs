@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Networking;

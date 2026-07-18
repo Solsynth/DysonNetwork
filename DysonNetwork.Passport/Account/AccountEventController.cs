@@ -308,7 +308,7 @@ public class AccountEventController(
         [FromQuery] int? month,
         [FromQuery] int? year,
         [FromQuery] bool includeNotableDays = false,
-        [FromServices] NotableDaysService? notableDaysService = null)
+        [FromServices] NotableDaysService? notableDaysService = null
     )
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
