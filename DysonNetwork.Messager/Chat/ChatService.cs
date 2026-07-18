@@ -565,33 +565,27 @@ public partial class ChatService(
         IServiceScope scope
     )
     {
-        var scopedWs =
-            scope.ServiceProvider.GetRequiredService<WebSocketService.WebSocketServiceClient>();
+        var scopedWs = scope.ServiceProvider.GetRequiredService<RemoteWebSocketService>();
         var payload = InfraObjectCoder.ConvertObjectToByteString(message);
-
-        var request = new DyPushWebSocketPacketToUsersRequest
-        {
-            Packet = new DyWebSocketPacket { Type = WebSocketPacketType.MessageNew, Data = payload },
-        };
         var memberAccounts = members.Select(a => a.Account).Where(a => a is not null).ToList();
-        request.UserIds.AddRange(memberAccounts.Select(a => a!.Id.ToString()));
+        var userIds = memberAccounts.Select(a => a!.Id.ToString()).ToList();
 
-        if (request.UserIds.Count == 0)
+        if (userIds.Count == 0)
             return;
 
         logger.LogDebug(
             "DeliverWebSocketMessage: messageId={messageId}, type={type}, targetUserCount={targetUserCount}, attachmentCount={attachmentCount}, payloadBytes={payloadBytes}, userIds={userIds}",
             message.Id,
             message.Type,
-            request.UserIds.Count,
+            userIds.Count,
             message.Attachments.Count,
             payload.Length,
-            string.Join(",", request.UserIds.Take(10))
+            string.Join(",", userIds.Take(10))
         );
 
-        await scopedWs.PushWebSocketPacketToUsersAsync(request);
+        await scopedWs.PushWebSocketPacketToUsers(userIds, WebSocketPacketType.MessageNew, payload.ToByteArray());
 
-        logger.LogInformation("Delivered message to {Count} accounts.", request.UserIds.Count);
+        logger.LogInformation("Delivered message to {Count} accounts.", userIds.Count);
     }
 
     private void QueueMessageDelivery(
@@ -2851,24 +2845,15 @@ public partial class ChatService(
         var scopedCrs = scope.ServiceProvider.GetRequiredService<ChatRoomService>();
         var members = await scopedCrs.ListRoomMembers(message.ChatRoomId);
 
-        var scopedWs = scope.ServiceProvider.GetRequiredService<WebSocketService.WebSocketServiceClient>();
+        var scopedWs = scope.ServiceProvider.GetRequiredService<RemoteWebSocketService>();
         var payload = InfraObjectCoder.ConvertObjectToByteString(message);
-
-        var request = new DyPushWebSocketPacketToUsersRequest
-        {
-            Packet = new DyWebSocketPacket
-            {
-                Type = WebSocketPacketType.PlaceholderUpdate,
-                Data = payload,
-            },
-        };
         var memberAccounts = members.Select(a => a.Account).Where(a => a is not null).ToList();
-        request.UserIds.AddRange(memberAccounts.Select(a => a!.Id.ToString()));
+        var userIds = memberAccounts.Select(a => a!.Id.ToString()).ToList();
 
-        if (request.UserIds.Count == 0)
+        if (userIds.Count == 0)
             return;
 
-        await scopedWs.PushWebSocketPacketToUsersAsync(request);
+        await scopedWs.PushWebSocketPacketToUsers(userIds, WebSocketPacketType.PlaceholderUpdate, payload.ToByteArray());
     }
 
     /// <summary>
@@ -2880,28 +2865,20 @@ public partial class ChatService(
         var scopedCrs = scope.ServiceProvider.GetRequiredService<ChatRoomService>();
         var members = await scopedCrs.ListRoomMembers(message.ChatRoomId);
 
-        var scopedWs = scope.ServiceProvider.GetRequiredService<WebSocketService.WebSocketServiceClient>();
+        var scopedWs = scope.ServiceProvider.GetRequiredService<RemoteWebSocketService>();
         var payload = InfraObjectCoder.ConvertObjectToByteString(new Dictionary<string, object>
         {
             ["message_id"] = message.Id,
             ["chat_room_id"] = message.ChatRoomId,
         });
 
-        var request = new DyPushWebSocketPacketToUsersRequest
-        {
-            Packet = new DyWebSocketPacket
-            {
-                Type = WebSocketPacketType.PlaceholderExpired,
-                Data = payload,
-            },
-        };
         var memberAccounts = members.Select(a => a.Account).Where(a => a is not null).ToList();
-        request.UserIds.AddRange(memberAccounts.Select(a => a!.Id.ToString()));
+        var userIds = memberAccounts.Select(a => a!.Id.ToString()).ToList();
 
-        if (request.UserIds.Count == 0)
+        if (userIds.Count == 0)
             return;
 
-        await scopedWs.PushWebSocketPacketToUsersAsync(request);
+        await scopedWs.PushWebSocketPacketToUsers(userIds, WebSocketPacketType.PlaceholderExpired, payload.ToByteArray());
     }
 
     public async Task HydrateMessageReactionsAsync(
