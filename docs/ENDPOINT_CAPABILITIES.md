@@ -8,9 +8,10 @@ endpoint metadata, so it stays with the controller action or Minimal API route
 that exposes it.
 
 The shared implementation collects this metadata once when the application
-starts and exposes the result through `ICapabilityRegistry`. It does not add an
-HTTP route, a gRPC method, authorization behavior, or annotations to existing
-endpoints.
+starts and exposes the result through `ICapabilityRegistry`. Every service that
+uses `AddServiceDefaults()` also exposes the `DyCapabilitiesService`
+`GetCapabilities` gRPC method. It does not add annotations to existing
+endpoints or enforce authorization behavior.
 
 ## Declaring a feature
 
@@ -54,9 +55,11 @@ app.MapPost("/api/chat/voice", JoinVoice)
     });
 ```
 
-Capability identifiers are strings. Use stable, lowercase, dot-separated names
-such as `chat`, `chat.reactions`, or `voice`; the shared library deliberately
-does not prescribe a global capability enum yet.
+Capability identifiers remain strings on endpoint metadata, but only the names
+defined by the shared `DyCapability` protobuf enum are advertised externally:
+`voice`, `passkeys`, `stories`, `drive-resumable`, and `realm-v2`. Add an enum
+value to `Spec/proto/capability.proto` before annotating a new public
+capability.
 
 ## Metadata fields
 
@@ -71,11 +74,9 @@ each feature declaration.
 
 ## Registration and lifecycle
 
-Register the collector with the service collection before building the app:
-
-```csharp
-builder.Services.AddEndpointCapabilities();
-```
+`AddServiceDefaults()` registers the collector and the capability gRPC service
+for every DysonNetwork service. No per-service registration or mapping is
+required.
 
 The collector runs as a hosted service after endpoint mapping is complete. It
 reads the application's `EndpointDataSource`, uses
@@ -95,22 +96,29 @@ public sealed class CapabilitiesService(ICapabilityRegistry capabilityRegistry)
 the per-endpoint details, including revision, experimental state, and route.
 Both collections are ordered deterministically by capability and route.
 
-## Current scope
+## gRPC response
 
-This facility is intentionally unconnected at present:
+`DyCapabilitiesService.GetCapabilities(Empty)` returns the static metadata for
+the service. `api_revision` defaults to the highest annotated capability
+revision and can be explicitly configured. `minimum_revision` is configured
+separately when a service has a compatibility floor.
 
-- No DysonNetwork service has registered the collector.
-- No existing controller or Minimal API endpoint is annotated.
-- No gRPC `GetCapabilities` contract or HTTP discovery endpoint exists.
-- Features are descriptive metadata only; they do not grant, deny, or enforce
-  access.
+```json
+{
+  "Capabilities": {
+    "ApiRevision": 17,
+    "MinimumRevision": 16
+  }
+}
+```
 
-When a service is ready to advertise capabilities, register the collector,
-annotate its relevant endpoints, and expose `ICapabilityRegistry` from that
-service's chosen discovery API.
+Each advertised item contains an enum capability, `enabled`, `revision`,
+`experimental`, and optional `version`. Features are descriptive only; they do
+not grant, deny, or enforce access.
 
 ## Shared implementation
 
 - `DysonNetwork.Shared/Capabilities/ApiFeatureAttribute.cs`
 - `DysonNetwork.Shared/Capabilities/ApiFeature.cs`
 - `DysonNetwork.Shared/Capabilities/CapabilityRegistry.cs`
+- `DysonNetwork.Shared/Capabilities/CapabilityGrpcService.cs`

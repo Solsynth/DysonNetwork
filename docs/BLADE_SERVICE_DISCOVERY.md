@@ -106,6 +106,43 @@ instance.
 
 Use TLS and internal networking for the Blade gRPC endpoint in production.
 
+## Gateway capability document
+
+When discovery is enabled, Blade exposes `GET /meta`. It reads the services
+currently registered in Blade, queries one healthy gRPC instance of each
+service through `DyCapabilitiesService.GetCapabilities`, and serves the
+aggregated result from memory. The cache is refreshed at startup and every five
+minutes, so normal `/meta` requests make no downstream gRPC calls.
+
+```json
+{
+  "apiRevision": 17,
+  "minimumRevision": 16,
+  "features": {
+    "voice": true,
+    "drive-resumable": true
+  },
+  "capabilities": {
+    "voice": {
+      "enabled": true,
+      "revision": 17
+    }
+  },
+  "services": {
+    "ring": {
+      "apiRevision": 17,
+      "minimumRevision": 16,
+      "state": "up"
+    }
+  }
+}
+```
+
+Blade marks a registered service `degraded` when it has no healthy gRPC
+instance or its capability RPC cannot be read. It remains in the document so
+clients and operators can distinguish absence from a temporarily unavailable
+service.
+
 ## Shared implementation
 
 - `DysonNetwork.Shared/Registry/BladeServiceDiscoveryOptions.cs`
