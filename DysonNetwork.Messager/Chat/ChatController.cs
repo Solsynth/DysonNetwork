@@ -404,8 +404,10 @@ public partial class ChatController(
     {
         [Required]
         [MaxLength(256)] public string Query { get; set; } = null!;
-        public Guid? RoomId { get; set; }
-        public Guid? SenderId { get; set; }
+        [FromQuery(Name = "room_ids")] public List<Guid>? RoomIds { get; set; }
+        [FromQuery(Name = "sender")] [MaxLength(256)] public string? Sender { get; set; }
+        [FromQuery(Name = "after")] public Instant? After { get; set; }
+        [FromQuery(Name = "before")] public Instant? Before { get; set; }
     }
 
     public class ChatMessageSearchRoomResponse
@@ -434,6 +436,13 @@ public partial class ChatController(
                     { "query", ["Search query cannot be empty."] }
                 },
                 code: "CHAT_SEARCH_QUERY_REQUIRED"));
+        if (request.After.HasValue && request.Before.HasValue && request.After >= request.Before)
+            return BadRequest(new ApiError
+            {
+                Code = "CHAT_SEARCH_DATE_RANGE_INVALID",
+                Message = "The after timestamp must be earlier than the before timestamp.",
+                Status = 400
+            });
 
         var accountId = Guid.Parse(currentUser.Id);
         var messagesQuery = db.ChatMessages
@@ -445,10 +454,35 @@ public partial class ChatController(
                 member.LeaveAt == null))
             .Where(m => EF.Functions.ILike(m.Content!, $"%{searchQuery}%"));
 
-        if (request.RoomId.HasValue)
-            messagesQuery = messagesQuery.Where(m => m.ChatRoomId == request.RoomId.Value);
-        if (request.SenderId.HasValue)
-            messagesQuery = messagesQuery.Where(m => m.SenderId == request.SenderId.Value);
+        if (request.RoomIds is { Count: > 0 })
+        {
+            var roomIds = request.RoomIds.Distinct().ToList();
+            messagesQuery = messagesQuery.Where(m => roomIds.Contains(m.ChatRoomId));
+        }
+        if (!string.IsNullOrWhiteSpace(request.Sender))
+        {
+            var matchedAccounts = (await accounts.SearchAccountAsync(new DySearchAccountRequest
+            {
+                Query = request.Sender.Trim()
+            })).Accounts;
+            var accountIds = matchedAccounts
+                .Select(account => Guid.TryParse(account.Id, out var id) ? id : (Guid?)null)
+                .Where(id => id.HasValue)
+                .Select(id => id!.Value)
+                .ToList();
+            if (accountIds.Count == 0)
+            {
+                Response.Headers["X-Total"] = "0";
+                return Ok(new List<ChatMessageSearchRoomResponse>());
+            }
+
+            messagesQuery = messagesQuery.Where(m => db.ChatMembers.Any(member =>
+                member.Id == m.SenderId && accountIds.Contains(member.AccountId)));
+        }
+        if (request.After.HasValue)
+            messagesQuery = messagesQuery.Where(m => m.CreatedAt >= request.After.Value);
+        if (request.Before.HasValue)
+            messagesQuery = messagesQuery.Where(m => m.CreatedAt < request.Before.Value);
 
         var totalCount = await messagesQuery.CountAsync();
         var messages = await messagesQuery

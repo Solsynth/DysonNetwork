@@ -15,7 +15,7 @@ Authorization: Bearer <token>
 ## Request
 
 ```http
-GET /api/chat/messages/search?query=deployment&offset=0&take=20
+GET /api/chat/messages/search?query=deployment&room_ids=ROOM_ID&room_ids=ANOTHER_ROOM_ID&sender=alice&after=2026-07-01T00:00:00Z&before=2026-08-01T00:00:00Z&offset=0&take=20
 ```
 
 ### Query parameters
@@ -23,8 +23,10 @@ GET /api/chat/messages/search?query=deployment&offset=0&take=20
 | Parameter | Type | Required | Default | Description |
 |---|---|---:|---:|---|
 | `query` | string | Yes | — | Case-insensitive text to find. Maximum 256 characters. |
-| `room_id` | UUID | No | — | Restrict results to one chat room. The caller must be an active member. |
-| `sender_id` | UUID | No | — | Restrict results to a chat member ID (`SnChatMessage.sender_id`), not an account ID. |
+| `room_ids` | UUID[] | No | — | Restrict results to one or more rooms. Repeat the parameter for each room ID. The caller must be an active member of every matching room. |
+| `sender` | string | No | — | Restrict results to accounts whose name or nickname matches this value. Maximum 256 characters. |
+| `after` | ISO-8601 UTC instant | No | — | Only include messages created at or after this instant. |
+| `before` | ISO-8601 UTC instant | No | — | Only include messages created before this instant. Must be later than `after` when both are provided. |
 | `offset` | integer | No | `0` | Number of matching messages to skip. |
 | `take` | integer | No | `20` | Number of matching messages to return, up to `100`. |
 
@@ -76,6 +78,7 @@ The `X-Total` response header contains the total count of matching messages befo
 | 401 | — | No valid authenticated account is present. |
 | 403 | — | The authenticated account has perk level below 1. |
 | 400 | `CHAT_SEARCH_QUERY_REQUIRED` | `query` was empty or contained only whitespace. |
+| 400 | `CHAT_SEARCH_DATE_RANGE_INVALID` | `after` is not earlier than `before`. |
 | 400 | validation error | `query` exceeds 256 characters, or another query value is invalid. |
 
 ## Example
@@ -84,5 +87,8 @@ The `X-Total` response header contains the total count of matching messages befo
 curl -G 'https://api.example.com/messager/chat/messages/search' \
   -H 'Authorization: Bearer <token>' \
   --data-urlencode 'query=deployment' \
+  --data-urlencode 'room_ids=2e574d54-c6ac-4e4d-986e-076ca260f8d2' \
+  --data-urlencode 'sender=alice' \
+  --data-urlencode 'after=2026-07-01T00:00:00Z' \
   --data-urlencode 'take=20'
 ```
