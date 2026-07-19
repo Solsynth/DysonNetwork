@@ -55,11 +55,11 @@ app.MapPost("/api/chat/voice", JoinVoice)
     });
 ```
 
-Capability identifiers remain strings on endpoint metadata, but only the names
-defined by the shared `DyCapability` protobuf enum are advertised externally:
-`voice`, `passkeys`, `stories`, `drive-resumable`, and `realm-v2`. Add an enum
-value to `Spec/proto/capability.proto` before annotating a new public
-capability.
+Capability identifiers remain strings on endpoint metadata and are advertised
+through the protobuf state's `name` field. The optional `DyCapability` enum is
+also populated for standardized identifiers such as `voice`, `passkeys`,
+`stories`, `drive-resumable`, and `realm-v2`; clients should use `name` for the
+complete capability set.
 
 ## Metadata fields
 
@@ -112,9 +112,9 @@ separately when a service has a compatibility floor.
 }
 ```
 
-Each advertised item contains an enum capability, `enabled`, `revision`,
-`experimental`, and optional `version`. Features are descriptive only; they do
-not grant, deny, or enforce access.
+Each advertised item contains its canonical `name`, optional enum capability,
+`enabled`, `revision`, `experimental`, and optional `version`. Features are
+descriptive only; they do not grant, deny, or enforce access.
 
 ## Shared implementation
 

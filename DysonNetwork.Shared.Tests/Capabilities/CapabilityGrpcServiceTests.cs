@@ -24,10 +24,21 @@ public sealed class CapabilityGrpcServiceTests
 
         Assert.Equal((uint)18, response.ApiRevision);
         Assert.Equal((uint)16, response.MinimumRevision);
-        var capability = Assert.Single(response.Capabilities);
-        Assert.Equal(DyCapability.Voice, capability.Capability);
-        Assert.True(capability.Enabled);
-        Assert.Equal((uint)18, capability.Revision);
-        Assert.False(capability.Experimental);
+        Assert.Collection(
+            response.Capabilities.OrderBy(capability => capability.Name),
+            capability =>
+            {
+                Assert.Equal(DyCapability.Unspecified, capability.Capability);
+                Assert.Equal("not-yet-defined", capability.Name);
+                Assert.Equal((uint)1, capability.Revision);
+            },
+            capability =>
+            {
+                Assert.Equal(DyCapability.Voice, capability.Capability);
+                Assert.Equal("voice", capability.Name);
+                Assert.True(capability.Enabled);
+                Assert.Equal((uint)18, capability.Revision);
+                Assert.False(capability.Experimental);
+            });
     }
 }

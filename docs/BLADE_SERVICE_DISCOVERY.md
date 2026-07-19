@@ -62,6 +62,18 @@ Discovery is disabled unless `Enabled` is true or a registration token is
 provided. When enabled, the registration token is required and the extension
 validates the configuration when each service starts.
 
+Blade queries service capability RPCs over TLS. The .NET services currently
+generate self-signed certificates, so enable the following Blade setting until
+they use certificates signed by a shared trusted CA:
+
+```toml
+[grpc]
+clientTlsSkipVerify = true
+```
+
+This affects only Blade-to-service capability queries. Leave it `false` when
+the service certificate chain is trusted by Blade.
+
 ## Resolution
 
 Inject `IBladeServiceDiscoveryClient` to resolve healthy instances in normal
@@ -118,8 +130,8 @@ minutes, so normal `/meta` requests make no downstream gRPC calls.
 
 ```json
 {
-  "apiRevision": 17,
-  "minimumRevision": 16,
+  "api_revision": 17,
+  "minimum_revision": 16,
   "features": {
     "voice": true,
     "drive-resumable": true
@@ -132,8 +144,8 @@ minutes, so normal `/meta` requests make no downstream gRPC calls.
   },
   "services": {
     "ring": {
-      "apiRevision": 17,
-      "minimumRevision": 16,
+      "api_revision": 17,
+      "minimum_revision": 16,
       "state": "up"
     }
   }
