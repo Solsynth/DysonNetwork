@@ -22,7 +22,7 @@ public class PostCollectionAdminController(
     RemoteActionLogService als
 ) : ControllerBase
 {
-    public class UpdateCollectionRequest
+    public class AdminUpdateCollectionRequest
     {
         [MaxLength(256)] public string? Name { get; set; }
         [MaxLength(4096)] public string? Description { get; set; }
@@ -103,7 +103,7 @@ public class PostCollectionAdminController(
     [AskPermission(PermissionKeys.PostCollectionsUpdate)]
     public async Task<ActionResult<SnPostCollection>> UpdateCollection(
         Guid id,
-        [FromBody] UpdateCollectionRequest request
+        [FromBody] AdminUpdateCollectionRequest request
     )
     {
         var collection = await db.PostCollections

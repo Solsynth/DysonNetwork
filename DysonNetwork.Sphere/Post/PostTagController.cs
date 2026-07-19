@@ -274,7 +274,7 @@ public class PostTagAdminController(
         public Guid PublisherId { get; set; }
     }
 
-    public class SetProtectedRequest
+    public class AdminSetProtectedRequest
     {
         public bool IsProtected { get; set; }
     }
@@ -455,7 +455,7 @@ public class PostTagAdminController(
     [HttpPatch("/api/admin/posts/tags/{slug}/protect")]
     [HttpPatch("{slug}/protect")]
     [AskPermission(PermissionKeys.PostsTagsProtect)]
-    public async Task<ActionResult<SnPostTag>> SetProtected(string slug, [FromBody] SetProtectedRequest request)
+    public async Task<ActionResult<SnPostTag>> SetProtected(string slug, [FromBody] AdminSetProtectedRequest request)
     {
         var tag = await tagService.FindBySlugAsync(slug);
         if (tag is null) return NotFound();
