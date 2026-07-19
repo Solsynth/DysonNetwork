@@ -423,6 +423,8 @@ public partial class ChatController(
         [FromQuery] int take = 20)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (currentUser.PerkLevel < 1)
+            return StatusCode(403, ApiError.Unauthorized("Perk level 1 is required to search cloud messages.", forbidden: true));
 
         var searchQuery = request.Query.Trim();
         if (string.IsNullOrWhiteSpace(searchQuery))

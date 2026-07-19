@@ -6,7 +6,7 @@ The local service route is `/api/chat/messages/search`. Through the production g
 
 ## Authentication
 
-This endpoint requires a bearer token.
+This endpoint requires a bearer token and perk level 1 or above.
 
 ```http
 Authorization: Bearer <token>
@@ -74,6 +74,7 @@ The `X-Total` response header contains the total count of matching messages befo
 | Status | Code | Meaning |
 |---:|---|---|
 | 401 | — | No valid authenticated account is present. |
+| 403 | — | The authenticated account has perk level below 1. |
 | 400 | `CHAT_SEARCH_QUERY_REQUIRED` | `query` was empty or contained only whitespace. |
 | 400 | validation error | `query` exceeds 256 characters, or another query value is invalid. |
 
