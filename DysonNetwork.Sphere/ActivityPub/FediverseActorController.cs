@@ -247,6 +247,8 @@ public class FediverseActorController(
             .Where(p => p.Visibility == PostVisibility.Public);
 
         var boostsQuery = db.Boosts
+            .Include(b => b.Actor!)
+            .ThenInclude(a => a.Instance)
             .Include(b => b.Post)
             .ThenInclude(p => p.Actor!)
             .ThenInclude(a => a.Instance)
@@ -657,20 +659,28 @@ public class FediverseActorController(
 
         public PostResponse ToPostResponse(SnFediverseActor actor)
         {
-            var domain = ExtractDomain(OriginalActorUri ?? ActorUri ?? actor.Uri);
+            var domain = ExtractDomain(OriginalActorUri ?? ActorUri ?? actor.Uri)
+                ?? actor.Instance?.Domain
+                ?? "unknown";
+            // Build a complete-enough actor so mobile clients can deserialize
+            // without null String cast failures (full_handle, instance.id, etc.).
+            var originalInstance = new SnFediverseInstance
+            {
+                Id = actor.Instance?.Id ?? Guid.Empty,
+                Domain = domain,
+                Name = actor.Instance?.Name,
+                Software = actor.Instance?.Software,
+            };
             var originalActor = new SnFediverseActor
             {
                 Id = Guid.Empty,
-                Username = OriginalActorUsername ?? ActorUsername ?? actor.Username,
+                Username = OriginalActorUsername ?? ActorUsername ?? actor.Username ?? "unknown",
                 DisplayName = OriginalActorDisplayName ?? ActorDisplayName ?? actor.DisplayName,
                 AvatarUrl = OriginalActorAvatarUrl ?? ActorAvatarUrl ?? actor.AvatarUrl,
                 Uri = OriginalActorUri ?? ActorUri ?? actor.Uri ?? "",
-                Instance = new SnFediverseInstance { Domain = domain ?? "unknown" },
+                InstanceId = originalInstance.Id,
+                Instance = originalInstance,
             };
-
-            var originalDomain = ExtractDomain(OriginalActorUri ?? ActorUri ?? actor.Uri);
-            var originalInstance = new SnFediverseInstance { Domain = originalDomain ?? "unknown" };
-            originalActor.Instance = originalInstance;
 
             if (IsBoost)
             {
@@ -763,15 +773,23 @@ public class FediverseActorController(
             return attachments?.Select(dict => new SnCloudFileReferenceObject
             {
                 Id = Guid.NewGuid().ToString(),
-                Name = dict.GetValueOrDefault("name")?.ToString() ?? string.Empty,
+                Name = dict.GetValueOrDefault("name")?.ToString()
+                    ?? dict.GetValueOrDefault("url")?.ToString()
+                    ?? string.Empty,
                 Url = dict.GetValueOrDefault("url")?.ToString(),
-                MimeType = dict.GetValueOrDefault("mediaType")?.ToString(),
+                // Clients require non-null mime/hash; ActivityPub Document attachments
+                // often omit both, so fill safe defaults for remote outbox posts.
+                MimeType = dict.GetValueOrDefault("mediaType")?.ToString()
+                    ?? dict.GetValueOrDefault("mimeType")?.ToString()
+                    ?? "application/octet-stream",
+                Hash = dict.GetValueOrDefault("hash")?.ToString() ?? string.Empty,
                 Width = TryGetIntFromDict(dict, "width"),
                 Height = TryGetIntFromDict(dict, "height"),
                 Blurhash = dict.GetValueOrDefault("blurhash")?.ToString(),
                 FileMeta = new Dictionary<string, object?>(),
                 UserMeta = new Dictionary<string, object?>(),
-                Size = 0,
+                Size = TryGetIntFromDict(dict, "size") ?? 0,
+                HasCompression = false,
                 CreatedAt = Instant.FromDateTimeOffset(DateTimeOffset.UtcNow),
                 UpdatedAt = Instant.FromDateTimeOffset(DateTimeOffset.UtcNow)
             }).ToList();
