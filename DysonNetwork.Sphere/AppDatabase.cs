@@ -124,6 +124,8 @@ public class AppDatabase(
             .WithMany(p => p.Subscriptions)
             .HasForeignKey(ps => ps.PublisherId)
             .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<SnPublisherSubscription>()
+            .HasIndex(ps => new { ps.AccountId, ps.PublisherId, ps.EndedAt });
 
         modelBuilder.Entity<SnPublisherFollowRequest>()
             .HasOne(fr => fr.Publisher)

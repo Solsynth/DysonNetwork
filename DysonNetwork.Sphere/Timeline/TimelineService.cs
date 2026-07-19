@@ -14,6 +14,7 @@ namespace DysonNetwork.Sphere.Timeline;
 public class TimelineService(
     AppDatabase db,
     Publisher.PublisherService pub,
+    Publisher.PublisherSubscriptionService subscriptions,
     Post.PostService ps,
     RemoteRealmService rs,
     DyProfileService.DyProfileServiceClient accounts,
@@ -247,6 +248,7 @@ public class TimelineService(
         posts = await RankPosts(posts, take, currentUser, mode, aggressive);
         await RememberServedPostsAsync(posts, accountId);
         await ps.IncreaseViewCounts(posts.Select(post => post.Id), currentUser.Id);
+        await subscriptions.UpdateLastReadAtForPostsAsync(accountId, posts);
 
         logger.LogInformation("ListEvents: returning {PostCount} posts after ranking", posts.Count);
 

@@ -33,6 +33,11 @@ public class PublisherSubscriptionController(
         public Instant? LastReadAt { get; set; }
     }
 
+    public class MarkAllSubscriptionsReadResponse
+    {
+        public int UpdatedCount { get; set; }
+    }
+
     public class SubscriptionStatusResponse
     {
         public SnPublisherSubscription? Subscription { get; set; }
@@ -607,6 +612,18 @@ public class PublisherSubscriptionController(
             return NotFound(new ApiError { Code = "PUBLISHER_SUBSCRIPTION_NOT_FOUND", Message = "Subscription not found", Status = 404 });
 
         return Ok(status);
+    }
+
+    [HttpPut("subscriptions/read-status")]
+    [Authorize]
+    [AskPermission(PermissionKeys.PublishersSubscriptionsManage)]
+    public async Task<ActionResult<MarkAllSubscriptionsReadResponse>> MarkAllSubscriptionsRead()
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
+
+        var updatedCount = await subs.MarkAllSubscriptionsReadAsync(Guid.Parse(currentUser.Id));
+        return Ok(new MarkAllSubscriptionsReadResponse { UpdatedCount = updatedCount });
     }
 
     /// <summary>

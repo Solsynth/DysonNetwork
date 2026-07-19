@@ -458,6 +458,72 @@ public class PublisherSubscriptionService(
         return subscription;
     }
 
+    public async Task<int> MarkAllSubscriptionsReadAsync(Guid accountId)
+    {
+        var subscriptions = await db.PublisherSubscriptions
+            .Where(subscription => subscription.AccountId == accountId && subscription.EndedAt == null)
+            .ToListAsync();
+        if (subscriptions.Count == 0)
+            return 0;
+
+        var latestContentAtByPublisher = await GetLatestContentAtForPublishersAsync(
+            subscriptions.Select(subscription => subscription.PublisherId)
+        );
+
+        var updatedCount = 0;
+        foreach (var subscription in subscriptions)
+        {
+            var latestContentAt = latestContentAtByPublisher.GetValueOrDefault(subscription.PublisherId);
+            if (!latestContentAt.HasValue ||
+                (subscription.LastReadAt.HasValue && subscription.LastReadAt >= latestContentAt))
+                continue;
+
+            subscription.LastReadAt = latestContentAt;
+            updatedCount++;
+        }
+
+        if (updatedCount > 0)
+            await db.SaveChangesAsync();
+
+        return updatedCount;
+    }
+
+    public async Task UpdateLastReadAtForPostsAsync(Guid accountId, IEnumerable<SnPost> posts)
+    {
+        var latestReadAtByPublisher = posts
+            .Where(post => post.PublisherId.HasValue)
+            .GroupBy(post => post.PublisherId!.Value)
+            .ToDictionary(
+                group => group.Key,
+                group => group.Max(post => post.PublishedAt ?? post.CreatedAt)
+            );
+
+        if (latestReadAtByPublisher.Count == 0)
+            return;
+
+        var subscriptions = await db.PublisherSubscriptions
+            .Where(subscription =>
+                subscription.AccountId == accountId
+                && subscription.EndedAt == null
+                && latestReadAtByPublisher.Keys.Contains(subscription.PublisherId)
+            )
+            .ToListAsync();
+
+        var hasUpdates = false;
+        foreach (var subscription in subscriptions)
+        {
+            var latestReadAt = latestReadAtByPublisher[subscription.PublisherId];
+            if (!subscription.LastReadAt.HasValue || subscription.LastReadAt < latestReadAt)
+            {
+                subscription.LastReadAt = latestReadAt;
+                hasUpdates = true;
+            }
+        }
+
+        if (hasUpdates)
+            await db.SaveChangesAsync();
+    }
+
     /// <summary>
     /// Creates a new subscription between an account and a publisher
     /// </summary>
