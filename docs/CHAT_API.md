@@ -26,7 +26,7 @@ Authorization: Bearer <token>
 |---|---|
 | Summary & Unread | `GET /summary`, `GET /unread`, `POST /read-all` |
 | Subscriptions | `GET /{roomId}/subscriptions`, `GET /accounts/me/subscriptions`, `GET /accounts/me/status` |
-| Messages CRUD | `GET /{roomId}/messages`, `GET /{roomId}/messages/{messageId}`, `POST /{roomId}/messages`, `PATCH /{roomId}/messages/{messageId}`, `DELETE /{roomId}/messages/{messageId}` |
+| Messages CRUD & Search | `GET /messages/search`, `GET /{roomId}/messages`, `GET /{roomId}/messages/{messageId}`, `POST /{roomId}/messages`, `PATCH /{roomId}/messages/{messageId}`, `DELETE /{roomId}/messages/{messageId}` |
 | Voice Messages | `POST /{roomId}/messages/voice`, `GET /{roomId}/voice/{voiceId}` |
 | Reactions | `POST /{roomId}/messages/{messageId}/reactions`, `DELETE /{roomId}/messages/{messageId}/reactions/{symbol}`, `GET /{roomId}/messages/{messageId}/reactions` |
 | Placeholders | `POST /{roomId}/messages/placeholder` |

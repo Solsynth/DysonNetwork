@@ -27,6 +27,7 @@ namespace DysonNetwork.Messager.Chat;
 [Route("/api/chat")]
 [ApiFeature("chat", Revision = 1)]
 [ApiFeature("chat.messages", Revision = 1)]
+[ApiFeature("chat.search", Revision = 1)]
 [ApiFeature("chat.reactions", Revision = 1)]
 [ApiFeature("chat.pins", Revision = 1)]
 [ApiFeature("chat.voice", Revision = 1)]
@@ -397,6 +398,102 @@ public partial class ChatController(
         public int? DurationMs { get; set; }
         public Guid? RepliedMessageId { get; set; }
         public Guid? ForwardedMessageId { get; set; }
+    }
+
+    public class SearchMessagesRequest
+    {
+        [Required]
+        [MaxLength(256)] public string Query { get; set; } = null!;
+        public Guid? RoomId { get; set; }
+        public Guid? SenderId { get; set; }
+    }
+
+    public class ChatMessageSearchRoomResponse
+    {
+        public SnChatRoom Room { get; set; } = null!;
+        public List<SnChatMessage> Messages { get; set; } = [];
+    }
+
+    [HttpGet("messages/search")]
+    [Authorize]
+    [PaginationMaxTake(100)]
+    public async Task<ActionResult<List<ChatMessageSearchRoomResponse>>> SearchMessages(
+        [FromQuery] SearchMessagesRequest request,
+        [FromQuery] int offset,
+        [FromQuery] int take = 20)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+
+        var searchQuery = request.Query.Trim();
+        if (string.IsNullOrWhiteSpace(searchQuery))
+            return BadRequest(ApiError.Validation(
+                new Dictionary<string, string[]>
+                {
+                    { "query", ["Search query cannot be empty."] }
+                },
+                code: "CHAT_SEARCH_QUERY_REQUIRED"));
+
+        var accountId = Guid.Parse(currentUser.Id);
+        var messagesQuery = db.ChatMessages
+            .Where(m => m.Type == "text" && !m.IsEncrypted && m.Content != null)
+            .Where(m => db.ChatMembers.Any(member =>
+                member.ChatRoomId == m.ChatRoomId &&
+                member.AccountId == accountId &&
+                member.JoinedAt != null &&
+                member.LeaveAt == null))
+            .Where(m => EF.Functions.ILike(m.Content!, $"%{searchQuery}%"));
+
+        if (request.RoomId.HasValue)
+            messagesQuery = messagesQuery.Where(m => m.ChatRoomId == request.RoomId.Value);
+        if (request.SenderId.HasValue)
+            messagesQuery = messagesQuery.Where(m => m.SenderId == request.SenderId.Value);
+
+        var totalCount = await messagesQuery.CountAsync();
+        var messages = await messagesQuery
+            .OrderByDescending(m => m.CreatedAt)
+            .ThenByDescending(m => m.Id)
+            .Include(m => m.ChatRoom)
+            .Include(m => m.Sender)
+            .Skip(offset)
+            .Take(take)
+            .ToListAsync();
+
+        var rooms = messages
+            .Select(m => m.ChatRoom)
+            .DistinctBy(room => room.Id)
+            .ToList();
+        rooms = await crs.LoadDirectMessageMembers(rooms, accountId);
+
+        var members = messages.Select(m => m.Sender).DistinctBy(member => member.Id).ToList();
+        members = await crs.LoadMemberAccounts(members);
+        foreach (var roomGroup in messages.GroupBy(message => message.ChatRoomId))
+        {
+            var roomMembers = members
+                .Where(member => roomGroup.Any(message => message.SenderId == member.Id))
+                .ToList();
+            var hydratedMembers = await crs.HydrateRealmIdentity(roomMembers, roomGroup.Key);
+            foreach (var hydratedMember in hydratedMembers)
+            {
+                var memberIndex = members.FindIndex(member => member.Id == hydratedMember.Id);
+                if (memberIndex >= 0)
+                    members[memberIndex] = hydratedMember;
+            }
+        }
+
+        foreach (var message in messages)
+            message.Sender = members.First(member => member.Id == message.SenderId);
+
+        await cs.HydrateMessageReactionsAsync(messages, accountId);
+        Response.Headers["X-Total"] = totalCount.ToString();
+
+        return Ok(messages
+            .GroupBy(message => message.ChatRoomId)
+            .Select(group => new ChatMessageSearchRoomResponse
+            {
+                Room = rooms.First(room => room.Id == group.Key),
+                Messages = group.ToList()
+            })
+            .ToList());
     }
 
     [HttpGet("{roomId:guid}/messages")]

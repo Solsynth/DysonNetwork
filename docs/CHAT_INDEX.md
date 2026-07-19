@@ -35,6 +35,7 @@ Client App
 | Document | Description |
 |---|---|
 | [CHAT_API](./CHAT_API.md) | ChatController REST API: messages CRUD, summary, unread, subscriptions, sync, autocomplete, MLS devices, pins, bot commands |
+| [CHAT_MESSAGE_SEARCH](./CHAT_MESSAGE_SEARCH.md) | Cross-room cloud search for plaintext chat messages |
 | [CHAT_ROOM_CONTROLLER](./CHAT_ROOM_CONTROLLER.md) | ChatRoomController REST API: room create/update/delete, member management, invites, timeout, groups, moderation |
 
 ### Message Types

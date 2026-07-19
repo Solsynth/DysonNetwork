@@ -75,6 +75,12 @@ public class AppDatabase(
         modelBuilder.Entity<SnChatMessage>()
             .HasIndex(m => new { m.ChatRoomId, m.SenderId, m.ClientMessageId })
             .HasFilter("client_message_id IS NOT NULL");
+        modelBuilder.HasPostgresExtension("pg_trgm");
+        modelBuilder.Entity<SnChatMessage>()
+            .HasIndex(m => m.Content)
+            .HasMethod("gin")
+            .HasOperators("gin_trgm_ops")
+            .HasFilter("type = 'text' AND is_encrypted = FALSE AND content IS NOT NULL AND deleted_at IS NULL");
 
         // Partial unique index: max 1 active placeholder per member per room
         modelBuilder.Entity<SnChatMessage>()
