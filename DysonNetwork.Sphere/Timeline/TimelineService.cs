@@ -133,21 +133,11 @@ public class TimelineService(
 
     private async Task<HashSet<Guid>> GetGatekeptPublisherIds(List<Guid> realmIds)
     {
-        var publisherIds = await db.Publishers
-            .Where(p => p.RealmId == null || realmIds.Contains(p.RealmId.Value))
+        return (await db.Publishers
+            .Where(p => (p.RealmId == null || realmIds.Contains(p.RealmId.Value)) && p.GatekeptFollows == true)
             .Select(p => p.Id)
-            .ToListAsync();
-
-        var gatekeptPublisherIds = new HashSet<Guid>();
-        foreach (var publisherId in publisherIds)
-        {
-            if (await pub.HasPostsRequireFollowFlag(publisherId))
-            {
-                gatekeptPublisherIds.Add(publisherId);
-            }
-        }
-
-        return gatekeptPublisherIds;
+            .ToListAsync())
+            .ToHashSet();
     }
 
     public async Task<SnTimelinePage> ListEvents(
@@ -228,7 +218,7 @@ public class TimelineService(
             )
             .Take(take * TimelineCandidateMultiplier);
 
-        var posts = await GetAndProcessPosts(postsQuery, currentUser);
+        var posts = await GetAndProcessPosts(postsQuery, currentUser, trackViews: false);
 
         logger.LogInformation("ListEvents: fetched {PostCount} posts before ranking", posts.Count);
 
@@ -247,7 +237,7 @@ public class TimelineService(
                 .Where(p => p.DraftedAt == null)
                 .Where(p => cursor == null || p.PublishedAt < cursor);
 
-            var boostedPosts = await GetAndProcessPosts(boostedPostsQuery, currentUser);
+            var boostedPosts = await GetAndProcessPosts(boostedPostsQuery, currentUser, trackViews: false);
             posts.AddRange(boostedPosts);
             logger.LogInformation("ListEvents: added {BoostedCount} boosted posts to timeline", boostedPosts.Count);
         }
@@ -256,6 +246,7 @@ public class TimelineService(
 
         posts = await RankPosts(posts, take, currentUser, mode, aggressive);
         await RememberServedPostsAsync(posts, accountId);
+        await ps.IncreaseViewCounts(posts.Select(post => post.Id), currentUser.Id);
 
         logger.LogInformation("ListEvents: returning {PostCount} posts after ranking", posts.Count);
 
@@ -1985,24 +1976,12 @@ public class TimelineService(
 
     private async Task<List<SnPost>> GetAndProcessPosts(
         IQueryable<SnPost> baseQuery,
-        DyAccount? currentUser = null
+        DyAccount? currentUser = null,
+        bool trackViews = true
     )
     {
         var posts = await baseQuery.ToListAsync();
-        posts = await ps.LoadPostInfo(posts, currentUser, true);
-
-        var postsId = posts.Select(e => e.Id).ToList();
-        var reactionMaps = await ps.GetPostReactionMapBatch(postsId);
-
-        foreach (var post in posts)
-        {
-            post.ReactionsCount = reactionMaps.GetValueOrDefault(
-                post.Id,
-                new Dictionary<string, int>()
-            );
-        }
-
-        return posts;
+        return await ps.LoadPostInfo(posts, currentUser, true, trackViews);
     }
 
     private async Task<Dictionary<Guid, double>> GetRecentServedPenaltyMap(

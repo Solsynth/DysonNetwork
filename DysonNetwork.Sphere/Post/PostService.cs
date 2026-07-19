@@ -2652,6 +2652,11 @@ public partial class PostService(
         }
     }
 
+    public async Task IncreaseViewCounts(IEnumerable<Guid> postIds, string? viewerId = null)
+    {
+        await Task.WhenAll(postIds.Distinct().Select(postId => IncreaseViewCount(postId, viewerId)));
+    }
+
     private async Task<List<SnPost>> LoadPubsAndActors(List<SnPost> posts)
     {
         var publisherIds = posts
@@ -2781,7 +2786,8 @@ public partial class PostService(
 
     private async Task<List<SnPost>> LoadInteractive(
         List<SnPost> posts,
-        DyAccount? currentUser = null
+        DyAccount? currentUser = null,
+        bool trackViews = true
     )
     {
         if (posts.Count == 0)
@@ -2847,10 +2853,13 @@ public partial class PostService(
             }
 
             // Track view for each post in the list (without interest signal)
-            if (currentUser != null)
-                await IncreaseViewCount(post.Id, currentUser.Id);
-            else
-                await IncreaseViewCount(post.Id);
+            if (trackViews)
+            {
+                if (currentUser != null)
+                    await IncreaseViewCount(post.Id, currentUser.Id);
+                else
+                    await IncreaseViewCount(post.Id);
+            }
         }
 
         return posts;
@@ -2947,14 +2956,15 @@ public partial class PostService(
     public async Task<List<SnPost>> LoadPostInfo(
         List<SnPost> posts,
         DyAccount? currentUser = null,
-        bool truncate = false
+        bool truncate = false,
+        bool trackViews = true
     )
     {
         if (posts.Count == 0)
             return posts;
 
         posts = await LoadPubsAndActors(posts);
-        posts = await LoadInteractive(posts, currentUser);
+        posts = await LoadInteractive(posts, currentUser, trackViews);
 
         if (truncate)
             posts = TruncatePostContent(posts);
