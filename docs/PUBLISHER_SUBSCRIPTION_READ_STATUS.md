@@ -37,6 +37,14 @@ Returns the active subscription, its latest public post or live-stream time, and
 }
 ```
 
+## List subscriptions by latest post
+
+```text
+GET /api/publishers/subscriptions?order=latest_posted_at&offset=0&take=20
+```
+
+The default order is `created_at` descending. Set `order=latest_posted_at` to sort subscriptions by the latest public root post from each publisher, newest first. Publishers without a public root post are listed after publishers with posts. Pagination is applied after ordering.
+
 ## Mark one subscription as read
 
 ```text

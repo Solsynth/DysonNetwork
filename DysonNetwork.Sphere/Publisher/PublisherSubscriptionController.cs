@@ -345,17 +345,55 @@ public class PublisherSubscriptionController(
     [Authorize]
     public async Task<ActionResult<List<SubscriptionWithLiveStatus>>> GetCurrentSubscriptions(
         [FromQuery] int offset = 0,
-        [FromQuery] int take = 20
+        [FromQuery] int take = 20,
+        [FromQuery(Name = "order")] string? order = null
     )
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
         var accountId = Guid.Parse(currentUser.Id);
 
-        var subscriptions = await db
+        var subscriptionsQuery = db
             .PublisherSubscriptions.Include(ps => ps.Publisher)
-            .Where(ps => ps.AccountId == accountId)
-            .OrderByDescending(ps => ps.CreatedAt)
+            .Where(ps => ps.AccountId == accountId);
+
+        switch (order?.Trim().ToLowerInvariant())
+        {
+            case null:
+            case "":
+            case "created_at":
+                subscriptionsQuery = subscriptionsQuery.OrderByDescending(ps => ps.CreatedAt);
+                break;
+            case "latest_posted_at":
+                var latestPosts = db.Posts
+                    .Where(post =>
+                        post.PublisherId.HasValue
+                        && post.RepliedPostId == null
+                        && post.Visibility == Shared.Models.PostVisibility.Public
+                    )
+                    .GroupBy(post => post.PublisherId!.Value)
+                    .Select(group => new
+                    {
+                        PublisherId = group.Key,
+                        LatestPostedAt = group.Max(post => post.PublishedAt ?? post.CreatedAt),
+                    });
+                subscriptionsQuery =
+                    from subscription in subscriptionsQuery
+                    join latestPost in latestPosts on subscription.PublisherId equals latestPost.PublisherId into latestPostsGroup
+                    from latestPost in latestPostsGroup.DefaultIfEmpty()
+                    orderby latestPost.LatestPostedAt descending, subscription.CreatedAt descending
+                    select subscription;
+                break;
+            default:
+                return BadRequest(new ApiError
+                {
+                    Code = "INVALID_ORDER",
+                    Message = "Supported order values are created_at and latest_posted_at.",
+                    Status = 400,
+                });
+        }
+
+        var subscriptions = await subscriptionsQuery
             .Skip(offset)
             .Take(take)
             .ToListAsync();
