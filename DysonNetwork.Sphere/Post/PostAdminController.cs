@@ -35,7 +35,7 @@ public class PostAdminController(
         public PostShadowbanReason Reason { get; set; }
     }
 
-    public class ModeratePostRequest
+    public class RemovePostFromRealmRequest
     {
         [MaxLength(4096)] public string? Reason { get; set; }
     }
@@ -252,7 +252,7 @@ public class PostAdminController(
     [AskPermission(PermissionKeys.PostsModerate)]
     public async Task<ActionResult<SnPost>> RemovePostFromRealm(
         Guid id,
-        [FromBody] ModeratePostRequest? request = null
+        [FromBody] RemovePostFromRealmRequest? request = null
     )
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
