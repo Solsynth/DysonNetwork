@@ -516,8 +516,13 @@ public class PushService
                 return;
             }
 
+            var connectedWebSocketDeviceIds = await GetConnectedWebSocketDeviceIdsAsync(
+                subscriptions
+            );
             var subscriptionByDevice = SelectSubscriptionsByDevice(
-                subscriptions,
+                subscriptions.Where(s =>
+                    !connectedWebSocketDeviceIds.Contains(NormalizeSopDeviceId(s.DeviceId))
+                ),
                 connectedSopDeviceIds,
                 notification
             );
@@ -637,8 +642,13 @@ public class PushService
                 continue;
             }
 
+            var connectedWebSocketDeviceIds = await GetConnectedWebSocketDeviceIdsAsync(
+                subscriptions
+            );
             var subscriptionByDevice = SelectSubscriptionsByDevice(
-                subscriptions,
+                subscriptions.Where(s =>
+                    !connectedWebSocketDeviceIds.Contains(NormalizeSopDeviceId(s.DeviceId))
+                ),
                 connectedSopDeviceIds,
                 notification
             );
@@ -1070,6 +1080,30 @@ public class PushService
             return new HashSet<string>();
 
         return accountStreams.Values.Select(s => NormalizeSopDeviceId(s.DeviceId)).ToHashSet();
+    }
+
+    private async Task<IReadOnlySet<string>> GetConnectedWebSocketDeviceIdsAsync(
+        IEnumerable<SnNotificationPushSubscription> subscriptions
+    )
+    {
+        var deviceIds = subscriptions
+            .Select(s => NormalizeSopDeviceId(s.DeviceId))
+            .Where(deviceId => !string.IsNullOrWhiteSpace(deviceId))
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+
+        try
+        {
+            return (
+                    await _ws.GetConnectedWebsocketDeviceIds(deviceIds)
+                )
+                .ToHashSet(StringComparer.Ordinal);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Unable to get WebSocket connection status for devices");
+            return new HashSet<string>();
+        }
     }
 
     private static string NormalizeSopDeviceId(string deviceId)
