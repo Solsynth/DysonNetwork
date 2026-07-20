@@ -44,9 +44,16 @@ public class FriendsController(
 
         var profilesTask = db.AccountProfiles
             .Where(p => friendIds.Contains(p.AccountId))
-            .ToDictionaryAsync(p => p.AccountId, p => p);
+            .ToListAsync();
         await profilesTask;
-        var profiles = profilesTask.Result;
+        var profiles = profilesTask.Result
+            .GroupBy(profile => profile.AccountId)
+            .ToDictionary(
+                group => group.Key,
+                group => group.OrderByDescending(profile => profile.UpdatedAt)
+                    .ThenByDescending(profile => profile.CreatedAt)
+                    .First()
+            );
 
         var accountsList = accounts.Accounts
             .Select(SnAccount.FromProtoValue)

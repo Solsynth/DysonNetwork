@@ -128,6 +128,9 @@ public class AppDatabase(
 
         modelBuilder.Entity<SnAccountProfile>()
             .HasIndex(p => p.LastSeenAt);
+        modelBuilder.Entity<SnAccountProfile>()
+            .HasIndex(p => p.AccountId)
+            .IsUnique();
 
         modelBuilder.Entity<SnPresenceActivity>()
             .HasIndex(e => new { e.AccountId, e.Provider, e.DeletedAt });
