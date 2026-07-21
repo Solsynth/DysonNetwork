@@ -29,6 +29,12 @@ public static class ScheduledJobsConfiguration
                     .RepeatForever())
             );
 
+            q.AddJob<NightOwlReminderJob>(opts => opts.WithIdentity("NightOwlReminder"));
+            q.AddTrigger(opts => opts
+                .ForJob("NightOwlReminder")
+                .WithIdentity("NightOwlReminderTrigger")
+                .WithCronSchedule("0 0 * * * ?"));
+
             q.AddJob<DomainValidationMetricFlushJob>(opts => opts.WithIdentity("DomainValidationMetricFlush"));
             q.AddTrigger(opts => opts
                 .ForJob("DomainValidationMetricFlush")

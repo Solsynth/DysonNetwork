@@ -5,6 +5,7 @@ using DysonNetwork.Passport.Account.Presences;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Capabilities;
 using DysonNetwork.Shared.Data;
+using DysonNetwork.Shared.Localization;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Proto;
@@ -34,7 +35,9 @@ public class AccountAdminController(
     SteamPresenceService steamPresenceService,
     DyProfileService.DyProfileServiceClient profiles,
     DyAccountService.DyAccountServiceClient accountGrpc,
-    MagicSpellService magicSpells
+    MagicSpellService magicSpells,
+    DyRingService.DyRingServiceClient pusher,
+    ILocalizationService localizer
 ) : ControllerBase
 {
     public class AccountAuthFactorSummary
@@ -119,6 +122,11 @@ public class AccountAdminController(
     public class ResendAdminMagicSpellRequest
     {
         public bool BypassVerify { get; set; } = true;
+    }
+
+    public class TestNightOwlReminderRequest
+    {
+        [Range(0, 2)] public int Hour { get; set; }
     }
 
     [HttpGet("metrics/activity")]
@@ -292,6 +300,39 @@ public class AccountAdminController(
             .Where(spell => spell.AccountId == account.Id)
             .OrderByDescending(spell => spell.CreatedAt)
             .ToListAsync());
+    }
+
+    [HttpPost("{identifier}/notifications/night-owl")]
+    [AskPermission(PermissionKeys.AccountsManage)]
+    public async Task<IActionResult> SendTestNightOwlReminder(
+        string identifier,
+        [FromBody] TestNightOwlReminderRequest? request,
+        CancellationToken cancellationToken
+    )
+    {
+        var account = await LookupAccountAsync(identifier);
+        if (account is null)
+            return NotFound(new ApiError { Code = "PASSPORT_ACCOUNT_NOT_FOUND", Message = "Account not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
+
+        var hour = request?.Hour ?? 0;
+        if (hour is < 0 or > 2)
+            return BadRequest(new ApiError { Code = "PASSPORT_NIGHT_OWL_REMINDER_HOUR_INVALID", Message = "Hour must be between 0 and 2.", Status = 400, TraceId = HttpContext.TraceIdentifier });
+
+        var variant = Random.Shared.Next(1, 4);
+        await pusher.SendPushNotificationToUserAsync(new DySendPushNotificationToUserRequest
+        {
+            UserId = account.Id.ToString(),
+            Notification = new DyPushNotification
+            {
+                Topic = "accounts.wellbeing.sleep",
+                Title = localizer.Get($"nightOwlReminder{hour}Title{variant}", account.Language),
+                Body = localizer.Get($"nightOwlReminder{hour}Body{variant}", account.Language),
+                ActionUri = "/",
+                IsSavable = false
+            }
+        }, cancellationToken: cancellationToken);
+
+        return NoContent();
     }
 
     [HttpPost("{identifier}/spells")]
