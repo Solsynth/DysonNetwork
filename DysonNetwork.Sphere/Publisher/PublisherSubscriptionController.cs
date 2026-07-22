@@ -355,7 +355,7 @@ public class PublisherSubscriptionController(
 
         var subscriptionsQuery = db
             .PublisherSubscriptions.Include(ps => ps.Publisher)
-            .Where(ps => ps.AccountId == accountId);
+            .Where(ps => ps.AccountId == accountId && ps.EndedAt == null);
 
         switch (order?.Trim().ToLowerInvariant())
         {
@@ -399,7 +399,7 @@ public class PublisherSubscriptionController(
             .ToListAsync();
 
         var totalCount = await db.PublisherSubscriptions.CountAsync(ps =>
-            ps.AccountId == accountId
+            ps.AccountId == accountId && ps.EndedAt == null
         );
 
         var publisherIds = subscriptions.Select(s => s.PublisherId).ToList();
@@ -680,7 +680,7 @@ public class PublisherSubscriptionController(
         var accountId = Guid.Parse(currentUser.Id);
 
         var subscribedPublisherIds = await db
-            .PublisherSubscriptions.Where(ps => ps.AccountId == accountId)
+            .PublisherSubscriptions.Where(ps => ps.AccountId == accountId && ps.EndedAt == null)
             .Select(ps => ps.PublisherId)
             .ToListAsync();
 
