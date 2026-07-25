@@ -1083,8 +1083,8 @@ public partial class PostService(
 
         try
         {
-            // Get all connected users
-            var connectedUserIds = await scopedWs.GetAllConnectedUserIds();
+            // Get all connected Solian (Island) users
+            var connectedUserIds = await scopedWs.GetAllConnectedUserIds(WebSocketNamespaces.Solian);
             if (connectedUserIds.Count == 0)
                 return;
 
@@ -1139,8 +1139,8 @@ public partial class PostService(
 
         try
         {
-            // Get all connected users
-            var onlineUsers = await scopedWs.GetAllConnectedUserIds();
+            // Get all connected Solian (Island) users
+            var onlineUsers = await scopedWs.GetAllConnectedUserIds(WebSocketNamespaces.Solian);
             if (onlineUsers.Count == 0)
                 return;
 

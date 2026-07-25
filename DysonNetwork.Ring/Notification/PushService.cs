@@ -970,11 +970,16 @@ public class PushService
         var startedAt = Environment.TickCount64;
         try
         {
+            // Route into the same Blade wsgateway namespace as the client app
+            // (`?namespace=`). Ring app_id and gateway namespace share the reverse-DNS
+            // product id (e.g. dev.solsynth.solian / dev.solsynth.solarwatt).
             await _ws.PushWebSocketPacket(
                 notification.AccountId.ToString(),
                 "notifications.new",
                 InfraObjectCoder.ConvertObjectToByteString(notification).ToByteArray(),
-                excludedDeviceIds
+                excludedDeviceIds,
+                errorMessage: null,
+                @namespace: ResolveAppId(notification.AppId, useDefaultIfMissing: true)
             );
             await _observability.RecordNotificationAsync(
                 notification,
