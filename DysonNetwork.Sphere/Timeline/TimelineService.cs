@@ -1390,6 +1390,10 @@ public class TimelineService(
         var hiddenPublisherIds = hiddenByKind.GetValueOrDefault(DiscoveryTargetKind.Publisher, []);
         var hiddenRealmIds = hiddenByKind.GetValueOrDefault(DiscoveryTargetKind.Realm, []);
         var hiddenAccountIds = hiddenByKind.GetValueOrDefault(DiscoveryTargetKind.Account, []);
+        var accountId = Guid.Parse(currentUser.Id);
+        var hiddenRelationshipAccountIds = (await GetCachedBlockedAccountIds(accountId))
+            .Concat(await GetCachedMutedAccountIds(accountId))
+            .ToHashSet();
 
         var subscribedPublisherIds = (await pub.GetSubscribedPublishers(Guid.Parse(currentUser.Id)))
             .Select(x => x.Id)
@@ -1401,6 +1405,7 @@ public class TimelineService(
             userPublisherIds,
             subscribedPublisherIds,
             hiddenPublisherIds,
+            hiddenRelationshipAccountIds,
             candidatePosts,
             tagInterest,
             categoryInterest,
@@ -1413,6 +1418,7 @@ public class TimelineService(
             currentUser,
             userFriends,
             hiddenAccountIds,
+            hiddenRelationshipAccountIds,
             publisherCandidates
         );
         var realmCandidates = await BuildRealmSuggestions(
@@ -1442,6 +1448,7 @@ public class TimelineService(
         List<Guid> userPublisherIds,
         HashSet<Guid> subscribedPublisherIds,
         HashSet<Guid> hiddenPublisherIds,
+        HashSet<Guid> hiddenRelationshipAccountIds,
         List<SnPost> candidatePosts,
         IReadOnlyDictionary<Guid, double> tagInterest,
         IReadOnlyDictionary<Guid, double> categoryInterest,
@@ -1487,6 +1494,7 @@ public class TimelineService(
         var publishers = await db.Publishers
             .AsNoTracking()
             .Where(x => publisherIds.Contains(x.Id))
+            .Where(x => x.AccountId == null || !hiddenRelationshipAccountIds.Contains(x.AccountId.Value))
             .ToListAsync();
         var publisherMap = publishers.ToDictionary(x => x.Id);
 
@@ -1520,6 +1528,7 @@ public class TimelineService(
         DyAccount currentUser,
         List<Guid> userFriends,
         HashSet<Guid> hiddenAccountIds,
+        HashSet<Guid> hiddenRelationshipAccountIds,
         List<SnDiscoverySuggestion> publisherSuggestions
     )
     {
@@ -1540,6 +1549,7 @@ public class TimelineService(
             .Where(x => x.AccountId != currentUserId)
             .Where(x => !userFriends.Contains(x.AccountId!.Value))
             .Where(x => !hiddenAccountIds.Contains(x.AccountId!.Value))
+            .Where(x => !hiddenRelationshipAccountIds.Contains(x.AccountId!.Value))
             .ToListAsync();
 
         if (candidatePublishers.Count == 0)
