@@ -85,18 +85,33 @@ public class SopNotificationController(
     public async Task<ActionResult> StreamNotificationsBySopToken()
     {
         var token = ExtractSopToken(Request);
-        if (string.IsNullOrWhiteSpace(token))
-            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Status = 401 });
+        var sopSub = string.IsNullOrWhiteSpace(token)
+            ? null
+            : await nty.GetSopSubscriptionByToken(token);
 
-        var sopSub = await nty.GetSopSubscriptionByToken(token);
-        if (sopSub is null)
-            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Status = 401 });
+        Guid accountId;
+        string deviceId;
+        if (sopSub is not null)
+        {
+            accountId = sopSub.AccountId;
+            deviceId = sopSub.DeviceId;
+        }
+        else
+        {
+            HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
+            HttpContext.Items.TryGetValue("CurrentSession", out var currentSessionValue);
+            if (currentUserValue is not DyAccount currentUser || currentSessionValue is not DyAuthSession currentSession)
+                return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Status = 401 });
+
+            accountId = Guid.Parse(currentUser.Id);
+            deviceId = $"{currentSession.ClientId}:sop";
+        }
 
         Response.Headers.Append("Content-Type", "text/event-stream");
         Response.Headers.Append("Cache-Control", "no-cache");
         Response.Headers.Append("Connection", "keep-alive");
 
-        var (streamId, reader) = nty.SubscribeSopStream(sopSub.AccountId, sopSub.DeviceId);
+        var (streamId, reader) = nty.SubscribeSopStream(accountId, deviceId);
         try
         {
             await Response.WriteAsync("event: ready\n");
@@ -112,7 +127,8 @@ public class SopNotificationController(
                     await Response.WriteAsync("event: notification\n");
                     await Response.WriteAsync($"data: {payload}\n\n");
                     await Response.Body.FlushAsync();
-                    await nty.MarkSopDeliveryReadAsync(sopSub.Id, [notification.Id]);
+                    if (sopSub is not null)
+                        await nty.MarkSopDeliveryReadAsync(sopSub.Id, [notification.Id]);
                 }
             }
         }
@@ -122,7 +138,7 @@ public class SopNotificationController(
         }
         finally
         {
-            nty.UnsubscribeSopStream(sopSub.AccountId, streamId);
+            nty.UnsubscribeSopStream(accountId, streamId);
         }
 
         return new EmptyResult();
