@@ -1,4 +1,5 @@
 using DysonNetwork.Shared.Models;
+using Microsoft.EntityFrameworkCore;
 using NodaTime;
 
 namespace DysonNetwork.Ring;
@@ -43,7 +44,8 @@ public class DeliveryObservabilityService(
         string provider,
         DeliveryOutcome outcome,
         long durationMilliseconds,
-        Exception? exception = null
+        Exception? exception = null,
+        Guid? subscriptionId = null
     )
     {
         try
@@ -52,6 +54,8 @@ public class DeliveryObservabilityService(
             var db = scope.ServiceProvider.GetRequiredService<AppDatabase>();
             db.NotificationDeliveryRecords.Add(new SnNotificationDeliveryRecord
             {
+                NotificationId = notification.Id,
+                SubscriptionId = subscriptionId,
                 Topic = notification.Topic,
                 AppId = notification.AppId,
                 PushType = notification.PushType,
@@ -67,6 +71,32 @@ public class DeliveryObservabilityService(
         catch (Exception recordException)
         {
             logger.LogError(recordException, "Failed to record notification delivery outcome");
+        }
+    }
+
+    public async Task MarkSopDeliveryReadAsync(Guid subscriptionId, IEnumerable<Guid> notificationIds)
+    {
+        var ids = notificationIds.ToHashSet();
+        if (ids.Count == 0)
+            return;
+
+        try
+        {
+            await using var scope = scopeFactory.CreateAsyncScope();
+            var db = scope.ServiceProvider.GetRequiredService<AppDatabase>();
+            var now = clock.GetCurrentInstant();
+            await db.NotificationDeliveryRecords
+                .Where(r => r.Provider == "sop")
+                .Where(r => r.SubscriptionId == subscriptionId)
+                .Where(r => r.Outcome == DeliveryOutcome.Held)
+                .Where(r => r.NotificationId != null && ids.Contains(r.NotificationId.Value))
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(r => r.Outcome, DeliveryOutcome.Success)
+                    .SetProperty(r => r.UpdatedAt, now));
+        }
+        catch (Exception recordException)
+        {
+            logger.LogError(recordException, "Failed to mark SOP notification delivery as read");
         }
     }
 

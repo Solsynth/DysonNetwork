@@ -20,6 +20,7 @@ public class DeliveryObservabilityAdminController(AppDatabase db, IClock clock) 
         public long Failed { get; init; }
         public long InvalidToken { get; init; }
         public long Skipped { get; init; }
+        public long Held { get; init; }
         public double? SuccessRate { get; init; }
     }
 
@@ -143,6 +144,7 @@ public class DeliveryObservabilityAdminController(AppDatabase db, IClock clock) 
                 Failed = summary.Failed,
                 InvalidToken = summary.InvalidToken,
                 Skipped = summary.Skipped,
+                Held = summary.Held,
                 SuccessRate = summary.SuccessRate
             };
         }).OrderByDescending(row => row.Total).ToList();
@@ -169,6 +171,7 @@ public class DeliveryObservabilityAdminController(AppDatabase db, IClock clock) 
         var failed = values.GetValueOrDefault(DeliveryOutcome.Failure);
         var invalidToken = values.GetValueOrDefault(DeliveryOutcome.InvalidToken);
         var skipped = values.GetValueOrDefault(DeliveryOutcome.Skipped);
+        var held = values.GetValueOrDefault(DeliveryOutcome.Held);
         var attempts = successful + failed + invalidToken;
         return new DeliverySummary
         {
@@ -177,6 +180,7 @@ public class DeliveryObservabilityAdminController(AppDatabase db, IClock clock) 
             Failed = failed,
             InvalidToken = invalidToken,
             Skipped = skipped,
+            Held = held,
             SuccessRate = attempts == 0 ? null : (double)successful / attempts
         };
     }

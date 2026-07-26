@@ -8,7 +8,8 @@ public enum DeliveryOutcome
     Success = 0,
     Failure = 1,
     InvalidToken = 2,
-    Skipped = 3
+    Skipped = 3,
+    Held = 4
 }
 
 public class SnEmailDeliveryRecord : ModelBase
@@ -24,6 +25,8 @@ public class SnEmailDeliveryRecord : ModelBase
 public class SnNotificationDeliveryRecord : ModelBase
 {
     public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid? NotificationId { get; set; }
+    public Guid? SubscriptionId { get; set; }
     [MaxLength(1024)] public string Topic { get; set; } = string.Empty;
     [MaxLength(1024)] public string? AppId { get; set; }
     [MaxLength(64)] public string? PushType { get; set; }

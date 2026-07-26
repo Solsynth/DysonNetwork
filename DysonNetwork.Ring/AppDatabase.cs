@@ -73,6 +73,9 @@ public class AppDatabase(
         modelBuilder.Entity<SnNotificationDeliveryRecord>()
             .HasIndex(r => new { r.CreatedAt, r.Topic, r.Provider, r.Outcome });
 
+        modelBuilder.Entity<SnNotificationDeliveryRecord>()
+            .HasIndex(r => new { r.NotificationId, r.SubscriptionId, r.Provider, r.Outcome });
+
         modelBuilder.Entity<SnNotificationSendRecord>()
             .HasIndex(r => new { r.CreatedAt, r.Topic });
 

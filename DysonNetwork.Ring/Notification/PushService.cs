@@ -490,8 +490,6 @@ public class PushService
         if (ShouldQueueSopReplay(isSavable, connectedSopDeviceIds))
             await _sopReplayBuffer.AppendNotification(notification);
 
-        BroadcastSopStream(notification);
-
         try
         {
             _logger.LogInformation(
@@ -519,6 +517,12 @@ public class PushService
             var connectedWebSocketDeviceIds = await GetConnectedWebSocketDeviceIdsAsync(
                 subscriptions
             );
+            await RecordSkippedWebSocketDeliveriesAsync(
+                notification,
+                subscriptions.Where(s =>
+                    connectedWebSocketDeviceIds.Contains(NormalizeSopDeviceId(s.DeviceId))
+                )
+            );
             var subscriptionByDevice = SelectSubscriptionsByDevice(
                 subscriptions.Where(s =>
                     !connectedWebSocketDeviceIds.Contains(NormalizeSopDeviceId(s.DeviceId))
@@ -526,6 +530,15 @@ public class PushService
                 connectedSopDeviceIds,
                 notification
             );
+
+            await RecordSopDeliveryHoldsAsync(
+                notification,
+                subscriptions.Where(s =>
+                    s.Provider == PushProvider.Sop
+                    && !connectedWebSocketDeviceIds.Contains(NormalizeSopDeviceId(s.DeviceId))
+                )
+            );
+            BroadcastSopStream(notification);
 
             var websocketExclusions = BuildWebSocketExclusions(
                 connectedSopDeviceIds,
@@ -629,8 +642,6 @@ public class PushService
             var connectedSopDeviceIds = GetConnectedSopWebSocketDeviceIds(notification.AccountId);
             if (ShouldQueueSopReplay(save, connectedSopDeviceIds))
                 await _sopReplayBuffer.AppendNotification(notification);
-            BroadcastSopStream(notification);
-
             var subscriptions = await _db
                 .PushSubscriptions.Where(s => s.AccountId == account)
                 .Where(s => s.IsActivated)
@@ -645,6 +656,12 @@ public class PushService
             var connectedWebSocketDeviceIds = await GetConnectedWebSocketDeviceIdsAsync(
                 subscriptions
             );
+            await RecordSkippedWebSocketDeliveriesAsync(
+                notification,
+                subscriptions.Where(s =>
+                    connectedWebSocketDeviceIds.Contains(NormalizeSopDeviceId(s.DeviceId))
+                )
+            );
             var subscriptionByDevice = SelectSubscriptionsByDevice(
                 subscriptions.Where(s =>
                     !connectedWebSocketDeviceIds.Contains(NormalizeSopDeviceId(s.DeviceId))
@@ -652,6 +669,15 @@ public class PushService
                 connectedSopDeviceIds,
                 notification
             );
+
+            await RecordSopDeliveryHoldsAsync(
+                notification,
+                subscriptions.Where(s =>
+                    s.Provider == PushProvider.Sop
+                    && !connectedWebSocketDeviceIds.Contains(NormalizeSopDeviceId(s.DeviceId))
+                )
+            );
+            BroadcastSopStream(notification);
 
             var websocketExclusions = BuildWebSocketExclusions(
                 connectedSopDeviceIds,
@@ -886,9 +912,7 @@ public class PushService
                     break;
 
                 case PushProvider.Sop:
-                    // SOP delivers via Ring APIs (list + SSE stream), no provider push is needed here.
-                    outcome = DeliveryOutcome.Skipped;
-                    break;
+                    return;
 
                 case PushProvider.UnifiedPush:
                     using (
@@ -944,13 +968,15 @@ public class PushService
 
         finally
         {
-            await _observability.RecordNotificationAsync(
-                notification,
-                GetProviderName(subscription.Provider),
-                outcome,
-                Environment.TickCount64 - startedAt,
-                exception
-            );
+            if (subscription.Provider != PushProvider.Sop)
+                await _observability.RecordNotificationAsync(
+                    notification,
+                    GetProviderName(subscription.Provider),
+                    outcome,
+                    Environment.TickCount64 - startedAt,
+                    exception,
+                    subscription.Id
+                );
         }
 
         if (outcome == DeliveryOutcome.Success)
@@ -1018,6 +1044,28 @@ public class PushService
         foreach (var stream in accountStreams.Values)
             stream.Channel.Writer.TryWrite(notification);
     }
+
+    private Task RecordSopDeliveryHoldsAsync(
+        SnNotification notification,
+        IEnumerable<SnNotificationPushSubscription> subscriptions
+    ) => Task.WhenAll(subscriptions
+        .Where(s => s.Provider == PushProvider.Sop)
+        .Select(s => _observability.RecordNotificationAsync(
+            notification,
+            "sop",
+            DeliveryOutcome.Held,
+            0,
+            subscriptionId: s.Id)));
+
+    private Task RecordSkippedWebSocketDeliveriesAsync(
+        SnNotification notification,
+        IEnumerable<SnNotificationPushSubscription> subscriptions
+    ) => Task.WhenAll(subscriptions.Select(s => _observability.RecordNotificationAsync(
+        notification,
+        GetProviderName(s.Provider),
+        DeliveryOutcome.Skipped,
+        0,
+        subscriptionId: s.Id)));
 
     private static Dictionary<string, SnNotificationPushSubscription> SelectSubscriptionsByDevice(
         IEnumerable<SnNotificationPushSubscription> subscriptions,
@@ -1221,4 +1269,7 @@ public class PushService
 
     public Task RemoveSopReplayNotifications(Guid accountId, IEnumerable<Guid> notificationIds) =>
         _sopReplayBuffer.RemoveNotifications(accountId, notificationIds);
+
+    public Task MarkSopDeliveryReadAsync(Guid subscriptionId, IEnumerable<Guid> notificationIds) =>
+        _observability.MarkSopDeliveryReadAsync(subscriptionId, notificationIds);
 }

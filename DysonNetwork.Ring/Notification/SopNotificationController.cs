@@ -75,6 +75,7 @@ public class SopNotificationController(
         );
 
         Response.Headers["X-Total"] = totalCount.ToString();
+        await nty.MarkSopDeliveryReadAsync(sopSub.Id, notifications.Select(n => n.Id));
         await nty.RemoveSopReplayNotifications(sopSub.AccountId, notifications.Select(n => n.Id));
         return Ok(notifications);
     }
@@ -111,6 +112,7 @@ public class SopNotificationController(
                     await Response.WriteAsync("event: notification\n");
                     await Response.WriteAsync($"data: {payload}\n\n");
                     await Response.Body.FlushAsync();
+                    await nty.MarkSopDeliveryReadAsync(sopSub.Id, [notification.Id]);
                 }
             }
         }
