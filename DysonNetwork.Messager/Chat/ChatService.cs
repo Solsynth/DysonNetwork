@@ -2146,7 +2146,7 @@ public partial class ChatService(
         // Create and store sync message for the update
         var syncMessage = new SnChatMessage
         {
-            Type = "messages.sync.finalize",
+            Type = "messages.update",
             ChatRoomId = message.ChatRoomId,
             SenderId = message.SenderId,
             Content = message.Content,
