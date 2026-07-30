@@ -90,7 +90,7 @@ public class TestAdminController(AppDatabase db, TestService tests) : Controller
 
     private static void Apply(SnTest test, TestUpsertRequest request)
     {
-        test.Key = request.Key.Trim(); test.Title = request.Title; test.Description = request.Description; test.IsPublished = request.IsPublished;
+        test.Key = request.Key.Trim(); test.Title = request.Title; test.Description = request.Description; test.IsPublished = request.IsPublished; test.IsListed = request.IsListed;
         test.PassingScore = request.PassingScore; test.MaxAttempts = request.MaxAttempts; test.AttemptPeriodDays = request.AttemptPeriodDays; test.TimeLimitSeconds = request.TimeLimitSeconds; test.GrantedPermissionGroupKey = string.IsNullOrWhiteSpace(request.GrantedPermissionGroupKey) ? null : request.GrantedPermissionGroupKey.Trim(); test.Config = request.Config;
         test.Questions = request.Questions.Select(q => new SnTestQuestion
         { SortOrder = q.SortOrder, Content = q.Content, Type = q.Type, GradingMode = q.GradingMode, Difficulty = q.Difficulty, Points = q.Points, Config = q.Config,
@@ -104,7 +104,7 @@ public class TestAdminController(AppDatabase db, TestService tests) : Controller
     }
 }
 
-public class TestUpsertRequest { public string Key { get; set; } = null!; public string Title { get; set; } = null!; public string? Description { get; set; } public bool IsPublished { get; set; } public double PassingScore { get; set; } = 100; public int? MaxAttempts { get; set; } public int AttemptPeriodDays { get; set; } = 365; public int? TimeLimitSeconds { get; set; } public string? GrantedPermissionGroupKey { get; set; } public Dictionary<string, object?> Config { get; set; } = new(); public List<TestQuestionUpsertRequest> Questions { get; set; } = []; }
+public class TestUpsertRequest { public string Key { get; set; } = null!; public string Title { get; set; } = null!; public string? Description { get; set; } public bool IsPublished { get; set; } public bool IsListed { get; set; } = true; public double PassingScore { get; set; } = 100; public int? MaxAttempts { get; set; } public int AttemptPeriodDays { get; set; } = 365; public int? TimeLimitSeconds { get; set; } public string? GrantedPermissionGroupKey { get; set; } public Dictionary<string, object?> Config { get; set; } = new(); public List<TestQuestionUpsertRequest> Questions { get; set; } = []; }
 public class TestQuestionUpsertRequest { public int SortOrder { get; set; } public string Content { get; set; } = null!; public TestQuestionType Type { get; set; } public TestQuestionGradingMode GradingMode { get; set; } public int Difficulty { get; set; } public double Points { get; set; } = 1; public Dictionary<string, object?> Config { get; set; } = new(); public List<TestChoiceUpsertRequest> Choices { get; set; } = []; }
 public class TestChoiceUpsertRequest { public int SortOrder { get; set; } public string Content { get; set; } = null!; public bool IsCorrect { get; set; } public Dictionary<string, object?> Config { get; set; } = new(); }
 public class ReviewTestAnswerRequest { public bool IsCorrect { get; set; } public double AwardedPoints { get; set; } public string? Note { get; set; } }

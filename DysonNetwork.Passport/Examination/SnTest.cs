@@ -16,6 +16,7 @@ public class SnTest : ModelBase
     [MaxLength(256)] public string Title { get; set; } = null!;
     [MaxLength(4096)] public string? Description { get; set; }
     public bool IsPublished { get; set; }
+    public bool IsListed { get; set; } = true;
     public bool IsArchived { get; set; }
     public double PassingScore { get; set; } = 100;
     public int? MaxAttempts { get; set; }

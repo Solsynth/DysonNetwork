@@ -14,6 +14,14 @@ namespace DysonNetwork.Passport.Examination;
 [ApiFeature("tests", Revision = 1)]
 public class TestController(AppDatabase db, TestService tests) : ControllerBase
 {
+    [HttpGet]
+    [AllowAnonymous]
+    public async Task<ActionResult<List<ParticipantTest>>> ListPublicTests()
+    {
+        var items = await db.Tests.Include(x => x.Questions).ThenInclude(x => x.Choices)
+            .Where(x => x.IsPublished && x.IsListed && !x.IsArchived).OrderBy(x => x.Title).ToListAsync();
+        return Ok(items.Select(ToParticipantTest));
+    }
     [HttpGet("activation")]
     [AskPermission(PermissionKeys.TestsTake)]
     public async Task<ActionResult<ActivationRequirementState>> GetActivationRequirements()
