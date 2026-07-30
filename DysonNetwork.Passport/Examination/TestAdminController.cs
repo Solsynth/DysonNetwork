@@ -91,6 +91,24 @@ public class TestAdminController(AppDatabase db, TestService tests) : Controller
         catch (InvalidOperationException ex) { return BadRequest(new ApiError { Code = "PASSPORT_TEST_TRIAL_UNAVAILABLE", Message = ex.Message, Status = 400 }); }
     }
 
+    [HttpPost("{key}/trials")]
+    [AskPermission(PermissionKeys.TestsManage)]
+    public async Task<ActionResult<TestTrialResponse>> CreateTrial(string key)
+    {
+        var test = await db.Tests.FirstOrDefaultAsync(x => x.Key == key && !x.IsArchived);
+        if (test is null) return NotFound();
+        var trialKey = $"{test.Key}-trial";
+        var trial = await db.TestTrials.Include(x => x.Test).FirstOrDefaultAsync(x => x.Key == trialKey);
+        if (trial is null)
+        {
+            trial = new SnTestTrial { TestId = test.Id, Key = trialKey, Title = $"{test.Title} trial", IsPublished = true };
+            db.TestTrials.Add(trial);
+            await db.SaveChangesAsync();
+            trial = await db.TestTrials.Include(x => x.Test).FirstAsync(x => x.Id == trial.Id);
+        }
+        return Ok(new TestTrialResponse { Key = trial.Key, Title = trial.Title, Description = trial.Description, IsPublished = trial.IsPublished, TestKey = trial.Test.Key, TestTitle = trial.Test.Title });
+    }
+
     [HttpPost("{key}/trial/grade")]
     [AskPermission(PermissionKeys.TestsManage)]
     public async Task<ActionResult<TestTrialResult>> GradeTrial(string key, [FromBody] SubmitTestAttemptRequest request)

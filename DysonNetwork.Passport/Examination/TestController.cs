@@ -90,6 +90,7 @@ public class TestController(AppDatabase db, TestService tests) : ControllerBase
     internal static ParticipantAttempt ToParticipantAttempt(SnTestAttempt x)
     {
         var snapshot = TestSnapshot.FromDictionary(x.Snapshot);
+        var includeReview = x.Status != TestAttemptStatus.InProgress;
         return new ParticipantAttempt
         {
             Id = x.Id, Key = snapshot.Key, Title = snapshot.Title, IsTrial = x.IsTrial, Status = x.Status, StartedAt = x.StartedAt, DeadlineAt = x.DeadlineAt, SubmittedAt = x.SubmittedAt, ReviewedAt = x.ReviewedAt, Score = x.Score,
@@ -97,7 +98,14 @@ public class TestController(AppDatabase db, TestService tests) : ControllerBase
             {
                 Id = q.Id, Content = q.Content, Type = q.Type, Difficulty = q.Difficulty, Points = q.Points, Config = new(), Choices = q.Choices.Select(c => new ParticipantChoice { Id = c.Id, Content = c.Content, Config = new() }).ToList()
             }).ToList(),
-            Answers = x.Answers.Select(a => new ParticipantAnswer { QuestionId = a.QuestionId, Value = a.Value, ReviewNote = a.ReviewNote }).ToList()
+            Answers = x.Answers.Select(a => new ParticipantAnswer
+            {
+                QuestionId = a.QuestionId,
+                Value = a.Value,
+                IsCorrect = includeReview ? a.IsCorrect : null,
+                AwardedPoints = includeReview ? a.AwardedPoints : null,
+                ReviewNote = a.ReviewNote
+            }).ToList()
         };
     }
 }
@@ -107,4 +115,11 @@ public class ParticipantTest { public string Key { get; set; } = null!; public s
 public class ParticipantQuestion { public Guid Id { get; set; } public string Content { get; set; } = null!; public TestQuestionType Type { get; set; } public int Difficulty { get; set; } public double Points { get; set; } public Dictionary<string, object?> Config { get; set; } = new(); public List<ParticipantChoice> Choices { get; set; } = []; }
 public class ParticipantChoice { public Guid Id { get; set; } public string Content { get; set; } = null!; public Dictionary<string, object?> Config { get; set; } = new(); }
 public class ParticipantAttempt { public Guid Id { get; set; } public string Key { get; set; } = null!; public string Title { get; set; } = null!; public bool IsTrial { get; set; } public TestAttemptStatus Status { get; set; } public NodaTime.Instant StartedAt { get; set; } public NodaTime.Instant? DeadlineAt { get; set; } public NodaTime.Instant? SubmittedAt { get; set; } public NodaTime.Instant? ReviewedAt { get; set; } public double? Score { get; set; } public List<ParticipantQuestion> Questions { get; set; } = []; public List<ParticipantAnswer> Answers { get; set; } = []; }
-public class ParticipantAnswer { public Guid QuestionId { get; set; } public Dictionary<string, object?> Value { get; set; } = new(); public string? ReviewNote { get; set; } }
+public class ParticipantAnswer
+{
+    public Guid QuestionId { get; set; }
+    public Dictionary<string, object?> Value { get; set; } = new();
+    public bool? IsCorrect { get; set; }
+    public double? AwardedPoints { get; set; }
+    public string? ReviewNote { get; set; }
+}
