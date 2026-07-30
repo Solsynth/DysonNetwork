@@ -263,7 +263,7 @@ public class TestSnapshot
         Questions = TestQuestionSelector.Select(test).Select(x => new TestQuestionSnapshot
         {
             Id = x.Id, Content = x.Content, Type = x.Type, GradingMode = x.GradingMode, Difficulty = x.Difficulty, Points = x.Points,
-            Choices = x.Choices.OrderBy(_ => Random.Shared.Next()).Select(c => new TestChoiceSnapshot { Id = c.Id, Content = c.Content, IsCorrect = c.IsCorrect }).ToList()
+            Choices = TestQuestionSelector.Shuffle(x.Choices).Select(c => new TestChoiceSnapshot { Id = c.Id, Content = c.Content, IsCorrect = c.IsCorrect }).ToList()
         }).ToList()
     };
 }
@@ -277,23 +277,34 @@ public static class TestQuestionSelector
         var questions = test.QuestionGroups.OrderBy(x => x.SortOrder).SelectMany(x => x.QuestionGroup.Questions.OrderBy(q => q.SortOrder)).ToList();
         if (!test.ShuffleQuestions) return questions;
         var count = test.RandomQuestionCount ?? questions.Count;
-        if (count >= questions.Count) return questions.OrderBy(_ => Random.Shared.Next());
+        if (count >= questions.Count) return Shuffle(questions);
         var simpleTarget = (int)Math.Round(count * test.SimpleQuestionPercentage / 100d, MidpointRounding.AwayFromZero);
         var simple = PickBalancedByCategory(questions.Where(x => x.Difficulty <= 2), simpleTarget);
         var hard = PickBalancedByCategory(questions.Where(x => x.Difficulty >= 3).Except(simple), count - simple.Count);
         var selected = simple.Concat(hard).ToList();
         if (selected.Count < count) selected.AddRange(PickBalancedByCategory(questions.Except(selected), count - selected.Count));
-        return selected.OrderBy(_ => Random.Shared.Next());
+        return Shuffle(selected);
+    }
+
+    public static List<T> Shuffle<T>(IEnumerable<T> source)
+    {
+        var shuffled = source.ToList();
+        for (var index = shuffled.Count - 1; index > 0; index--)
+        {
+            var replacement = Random.Shared.Next(index + 1);
+            (shuffled[index], shuffled[replacement]) = (shuffled[replacement], shuffled[index]);
+        }
+        return shuffled;
     }
 
     private static List<SnTestQuestion> PickBalancedByCategory(IEnumerable<SnTestQuestion> source, int count)
     {
         var buckets = source.GroupBy(x => x.Category?.Trim() ?? string.Empty, StringComparer.OrdinalIgnoreCase)
-            .Select(group => group.OrderBy(_ => Random.Shared.Next()).ToList()).Where(group => group.Count > 0).ToList();
+            .Select(group => Shuffle(group)).Where(group => group.Count > 0).ToList();
         var selected = new List<SnTestQuestion>();
         while (selected.Count < count && buckets.Count > 0)
         {
-            foreach (var bucket in buckets.OrderBy(_ => Random.Shared.Next()).ToList())
+            foreach (var bucket in Shuffle(buckets))
             {
                 if (selected.Count == count) break;
                 selected.Add(bucket[0]);

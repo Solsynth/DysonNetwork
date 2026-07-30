@@ -85,7 +85,7 @@ public class TestController(AppDatabase db, TestService tests) : ControllerBase
     {
         Key = test.Key, Title = test.Title, Description = test.Description, TimeLimitSeconds = test.TimeLimitSeconds, RewardExperience = test.RewardExperience,
         Questions = includeQuestions ? TestQuestionSelector.Select(test).Select(q => new ParticipantQuestion
-        { Id = q.Id, Content = q.Content, Type = q.Type, Difficulty = q.Difficulty, Points = q.Points, Config = q.Config, Choices = q.Choices.OrderBy(_ => Random.Shared.Next()).Select(c => new ParticipantChoice { Id = c.Id, Content = c.Content, Config = c.Config }).ToList() }).ToList() : []
+        { Id = q.Id, Content = q.Content, Type = q.Type, Difficulty = q.Difficulty, Points = q.Points, Config = q.Config, Choices = TestQuestionSelector.Shuffle(q.Choices).Select(c => new ParticipantChoice { Id = c.Id, Content = c.Content, Config = c.Config }).ToList() }).ToList() : []
     };
     internal static ParticipantAttempt ToParticipantAttempt(SnTestAttempt x)
     {
