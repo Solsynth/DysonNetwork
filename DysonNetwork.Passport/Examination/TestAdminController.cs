@@ -25,6 +25,7 @@ public class TestAdminController(AppDatabase db, TestService tests) : Controller
         if (!Validate(request, out var error)) return BadRequest(error);
         var groups = await ResolveGroups(request.QuestionGroups);
         if (groups is null) return BadRequest("One or more question groups do not exist.");
+        if (!await HasEnoughCategories(request, groups)) return BadRequest("Participant category selection requires at least three question categories.");
         var test = new SnTest();
         Apply(test, request);
         db.Tests.Add(test);
@@ -42,6 +43,7 @@ public class TestAdminController(AppDatabase db, TestService tests) : Controller
         if (!Validate(request, out var error)) return BadRequest(error);
         var groups = await ResolveGroups(request.QuestionGroups);
         if (groups is null) return BadRequest("One or more question groups do not exist.");
+        if (!await HasEnoughCategories(request, groups)) return BadRequest("Participant category selection requires at least three question categories.");
         await db.TestQuestionGroupAssignments.Where(x => x.TestId == test.Id).ExecuteDeleteAsync();
         Apply(test, request);
         db.TestQuestionGroupAssignments.AddRange(CreateAssignments(test.Id, request, groups));
@@ -162,6 +164,16 @@ public class TestAdminController(AppDatabase db, TestService tests) : Controller
         var keys = assignments.Select(x => x.QuestionGroupKey.Trim()).Where(x => !string.IsNullOrWhiteSpace(x)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         var groups = await db.TestQuestionGroups.Where(x => keys.Contains(x.Key)).ToListAsync();
         return groups.Count == keys.Count ? groups.ToDictionary(x => x.Key, StringComparer.OrdinalIgnoreCase) : null;
+    }
+
+    private async Task<bool> HasEnoughCategories(TestUpsertRequest request, IReadOnlyDictionary<string, SnTestQuestionGroup> groups)
+    {
+        if (!request.AllowCategorySelection) return true;
+        var categories = await db.TestQuestions
+            .Where(x => groups.Values.Select(group => group.Id).Contains(x.QuestionGroupId) && x.Category != null)
+            .Select(x => x.Category!)
+            .ToListAsync();
+        return categories.Select(x => x.Trim()).Where(x => x.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase).Count() >= 3;
     }
 
     private static void Apply(SnTest test, TestUpsertRequest request)
