@@ -98,6 +98,8 @@ Create a choice test and grant a group on passing:
 
 Questions belong to reusable question groups rather than directly to a test. Tests attach one or more groups. A choice has a stable ID for grading, but Passport shuffles the choice order in participant payloads. `shuffle_questions` additionally randomizes question order when the attempt snapshot is created. Set `random_question_count` with shuffling enabled to draw only that many questions; omit it to use every assigned question. The selected questions and their choice order are stored in the immutable attempt snapshot. Question-group management is available only from the permission-protected admin API.
 
+The question-bank page can bulk import questions from CSV. Use the header row `content,type,grading_mode,difficulty,points,choices,correct_choices`; `type` is `single_choice`, `multiple_choice`, or `free_text`, grading is `auto` or `manual`, and choices/correct choice indexes use `|` separators. For example: `What is 2+2?,single_choice,auto,1,1,3|4|5,1`.
+
 `granted_permission_group_key` is optional. When the attempt passes, Passport publishes an account event; Padlock adds the account to that group and invalidates its permission cache. The named group must already exist in Padlock.
 
 ## Participant API
