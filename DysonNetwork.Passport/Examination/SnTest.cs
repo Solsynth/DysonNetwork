@@ -26,6 +26,7 @@ public class SnTest : ModelBase
     public int? MaxAttempts { get; set; }
     public int AttemptPeriodDays { get; set; } = 365;
     public int? TimeLimitSeconds { get; set; }
+    public long? RewardExperience { get; set; }
     [MaxLength(1024)] public string? GrantedPermissionGroupKey { get; set; }
     [Column(TypeName = "jsonb")] public Dictionary<string, object?> Config { get; set; } = new();
     public List<SnTestQuestionGroupAssignment> QuestionGroups { get; set; } = [];

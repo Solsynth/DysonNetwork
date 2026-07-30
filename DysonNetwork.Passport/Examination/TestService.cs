@@ -5,6 +5,7 @@ using DysonNetwork.Shared.Registry;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Passport.Affiliation;
+using DysonNetwork.Passport.Leveling;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using NodaTime;
@@ -17,8 +18,10 @@ public class TestService(
     IEventBus eventBus,
     DyAccountService.DyAccountServiceClient accounts,
     IOptions<AccountActivationOptions> activationOptions,
+    ExperienceService experience,
     IClock clock)
 {
+    private static readonly Duration SubmissionClockSkewGrace = Duration.FromSeconds(10);
     private readonly AccountActivationOptions _activation = activationOptions.Value;
 
     public async Task<ActivationRequirementState> GetActivationRequirements(Guid accountId, CancellationToken cancellationToken = default)
@@ -77,7 +80,7 @@ public class TestService(
         var now = clock.GetCurrentInstant();
         var active = await db.TestAttempts.Include(x => x.Answers)
             .FirstOrDefaultAsync(x => x.AccountId == accountId && x.TestId == test.Id && x.IsTrial == isTrial && x.TrialId == trialId && x.Status == TestAttemptStatus.InProgress, cancellationToken);
-        if (active is not null && (active.DeadlineAt is null || active.DeadlineAt > now)) return active;
+        if (active is not null && (active.DeadlineAt is null || active.DeadlineAt + SubmissionClockSkewGrace > now)) return active;
         if (active is not null)
         {
             active.Status = TestAttemptStatus.Expired;
@@ -110,7 +113,7 @@ public class TestService(
         if (attempt.AccountId != accountId || attempt.Status != TestAttemptStatus.InProgress)
             throw new InvalidOperationException("This attempt cannot be submitted.");
         var now = clock.GetCurrentInstant();
-        if (attempt.DeadlineAt is not null && attempt.DeadlineAt <= now)
+        if (attempt.DeadlineAt is not null && attempt.DeadlineAt + SubmissionClockSkewGrace < now)
         {
             attempt.Status = TestAttemptStatus.Expired;
             await db.SaveChangesAsync(cancellationToken);
@@ -149,6 +152,8 @@ public class TestService(
             await GrantPermissionGroup(attempt, snapshot, cancellationToken);
             await TryActivateAccount(accountId, cancellationToken);
         }
+        if (!attempt.IsTrial && attempt.Status is TestAttemptStatus.Passed or TestAttemptStatus.Failed)
+            await GrantExperienceReward(attempt, snapshot);
         return attempt;
     }
 
@@ -177,15 +182,28 @@ public class TestService(
                 await GrantPermissionGroup(attempt, DeserializeSnapshot(attempt.Snapshot), cancellationToken);
                 await TryActivateAccount(attempt.AccountId, cancellationToken);
             }
+            if (!attempt.IsTrial && attempt.Status is TestAttemptStatus.Passed or TestAttemptStatus.Failed)
+                await GrantExperienceReward(attempt, DeserializeSnapshot(attempt.Snapshot));
         }
         return attempt;
     }
 
     private static TestAttemptStatus ResolveFinalStatus(SnTestAttempt attempt, TestSnapshot snapshot)
     {
-        var possible = snapshot.Questions.Sum(x => x.Points);
-        attempt.Score = possible == 0 ? 100 : attempt.Answers.Sum(x => x.AwardedPoints ?? 0) / possible * 100;
+        attempt.Score = CalculateScore(snapshot, attempt.Answers);
         return attempt.Score >= snapshot.PassingScore ? TestAttemptStatus.Passed : TestAttemptStatus.Failed;
+    }
+
+    internal static double CalculateScore(TestSnapshot snapshot, IEnumerable<SnTestAnswer> answers)
+    {
+        var possible = snapshot.Questions.Sum(x => x.Points);
+        if (possible == 0) return 100;
+
+        var awardedByQuestion = answers
+            .GroupBy(x => x.QuestionId)
+            .ToDictionary(x => x.Key, x => x.Last().AwardedPoints ?? 0);
+        var awarded = snapshot.Questions.Sum(question => awardedByQuestion.GetValueOrDefault(question.Id));
+        return Math.Min(100, awarded / possible * 100);
     }
 
     private Task GrantPermissionGroup(SnTestAttempt attempt, TestSnapshot snapshot, CancellationToken cancellationToken)
@@ -198,6 +216,14 @@ public class TestService(
             AttemptId = attempt.Id,
             PermissionGroupKey = snapshot.GrantedPermissionGroupKey
         }, cancellationToken);
+    }
+
+    private async Task GrantExperienceReward(SnTestAttempt attempt, TestSnapshot snapshot)
+    {
+        if (snapshot.RewardExperience is not > 0) return;
+        var reason = $"test:{attempt.TestId}";
+        if (await db.ExperienceRecords.AnyAsync(x => x.AccountId == attempt.AccountId && x.ReasonType == "test.completed" && x.Reason == reason)) return;
+        await experience.AddRecord("test.completed", reason, snapshot.RewardExperience.Value, attempt.AccountId);
     }
 
     private static Dictionary<string, object?> SerializeSnapshot(TestSnapshot snapshot) => JsonSerializer.Deserialize<Dictionary<string, object?>>(JsonSerializer.Serialize(snapshot))!;
@@ -223,6 +249,7 @@ public class TestSnapshot
     public string Key { get; set; } = null!;
     public string Title { get; set; } = null!;
     public double PassingScore { get; set; }
+    public long? RewardExperience { get; set; }
     public string? GrantedPermissionGroupKey { get; set; }
     public List<TestQuestionSnapshot> Questions { get; set; } = [];
     public static TestSnapshot FromDictionary(Dictionary<string, object?> snapshot) => JsonSerializer.Deserialize<TestSnapshot>(JsonSerializer.Serialize(snapshot))!;
@@ -231,6 +258,7 @@ public class TestSnapshot
         Key = test.Key,
         Title = test.Title,
         PassingScore = test.PassingScore,
+        RewardExperience = test.RewardExperience,
         GrantedPermissionGroupKey = test.GrantedPermissionGroupKey,
         Questions = TestQuestionSelector.Select(test).Select(x => new TestQuestionSnapshot
         {

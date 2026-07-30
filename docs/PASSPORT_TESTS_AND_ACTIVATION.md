@@ -106,6 +106,8 @@ Administrators can export the bank as CSV through `GET /api/admin/test-questions
 
 `granted_permission_group_key` is optional. When the attempt passes, Passport publishes an account event; Padlock adds the account to that group and invalidates its permission cache. The named group must already exist in Padlock.
 
+`reward_experience` is optional. When configured, Passport grants that base XP once per account after its first non-trial attempt reaches a final passed or failed state. Pending manual reviews receive the reward only once all answers are reviewed. Trial attempts and expired attempts never receive XP. The reward is stored in the attempt snapshot, so later test-definition edits do not change an in-progress attempt's reward.
+
 ## Participant API
 
 All participant endpoints are under `/passport/api/tests` in production and require `tests.take`.
