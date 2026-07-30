@@ -26,8 +26,9 @@ public class TestAdminController(AppDatabase db, TestService tests) : Controller
         var groups = await ResolveGroups(request.QuestionGroups);
         if (groups is null) return BadRequest("One or more question groups do not exist.");
         var test = new SnTest();
-        Apply(test, request, groups);
+        Apply(test, request);
         db.Tests.Add(test);
+        db.TestQuestionGroupAssignments.AddRange(CreateAssignments(test.Id, request, groups));
         await db.SaveChangesAsync();
         return Ok(await TestsQuery().FirstAsync(x => x.Id == test.Id));
     }
@@ -42,7 +43,8 @@ public class TestAdminController(AppDatabase db, TestService tests) : Controller
         var groups = await ResolveGroups(request.QuestionGroups);
         if (groups is null) return BadRequest("One or more question groups do not exist.");
         await db.TestQuestionGroupAssignments.Where(x => x.TestId == test.Id).ExecuteDeleteAsync();
-        Apply(test, request, groups);
+        Apply(test, request);
+        db.TestQuestionGroupAssignments.AddRange(CreateAssignments(test.Id, request, groups));
         await db.SaveChangesAsync();
         return Ok(await TestsQuery().FirstAsync(x => x.Id == test.Id));
     }
@@ -133,12 +135,18 @@ public class TestAdminController(AppDatabase db, TestService tests) : Controller
         return groups.Count == keys.Count ? groups.ToDictionary(x => x.Key, StringComparer.OrdinalIgnoreCase) : null;
     }
 
-    private static void Apply(SnTest test, TestUpsertRequest request, IReadOnlyDictionary<string, SnTestQuestionGroup> groups)
+    private static void Apply(SnTest test, TestUpsertRequest request)
     {
         test.Key = request.Key.Trim(); test.Title = request.Title; test.Description = request.Description; test.IsPublished = request.IsPublished; test.IsListed = request.IsListed; test.ShuffleQuestions = request.ShuffleQuestions; test.RandomQuestionCount = request.ShuffleQuestions ? request.RandomQuestionCount : null; test.SimpleQuestionPercentage = request.SimpleQuestionPercentage;
         test.PassingScore = request.PassingScore; test.MaxAttempts = request.MaxAttempts; test.AttemptPeriodDays = request.AttemptPeriodDays; test.TimeLimitSeconds = request.TimeLimitSeconds; test.GrantedPermissionGroupKey = string.IsNullOrWhiteSpace(request.GrantedPermissionGroupKey) ? null : request.GrantedPermissionGroupKey.Trim(); test.Config = request.Config;
-        test.QuestionGroups = request.QuestionGroups.Select(x => new SnTestQuestionGroupAssignment { QuestionGroup = groups[x.QuestionGroupKey.Trim()], SortOrder = x.SortOrder }).ToList();
     }
+
+    private static IEnumerable<SnTestQuestionGroupAssignment> CreateAssignments(Guid testId, TestUpsertRequest request, IReadOnlyDictionary<string, SnTestQuestionGroup> groups) => request.QuestionGroups.Select(x => new SnTestQuestionGroupAssignment
+    {
+        TestId = testId,
+        QuestionGroupId = groups[x.QuestionGroupKey.Trim()].Id,
+        SortOrder = x.SortOrder
+    });
 
     private static bool Validate(TestUpsertRequest request, out string error)
     {
