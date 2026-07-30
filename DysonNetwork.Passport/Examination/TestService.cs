@@ -22,14 +22,19 @@ public class TestService(
 
     public async Task<ActivationRequirementState> GetActivationRequirements(Guid accountId, CancellationToken cancellationToken = default)
     {
-        var state = new ActivationRequirementState { RequireVerifiedContact = _activation.RequireVerifiedContact };
+        var state = new ActivationRequirementState { TestsEnabled = _activation.TestsEnabled, RequireVerifiedContact = _activation.RequireVerifiedContact };
         var account = SnAccount.FromProtoValue(await accounts.GetAccountAsync(
             new DyGetAccountRequest { Id = accountId.ToString() }, cancellationToken: cancellationToken));
         state.IsActivated = account.ActivatedAt is not null;
         if (_activation.RequireVerifiedContact)
             state.HasVerifiedContact = (await contacts.ListContactsAsync(accountId, verifiedOnly: true, cancellationToken: cancellationToken)).Count > 0;
 
-        foreach (var key in _activation.RequiredTestKeys.Distinct(StringComparer.OrdinalIgnoreCase))
+        state.TestsBypassed = await db.AffiliationResults.Include(x => x.Spell).AnyAsync(x =>
+            x.ResourceIdentifier == $"account:{accountId}" &&
+            x.Spell.Type == AffiliationSpellType.RegistrationInvite &&
+            x.Spell.AffectedAt != null, cancellationToken);
+
+        foreach (var key in (_activation.TestsEnabled && !state.TestsBypassed ? _activation.RequiredTestKeys : []).Distinct(StringComparer.OrdinalIgnoreCase))
         {
             var test = await db.Tests.AsNoTracking().FirstOrDefaultAsync(x => x.Key == key, cancellationToken);
             var passed = test is not null && await db.TestAttempts.AnyAsync(
@@ -48,6 +53,21 @@ public class TestService(
             AccountId = accountId,
             ActivatedAt = clock.GetCurrentInstant()
         });
+        return true;
+    }
+
+    public async Task<bool> TryActivateAfterContactVerification(Guid accountId, CancellationToken cancellationToken = default)
+    {
+        if (_activation.TestsEnabled && _activation.RequiredTestKeys.Count > 0)
+            return await TryActivateAccount(accountId, cancellationToken);
+        var account = SnAccount.FromProtoValue(await accounts.GetAccountAsync(
+            new DyGetAccountRequest { Id = accountId.ToString() }, cancellationToken: cancellationToken));
+        if (account.ActivatedAt is not null) return false;
+        await eventBus.PublishAsync(AccountActivatedEvent.Type, new AccountActivatedEvent
+        {
+            AccountId = accountId,
+            ActivatedAt = clock.GetCurrentInstant()
+        }, cancellationToken);
         return true;
     }
 
@@ -182,6 +202,8 @@ public class TestService(
 public class ActivationRequirementState
 {
     public bool IsActivated { get; set; }
+    public bool TestsEnabled { get; set; }
+    public bool TestsBypassed { get; set; }
     public bool RequireVerifiedContact { get; set; }
     public bool HasVerifiedContact { get; set; }
     public List<ActivationTestRequirement> Tests { get; set; } = [];

@@ -2,6 +2,7 @@ using System.Linq.Expressions;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using DysonNetwork.Passport.Account;
+using DysonNetwork.Passport.Affiliation;
 using DysonNetwork.Passport.Models;
 using DysonNetwork.Passport.Nfc;
 using DysonNetwork.Passport.Examination;
@@ -58,6 +59,7 @@ public class AppDatabase(
 
     public DbSet<SnAffiliationSpell> AffiliationSpells { get; set; } = null!;
     public DbSet<SnAffiliationResult> AffiliationResults { get; set; } = null!;
+    public DbSet<SnAffiliationSpellPurchase> AffiliationSpellPurchases { get; set; } = null!;
     
     public DbSet<SnRewindPoint> RewindPoints { get; set; }
 
@@ -147,6 +149,8 @@ public class AppDatabase(
         modelBuilder.Entity<SnTestAttempt>().HasIndex(x => new { x.TestId, x.Status });
         modelBuilder.Entity<SnTestAnswer>().HasIndex(x => new { x.AttemptId, x.QuestionId }).IsUnique();
         modelBuilder.Entity<SnTestAnswer>().HasOne(x => x.Attempt).WithMany(x => x.Answers).HasForeignKey(x => x.AttemptId).OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<SnAffiliationSpellPurchase>().HasIndex(x => x.OrderId).IsUnique();
+        modelBuilder.Entity<SnAffiliationSpellPurchase>().HasIndex(x => new { x.AccountId, x.CreatedAt });
 
         modelBuilder.Entity<SnPresenceActivity>()
             .HasIndex(e => new { e.AccountId, e.Provider, e.DeletedAt });

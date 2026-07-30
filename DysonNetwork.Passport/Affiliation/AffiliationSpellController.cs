@@ -24,8 +24,32 @@ public class AffiliationSpellController(AppDatabase db, AffiliationSpellService 
         [MaxLength(8192)] public string ResourceIdentifier { get; set; } = null!;
     }
 
+    public class PurchaseAffiliationSpellResponse
+    {
+        public Guid PurchaseId { get; set; }
+        public Guid OrderId { get; set; }
+        public decimal Amount { get; set; }
+    }
+
+    [HttpPost("purchase")]
+    [Authorize]
+    public async Task<ActionResult<PurchaseAffiliationSpellResponse>> PurchaseSpell()
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
+        try
+        {
+            var purchase = await ars.PurchaseRegistrationInvite(currentUser.Id, HttpContext.RequestAborted);
+            return Ok(new PurchaseAffiliationSpellResponse { PurchaseId = purchase.Id, OrderId = purchase.OrderId, Amount = purchase.Amount });
+        }
+        catch (InvalidOperationException e)
+        {
+            return BadRequest(new ApiError { Code = "PASSPORT_AFFILIATION_PURCHASE_FAILED", Message = e.Message, Status = 400, TraceId = HttpContext.TraceIdentifier });
+        }
+    }
+
     [HttpPost]
     [Authorize]
+    [AskPermission(PermissionKeys.AffiliationsManage)]
     public async Task<ActionResult<SnAffiliationSpell>> CreateSpell([FromBody] CreateAffiliationSpellRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
@@ -49,6 +73,9 @@ public class AffiliationSpellController(AppDatabase db, AffiliationSpellService 
     {
         try
         {
+            var affiliation = await db.AffiliationSpells.FirstOrDefaultAsync(x => x.Spell == Uri.UnescapeDataString(spell));
+            if (affiliation?.Type == AffiliationSpellType.RegistrationInvite)
+                return BadRequest(new ApiError { Code = "PASSPORT_AFFILIATION_INVITE_USE_RESTRICTED", Message = "Registration invitations can only be used during account creation.", Status = 400, TraceId = HttpContext.TraceIdentifier });
             var result = await ars.RecordAffiliationEvent(
                 Uri.UnescapeDataString(spell),
                 request.ResourceIdentifier

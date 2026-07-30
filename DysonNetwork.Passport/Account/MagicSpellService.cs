@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text.Json;
 using DysonNetwork.Passport.Mailer;
+using DysonNetwork.Passport.Examination;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.EventBus;
 using DysonNetwork.Shared.Models;
@@ -22,7 +23,8 @@ public class MagicSpellService(
     ICacheService cache,
     IEventBus eventBus,
     RemoteAccountContactService remoteContacts,
-    DyAccountService.DyAccountServiceClient remoteAccounts
+    DyAccountService.DyAccountServiceClient remoteAccounts,
+    TestService tests
 )
 {
     private static string? GetMetaString(SnMagicSpell spell, string key)
@@ -263,6 +265,8 @@ public class MagicSpellService(
         {
             await eventBus.PublishAsync(AccountContactVerifiedEvent.Type, accountContactVerifiedEvent);
             publishedEventTypes.Add(AccountContactVerifiedEvent.Type);
+            if (await tests.TryActivateAfterContactVerification(accountContactVerifiedEvent.AccountId))
+                publishedEventTypes.Add(AccountActivatedEvent.Type);
         }
         if (accountRemovalConfirmedEvent is not null)
         {

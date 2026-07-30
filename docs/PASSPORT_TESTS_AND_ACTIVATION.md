@@ -8,12 +8,14 @@ Configure the account-entry requirements in Passport `appsettings.json`:
 
 ```json
 "AccountActivation": {
+  "TestsEnabled": true,
   "RequireVerifiedContact": true,
   "RequiredTestKeys": ["platform-entry"]
 }
 ```
 
 - `RequireVerifiedContact` requires at least one verified Padlock contact.
+- Set `TestsEnabled` to `false` to disable all test requirements. Applying a contact-verification spell then activates the account automatically.
 - `RequiredTestKeys` requires a passed attempt for every listed published test.
 - An empty `RequiredTestKeys` disables the test requirement.
 
@@ -33,6 +35,21 @@ The test APIs use these permission keys:
 - `tests.review`: inspect attempts and review subjective answers.
 
 `tests.manage` and `tests.review` are not automatically added to the `default` group. Assign them to an administrator-managed permission group through Padlock’s permission-group APIs.
+
+## Registration invitation spells
+
+Authenticated users can create a Wallet order with `POST /api/affiliations/purchase`. The order uses the `points` currency and, after payment, creates a single-use registration invitation spell. Configuration is under `AffiliationPurchase`:
+
+```json
+"AffiliationPurchase": {
+  "Enabled": true,
+  "PricePoints": 100,
+  "MaxPurchases": 2,
+  "PurchasePeriodDays": 30
+}
+```
+
+The purchase cap is enforced when an order is created. A paid spell can be used once by an unactivated account during registration. It bypasses configured test requirements but does not bypass the configured verified-contact requirement.
 
 ## Admin API
 

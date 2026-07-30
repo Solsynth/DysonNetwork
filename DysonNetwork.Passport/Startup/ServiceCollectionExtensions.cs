@@ -43,6 +43,7 @@ public static class ServiceCollectionExtensions
 
         services.Configure<BadgesOptions>(configuration.GetSection("Badges"));
         services.Configure<AccountActivationOptions>(configuration.GetSection("AccountActivation"));
+        services.Configure<AffiliationPurchaseOptions>(configuration.GetSection("AffiliationPurchase"));
 
         services.AddDbContext<AppDatabase>();
         services.AddHttpContextAccessor();
@@ -185,6 +186,7 @@ public static class ServiceCollectionExtensions
             {
                 var spells = ctx.ServiceProvider.GetRequiredService<MagicSpellService>();
                 var affiliationSpells = ctx.ServiceProvider.GetRequiredService<AffiliationSpellService>();
+                var tests = ctx.ServiceProvider.GetRequiredService<TestService>();
                 var logger = ctx.ServiceProvider.GetRequiredService<ILogger<EventBus>>();
                 var email = ctx.ServiceProvider.GetRequiredService<EmailService>();
                 var localizer = ctx.ServiceProvider.GetRequiredService<ILocalizationService>();
@@ -237,7 +239,8 @@ public static class ServiceCollectionExtensions
 
                 if (!string.IsNullOrWhiteSpace(evt.AffiliationSpell))
                 {
-                    await affiliationSpells.RecordAffiliationEvent(evt.AffiliationSpell, $"account:{evt.AccountId}");
+                    if (evt.ActivatedAt is null && await affiliationSpells.ConsumeRegistrationInvite(evt.AffiliationSpell, evt.AccountId, ctx.CancellationToken))
+                        await tests.TryActivateAccount(evt.AccountId, ctx.CancellationToken);
                 }
 
                 logger.LogInformation("Handled account created event for {AccountId}", evt.AccountId);
@@ -246,6 +249,15 @@ public static class ServiceCollectionExtensions
                 PaymentOrderEventBase.Type,
                 async (evt, ctx) =>
                 {
+                    if (evt.ProductIdentifier == "affiliations.registration-invite")
+                    {
+                        var affiliationSpells = ctx.ServiceProvider.GetRequiredService<AffiliationSpellService>();
+                        var purchaseEvt = JsonSerializer.Deserialize<PaymentOrderAffiliationPurchaseEvent>(
+                            JsonSerializer.Serialize(evt, InfraObjectCoder.SerializerOptions), InfraObjectCoder.SerializerOptions);
+                        if (purchaseEvt?.Meta is not null)
+                            await affiliationSpells.FulfillRegistrationInvitePurchase(purchaseEvt.Meta.PurchaseId, purchaseEvt.OrderId, ctx.CancellationToken);
+                        return;
+                    }
                     if (evt.ProductIdentifier != "realms.boost") return;
 
                     var logger = ctx.ServiceProvider.GetRequiredService<ILogger<EventBus>>();
