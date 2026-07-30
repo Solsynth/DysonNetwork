@@ -70,6 +70,36 @@ public class TestAdminController(AppDatabase db, TestService tests) : Controller
         return Ok(test);
     }
 
+    [HttpGet("{key}/trial")]
+    [AskPermission(PermissionKeys.TestsManage)]
+    public async Task<ActionResult<ParticipantTest>> Trial(string key)
+    {
+        var test = await TestsQuery().FirstOrDefaultAsync(x => x.Key == key && !x.IsArchived);
+        return test is null ? NotFound() : Ok(TestController.ToParticipantTest(test));
+    }
+
+    [HttpPost("{key}/trial/grade")]
+    [AskPermission(PermissionKeys.TestsManage)]
+    public async Task<ActionResult<TestTrialResult>> GradeTrial(string key, [FromBody] SubmitTestAttemptRequest request)
+    {
+        var test = await TestsQuery().FirstOrDefaultAsync(x => x.Key == key && !x.IsArchived);
+        if (test is null) return NotFound();
+        var inputs = request.Answers.GroupBy(x => x.QuestionId).ToDictionary(x => x.Key, x => x.Last());
+        var questions = test.QuestionGroups.SelectMany(x => x.QuestionGroup.Questions).Where(question => inputs.ContainsKey(question.Id)).ToList();
+        var answers = questions.Select(question =>
+        {
+            if (question.GradingMode == TestQuestionGradingMode.Manual) return new TestTrialAnswerResult { QuestionId = question.Id };
+            inputs.TryGetValue(question.Id, out var input);
+            var selected = (input?.ChoiceIds ?? []).Order().ToArray();
+            var correct = question.Choices.Where(choice => choice.IsCorrect).Select(choice => choice.Id).Order().ToArray();
+            var isCorrect = selected.SequenceEqual(correct);
+            return new TestTrialAnswerResult { QuestionId = question.Id, IsCorrect = isCorrect, AwardedPoints = isCorrect ? question.Points : 0 };
+        }).ToList();
+        var possible = questions.Where(x => x.GradingMode == TestQuestionGradingMode.Auto).Sum(x => x.Points);
+        var score = possible == 0 ? (double?)null : answers.Sum(x => x.AwardedPoints ?? 0) / possible * 100;
+        return Ok(new TestTrialResult { Score = score, Passed = score.HasValue && score >= test.PassingScore, Answers = answers });
+    }
+
     [HttpGet("{key}/attempts")]
     [AskPermission(PermissionKeys.TestsReview)]
     public async Task<ActionResult<List<SnTestAttempt>>> ListAttempts(string key, [FromQuery] TestAttemptStatus? status)
@@ -118,3 +148,5 @@ public class TestAdminController(AppDatabase db, TestService tests) : Controller
 public class TestUpsertRequest { public string Key { get; set; } = null!; public string Title { get; set; } = null!; public string? Description { get; set; } public bool IsPublished { get; set; } public bool IsListed { get; set; } = true; public bool ShuffleQuestions { get; set; } public int? RandomQuestionCount { get; set; } public double PassingScore { get; set; } = 100; public int? MaxAttempts { get; set; } public int AttemptPeriodDays { get; set; } = 365; public int? TimeLimitSeconds { get; set; } public string? GrantedPermissionGroupKey { get; set; } public Dictionary<string, object?> Config { get; set; } = new(); public List<TestQuestionGroupAssignmentUpsertRequest> QuestionGroups { get; set; } = []; }
 public class TestQuestionGroupAssignmentUpsertRequest { public string QuestionGroupKey { get; set; } = null!; public int SortOrder { get; set; } }
 public class ReviewTestAnswerRequest { public bool IsCorrect { get; set; } public double AwardedPoints { get; set; } public string? Note { get; set; } }
+public class TestTrialResult { public double? Score { get; set; } public bool Passed { get; set; } public List<TestTrialAnswerResult> Answers { get; set; } = []; }
+public class TestTrialAnswerResult { public Guid QuestionId { get; set; } public bool? IsCorrect { get; set; } public double? AwardedPoints { get; set; } }
