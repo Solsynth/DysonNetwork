@@ -92,7 +92,16 @@ public class TestService(
         if (test.MaxAttempts.HasValue && used >= test.MaxAttempts.Value)
             throw new InvalidOperationException("The maximum number of attempts has been reached.");
 
-        var snapshot = TestSnapshot.FromTest(test);
+        var previousSnapshots = await db.TestAttempts.AsNoTracking()
+            .Where(x => x.AccountId == accountId && x.TestId == test.Id && x.IsTrial == isTrial && x.TrialId == trialId && x.Status != TestAttemptStatus.InProgress)
+            .Select(x => x.Snapshot)
+            .ToListAsync(cancellationToken);
+        var previouslyAskedQuestionIds = previousSnapshots
+            .Select(x => DeserializeSnapshot(x))
+            .SelectMany(x => x.Questions)
+            .Select(x => x.Id)
+            .ToHashSet();
+        var snapshot = TestSnapshot.FromTest(test, previouslyAskedQuestionIds);
         var attempt = new SnTestAttempt
         {
             AccountId = accountId,
@@ -253,14 +262,14 @@ public class TestSnapshot
     public string? GrantedPermissionGroupKey { get; set; }
     public List<TestQuestionSnapshot> Questions { get; set; } = [];
     public static TestSnapshot FromDictionary(Dictionary<string, object?> snapshot) => JsonSerializer.Deserialize<TestSnapshot>(JsonSerializer.Serialize(snapshot))!;
-    public static TestSnapshot FromTest(SnTest test) => new()
+    public static TestSnapshot FromTest(SnTest test, ISet<Guid>? previouslyAskedQuestionIds = null) => new()
     {
         Key = test.Key,
         Title = test.Title,
         PassingScore = test.PassingScore,
         RewardExperience = test.RewardExperience,
         GrantedPermissionGroupKey = test.GrantedPermissionGroupKey,
-        Questions = TestQuestionSelector.Select(test).Select(x => new TestQuestionSnapshot
+        Questions = TestQuestionSelector.Select(test, previouslyAskedQuestionIds).Select(x => new TestQuestionSnapshot
         {
             Id = x.Id, Content = x.Content, Type = x.Type, GradingMode = x.GradingMode, Difficulty = x.Difficulty, Points = x.Points,
             Choices = TestQuestionSelector.Shuffle(x.Choices).Select(c => new TestChoiceSnapshot { Id = c.Id, Content = c.Content, IsCorrect = c.IsCorrect }).ToList()
@@ -272,18 +281,30 @@ public class TestChoiceSnapshot { public Guid Id { get; set; } public string Con
 
 public static class TestQuestionSelector
 {
-    public static IEnumerable<SnTestQuestion> Select(SnTest test)
+    public static IEnumerable<SnTestQuestion> Select(SnTest test, ISet<Guid>? previouslyAskedQuestionIds = null)
     {
         var questions = test.QuestionGroups.OrderBy(x => x.SortOrder).SelectMany(x => x.QuestionGroup.Questions.OrderBy(q => q.SortOrder)).ToList();
         if (!test.ShuffleQuestions) return questions;
         var count = test.RandomQuestionCount ?? questions.Count;
         if (count >= questions.Count) return Shuffle(questions);
-        var simpleTarget = (int)Math.Round(count * test.SimpleQuestionPercentage / 100d, MidpointRounding.AwayFromZero);
+        var unseenQuestions = previouslyAskedQuestionIds is { Count: > 0 }
+            ? questions.Where(x => !previouslyAskedQuestionIds.Contains(x.Id)).ToList()
+            : questions;
+        var selected = PickQuestions(unseenQuestions, Math.Min(count, unseenQuestions.Count), test.SimpleQuestionPercentage);
+        if (selected.Count < count)
+            selected.AddRange(PickQuestions(questions.Except(selected), count - selected.Count, test.SimpleQuestionPercentage));
+        return Shuffle(selected);
+    }
+
+    private static List<SnTestQuestion> PickQuestions(IEnumerable<SnTestQuestion> source, int count, int simpleQuestionPercentage)
+    {
+        var questions = source.ToList();
+        var simpleTarget = (int)Math.Round(count * simpleQuestionPercentage / 100d, MidpointRounding.AwayFromZero);
         var simple = PickBalancedByCategory(questions.Where(x => x.Difficulty <= 2), simpleTarget);
         var hard = PickBalancedByCategory(questions.Where(x => x.Difficulty >= 3).Except(simple), count - simple.Count);
         var selected = simple.Concat(hard).ToList();
         if (selected.Count < count) selected.AddRange(PickBalancedByCategory(questions.Except(selected), count - selected.Count));
-        return Shuffle(selected);
+        return selected;
     }
 
     public static List<T> Shuffle<T>(IEnumerable<T> source)

@@ -227,7 +227,12 @@ public static class ServiceCollectionExtensions
                             evt.PrimaryEmail,
                             localizer.Get("welcomeEmailTitle", evt.Language),
                             "Welcome",
-                            new { nick = recipientName, site_url = configuration.GetValue<string>("SiteUrl") },
+                            new
+                            {
+                                nick = recipientName,
+                                site_url = configuration.GetValue<string>("SiteUrl"),
+                                activation_url = $"{configuration.GetValue<string>("SiteUrl")?.TrimEnd('/')}/accounts/me/activation"
+                            },
                             evt.Language
                         );
                     }
