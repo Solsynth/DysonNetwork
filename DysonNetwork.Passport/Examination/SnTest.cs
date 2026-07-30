@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.Json.Serialization;
 using DysonNetwork.Shared.Models;
 using NodaTime;
 
@@ -33,6 +34,7 @@ public class SnTestQuestion : ModelBase
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid QuestionGroupId { get; set; }
+    [JsonIgnore]
     public SnTestQuestionGroup QuestionGroup { get; set; } = null!;
     public int SortOrder { get; set; }
     [MaxLength(8192)] public string Content { get; set; } = null!;
@@ -52,6 +54,7 @@ public class SnTestQuestionGroup : ModelBase
     [MaxLength(4096)] public string? Description { get; set; }
     [Column(TypeName = "jsonb")] public Dictionary<string, object?> Config { get; set; } = new();
     public List<SnTestQuestion> Questions { get; set; } = [];
+    [JsonIgnore]
     public List<SnTestQuestionGroupAssignment> TestAssignments { get; set; } = [];
 }
 
@@ -59,6 +62,7 @@ public class SnTestQuestionGroupAssignment : ModelBase
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid TestId { get; set; }
+    [JsonIgnore]
     public SnTest Test { get; set; } = null!;
     public Guid QuestionGroupId { get; set; }
     public SnTestQuestionGroup QuestionGroup { get; set; } = null!;
@@ -69,6 +73,7 @@ public class SnTestChoice : ModelBase
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid QuestionId { get; set; }
+    [JsonIgnore]
     public SnTestQuestion Question { get; set; } = null!;
     public int SortOrder { get; set; }
     [MaxLength(4096)] public string Content { get; set; } = null!;
@@ -96,6 +101,7 @@ public class SnTestAnswer : ModelBase
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid AttemptId { get; set; }
+    [JsonIgnore]
     public SnTestAttempt Attempt { get; set; } = null!;
     public Guid QuestionId { get; set; }
     [Column(TypeName = "jsonb")] public Dictionary<string, object?> Value { get; set; } = new();
