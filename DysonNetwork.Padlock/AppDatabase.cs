@@ -57,30 +57,7 @@ public class AppDatabase(
                 .UseNodaTime()
         ).UseSnakeCaseNamingConvention();
 
-        optionsBuilder.UseAsyncSeeding(async (context, _, cancellationToken) =>
-        {
-            var defaultPermissionGroup = await context.Set<SnPermissionGroup>()
-                .FirstOrDefaultAsync(g => g.Key == "default", cancellationToken);
-            if (defaultPermissionGroup is null)
-            {
-                var allPermissionKeys = typeof(DysonNetwork.Shared.Auth.PermissionKeys)
-                    .GetFields(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static)
-                    .Where(f => f.IsLiteral && f.FieldType == typeof(string))
-                    .Select(f => (string)f.GetRawConstantValue()!)
-                    .Except([DysonNetwork.Shared.Auth.PermissionKeys.TestsManage, DysonNetwork.Shared.Auth.PermissionKeys.TestsReview])
-                    .ToList();
-
-                context.Set<SnPermissionGroup>().Add(new SnPermissionGroup
-                {
-                    Key = "default",
-                    Nodes = allPermissionKeys
-                        .Select(permission =>
-                            PermissionService.NewPermissionNode("group:default", permission, true))
-                        .ToList()
-                });
-                await context.SaveChangesAsync(cancellationToken);
-            }
-        });
+        optionsBuilder.UseAsyncSeeding((_, _, _) => Task.CompletedTask);
 
         optionsBuilder.UseSeeding((context, _) => { });
 

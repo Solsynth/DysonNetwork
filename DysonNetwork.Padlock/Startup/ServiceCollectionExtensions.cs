@@ -205,6 +205,7 @@ public static class ServiceCollectionExtensions
                     return;
                 }
 
+
                 logger.LogInformation(
                     "Applied contact verification event for contact {ContactId} on account {AccountId}",
                     evt.ContactId,

@@ -25,8 +25,12 @@ New accounts receive a `ContactVerification` spell and a separate welcome email.
 
 Padlock owns permission groups and seeds these groups at startup:
 
-- `all-users`: assigned to every account, including unactivated accounts; grants `tests.take`.
-- `default`: assigned when an account is activated.
+- `default`: assigned to every registered account, including unactivated accounts; contains `tests.take` and the explicit basic-account and chat permissions.
+- `verified`: assigned when an account is activated and contains the explicit social, publishing, relationship, realm, location, and live-stream permissions.
+- `moderator`: administrator-assigned; contains the explicit ticket-handling, post-locking, and moderation permissions.
+- `developer`: administrator-assigned; contains the explicit developer, custom-app, bot-account, product, project, and mini-app permissions.
+
+Each scaffolded group is synchronized from its complete, explicit permission-key list in `PermissionSeedService`; no permission is assigned by a key prefix. Startup also corrects stale nodes in those scaffolded groups and backfills `default` for registered accounts and `verified` for already activated accounts.
 
 The test APIs use these permission keys:
 
@@ -35,6 +39,8 @@ The test APIs use these permission keys:
 - `tests.review`: inspect attempts and review subjective answers.
 
 `tests.manage` and `tests.review` are not automatically added to the `default` group. Assign them to an administrator-managed permission group through Padlock’s permission-group APIs.
+
+Padlock permission-group detail requests are paginated independently for nodes and members. `GET /api/admin/permissions/groups/{groupId}` accepts `nodesTake`, `nodesOffset`, `membersTake`, and `membersOffset` (50 by default; 200 maximum) and returns `node_total` and `member_total` with each page.
 
 ## Registration invitation spells
 
@@ -61,6 +67,7 @@ All admin endpoints are under `/passport/api/admin/tests` in production.
 - `POST /api/admin/tests` creates a test and its questions.
 - `PUT /api/admin/tests/{key}` replaces a test’s editable definition and questions. Existing attempts retain their stored snapshot.
 - `POST /api/admin/tests/{key}/publish?published=true` publishes or unpublishes a test.
+- `POST /api/admin/tests/{key}/listing?listed=true` lists or unlists a published test in the public catalog.
 - `POST /api/admin/tests/{key}/archive?archived=true` archives or restores a test.
 - `GET /api/admin/tests/{key}/attempts?status=pending_review` lists attempts for review.
 - `POST /api/admin/tests/answers/{answerId}/review` scores a manually reviewed answer.
@@ -73,6 +80,7 @@ Create a choice test and grant a group on passing:
   "title": "Platform Entry",
   "description": "Basic platform knowledge.",
   "is_published": true,
+  "is_listed": true,
   "passing_score": 80,
   "max_attempts": 3,
   "attempt_period_days": 365,
@@ -103,6 +111,7 @@ Create a choice test and grant a group on passing:
 
 All participant endpoints are under `/passport/api/tests` in production and require `tests.take`.
 
+- `GET /api/tests` is public and returns published, listed tests without correct-answer data.
 - `GET /api/tests/activation` returns contact and required-test status.
 - `POST /api/tests/activation/recheck` reevaluates requirements and activates an eligible account.
 - `GET /api/tests/{key}` returns a published test without correct-answer data.

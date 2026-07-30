@@ -115,7 +115,7 @@ public class AccountService(
         };
 
         db.Accounts.Add(account);
-        await GrantPermissionGroup(account.Id, PermissionSeedService.AllUsersGroupKey, saveChanges: false);
+        await GrantPermissionGroup(account.Id, PermissionSeedService.DefaultGroupKey, saveChanges: false);
         await db.SaveChangesAsync();
         await PublishAccountCreated(account, affiliationSpell);
         return account;
@@ -1345,7 +1345,7 @@ public class AccountService(
         }
 
         var actor = accountId.ToString();
-        await GrantPermissionGroup(accountId, PermissionSeedService.DefaultGroupKey, saveChanges: false);
+        await GrantPermissionGroup(accountId, PermissionSeedService.VerifiedGroupKey, saveChanges: false);
 
         await db.SaveChangesAsync();
         await permissionService.ClearActorCacheAsync(actor);
@@ -1459,16 +1459,7 @@ public class AccountService(
             account.Profile.Background = SnCloudFileReferenceObject.FromProtoValue(file);
         }
 
-        var defaultGroup = await db.PermissionGroups.FirstOrDefaultAsync(g => g.Key == "default");
-        if (defaultGroup is not null)
-        {
-            db.PermissionGroupMembers.Add(new SnPermissionGroupMember
-            {
-                Actor = account.Id.ToString(),
-                Group = defaultGroup
-            });
-        }
-        await GrantPermissionGroup(account.Id, PermissionSeedService.AllUsersGroupKey, saveChanges: false);
+        await GrantPermissionGroup(account.Id, PermissionSeedService.DefaultGroupKey, saveChanges: false);
 
         db.Set<SnAccount>().Add(account);
         await db.SaveChangesAsync();

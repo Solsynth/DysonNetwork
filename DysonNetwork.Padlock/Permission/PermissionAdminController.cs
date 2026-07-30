@@ -35,7 +35,9 @@ public class PermissionAdminController(
     {
         public SnPermissionGroup Group { get; set; } = null!;
         public List<SnPermissionNode> Nodes { get; set; } = [];
+        public int NodeTotal { get; set; }
         public List<SnPermissionGroupMember> Members { get; set; } = [];
+        public int MemberTotal { get; set; }
     }
 
     public class AdminActorPermissionsResponse
@@ -102,21 +104,37 @@ public class PermissionAdminController(
 
     [HttpGet("groups/{groupId:guid}")]
     [AskPermission("permissions.groups.check")]
-    public async Task<ActionResult<PermissionGroupDetailResponse>> GetGroup(Guid groupId)
+    public async Task<ActionResult<PermissionGroupDetailResponse>> GetGroup(
+        Guid groupId,
+        [FromQuery] int nodesTake = 50,
+        [FromQuery] int nodesOffset = 0,
+        [FromQuery] int membersTake = 50,
+        [FromQuery] int membersOffset = 0)
     {
+        nodesTake = Math.Clamp(nodesTake, 0, 200);
+        nodesOffset = Math.Max(nodesOffset, 0);
+        membersTake = Math.Clamp(membersTake, 0, 200);
+        membersOffset = Math.Max(membersOffset, 0);
+
         var group = await db.PermissionGroups.AsNoTracking().FirstOrDefaultAsync(g => g.Id == groupId);
         if (group is null) return NotFound(new ApiError { Code = "PERMISSION_GROUP_NOT_FOUND", Message = "Permission group not found.", Status = 404 });
 
+        var nodes = db.PermissionNodes.AsNoTracking().Where(n => n.GroupId == groupId);
+        var members = db.PermissionGroupMembers.AsNoTracking().Where(m => m.GroupId == groupId);
         var response = new PermissionGroupDetailResponse
         {
             Group = group,
-            Nodes = await db.PermissionNodes.AsNoTracking()
-                .Where(n => n.GroupId == groupId)
+            NodeTotal = await nodes.CountAsync(),
+            Nodes = await nodes
                 .OrderBy(n => n.Key)
+                .Skip(nodesOffset)
+                .Take(nodesTake)
                 .ToListAsync(),
-            Members = await db.PermissionGroupMembers.AsNoTracking()
-                .Where(m => m.GroupId == groupId)
+            MemberTotal = await members.CountAsync(),
+            Members = await members
                 .OrderBy(m => m.Actor)
+                .Skip(membersOffset)
+                .Take(membersTake)
                 .ToListAsync()
         };
         return Ok(response);
