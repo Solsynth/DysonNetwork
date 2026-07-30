@@ -83,7 +83,7 @@ public class TestController(AppDatabase db, TestService tests) : ControllerBase
 
     internal static ParticipantTest ToParticipantTest(SnTest test, bool includeQuestions = true) => new()
     {
-        Key = test.Key, Title = test.Title, Description = test.Description, TimeLimitSeconds = test.TimeLimitSeconds, RewardExperience = test.RewardExperience,
+        Key = test.Key, Title = test.Title, Description = test.Description, TimeLimitSeconds = test.TimeLimitSeconds, RewardExperience = test.RewardExperience, MaxAttempts = test.MaxAttempts,
         Questions = includeQuestions ? TestQuestionSelector.Select(test).Select(q => new ParticipantQuestion
         { Id = q.Id, Content = q.Content, Type = q.Type, Difficulty = q.Difficulty, Points = q.Points, Config = q.Config, Choices = TestQuestionSelector.Shuffle(q.Choices).Select(c => new ParticipantChoice { Id = c.Id, Content = c.Content, Config = c.Config }).ToList() }).ToList() : []
     };
@@ -111,7 +111,7 @@ public class TestController(AppDatabase db, TestService tests) : ControllerBase
 }
 
 public class SubmitTestAttemptRequest { public List<TestAnswerInput> Answers { get; set; } = []; }
-public class ParticipantTest { public string Key { get; set; } = null!; public string Title { get; set; } = null!; public string? Description { get; set; } public int? TimeLimitSeconds { get; set; } public long? RewardExperience { get; set; } public List<ParticipantQuestion> Questions { get; set; } = []; }
+public class ParticipantTest { public string Key { get; set; } = null!; public string Title { get; set; } = null!; public string? Description { get; set; } public int? TimeLimitSeconds { get; set; } public long? RewardExperience { get; set; } public int? MaxAttempts { get; set; } public List<ParticipantQuestion> Questions { get; set; } = []; }
 public class ParticipantQuestion { public Guid Id { get; set; } public string Content { get; set; } = null!; public TestQuestionType Type { get; set; } public int Difficulty { get; set; } public double Points { get; set; } public Dictionary<string, object?> Config { get; set; } = new(); public List<ParticipantChoice> Choices { get; set; } = []; }
 public class ParticipantChoice { public Guid Id { get; set; } public string Content { get; set; } = null!; public Dictionary<string, object?> Config { get; set; } = new(); }
 public class ParticipantAttempt { public Guid Id { get; set; } public string Key { get; set; } = null!; public string Title { get; set; } = null!; public bool IsTrial { get; set; } public TestAttemptStatus Status { get; set; } public NodaTime.Instant StartedAt { get; set; } public NodaTime.Instant? DeadlineAt { get; set; } public NodaTime.Instant? SubmittedAt { get; set; } public NodaTime.Instant? ReviewedAt { get; set; } public double? Score { get; set; } public List<ParticipantQuestion> Questions { get; set; } = []; public List<ParticipantAnswer> Answers { get; set; } = []; }

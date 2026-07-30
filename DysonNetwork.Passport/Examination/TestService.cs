@@ -43,7 +43,18 @@ public class TestService(
             var test = await db.Tests.AsNoTracking().FirstOrDefaultAsync(x => x.Key == key, cancellationToken);
             var passed = test is not null && await db.TestAttempts.AnyAsync(
                 x => x.AccountId == accountId && x.TestId == test.Id && x.Status == TestAttemptStatus.Passed, cancellationToken);
-            state.Tests.Add(new ActivationTestRequirement { Key = key, Passed = passed, Available = test?.IsPublished == true });
+            var title = test?.Title ?? key;
+            var maxAttempts = test?.MaxAttempts;
+            var usedAttemptCount = 0;
+            if (test is not null && maxAttempts.HasValue)
+            {
+                var now = clock.GetCurrentInstant();
+                var periodStart = now - Duration.FromDays(test.AttemptPeriodDays);
+                usedAttemptCount = await db.TestAttempts.CountAsync(
+                    x => x.AccountId == accountId && x.TestId == test.Id && !x.IsTrial &&
+                         x.StartedAt >= periodStart && x.Status != TestAttemptStatus.InProgress, cancellationToken);
+            }
+            state.Tests.Add(new ActivationTestRequirement { Key = key, Title = title, Passed = passed, Available = test?.IsPublished == true, MaxAttempts = maxAttempts, UsedAttemptCount = usedAttemptCount });
         }
         return state;
     }
@@ -251,7 +262,7 @@ public class ActivationRequirementState
     public int RequiredRequirementCount => (RequireVerifiedContact ? 1 : 0) + Tests.Count;
     public int CompletedRequirementCount => (RequireVerifiedContact && HasVerifiedContact ? 1 : 0) + Tests.Count(x => x.Passed);
 }
-public class ActivationTestRequirement { public string Key { get; set; } = null!; public bool Available { get; set; } public bool Passed { get; set; } }
+public class ActivationTestRequirement { public string Key { get; set; } = null!; public string Title { get; set; } = null!; public bool Available { get; set; } public bool Passed { get; set; } public int? MaxAttempts { get; set; } public int UsedAttemptCount { get; set; } }
 public class TestAnswerInput { public Guid QuestionId { get; set; } public List<Guid>? ChoiceIds { get; set; } public string? Text { get; set; } }
 public class TestSnapshot
 {
