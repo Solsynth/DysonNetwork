@@ -72,11 +72,11 @@ public class TestService(
         return true;
     }
 
-    public async Task<SnTestAttempt> StartAttempt(Guid accountId, SnTest test, CancellationToken cancellationToken = default)
+    public async Task<SnTestAttempt> StartAttempt(Guid accountId, SnTest test, bool isTrial = false, CancellationToken cancellationToken = default)
     {
         var now = clock.GetCurrentInstant();
         var active = await db.TestAttempts.Include(x => x.Answers)
-            .FirstOrDefaultAsync(x => x.AccountId == accountId && x.TestId == test.Id && x.Status == TestAttemptStatus.InProgress, cancellationToken);
+            .FirstOrDefaultAsync(x => x.AccountId == accountId && x.TestId == test.Id && x.IsTrial == isTrial && x.Status == TestAttemptStatus.InProgress, cancellationToken);
         if (active is not null && (active.DeadlineAt is null || active.DeadlineAt > now)) return active;
         if (active is not null)
         {
@@ -85,7 +85,7 @@ public class TestService(
         }
 
         var periodStart = now - Duration.FromDays(test.AttemptPeriodDays);
-        var used = await db.TestAttempts.CountAsync(x => x.AccountId == accountId && x.TestId == test.Id && x.StartedAt >= periodStart && x.Status != TestAttemptStatus.InProgress, cancellationToken);
+        var used = await db.TestAttempts.CountAsync(x => x.AccountId == accountId && x.TestId == test.Id && !x.IsTrial && x.StartedAt >= periodStart && x.Status != TestAttemptStatus.InProgress, cancellationToken);
         if (test.MaxAttempts.HasValue && used >= test.MaxAttempts.Value)
             throw new InvalidOperationException("The maximum number of attempts has been reached.");
 
@@ -94,6 +94,7 @@ public class TestService(
         {
             AccountId = accountId,
             TestId = test.Id,
+            IsTrial = isTrial,
             StartedAt = now,
             DeadlineAt = test.TimeLimitSeconds.HasValue ? now + Duration.FromSeconds(test.TimeLimitSeconds.Value) : null,
             Snapshot = SerializeSnapshot(snapshot)
@@ -142,7 +143,7 @@ public class TestService(
         attempt.Status = snapshot.Questions.Any(x => x.GradingMode == TestQuestionGradingMode.Manual && attempt.Answers.Any(a => a.QuestionId == x.Id && a.AwardedPoints is null))
             ? TestAttemptStatus.PendingReview : ResolveFinalStatus(attempt, snapshot);
         await db.SaveChangesAsync(cancellationToken);
-        if (attempt.Status == TestAttemptStatus.Passed)
+        if (!attempt.IsTrial && attempt.Status == TestAttemptStatus.Passed)
         {
             await GrantPermissionGroup(attempt, snapshot, cancellationToken);
             await TryActivateAccount(accountId, cancellationToken);
@@ -170,7 +171,7 @@ public class TestService(
             attempt.ReviewedAt = clock.GetCurrentInstant();
             attempt.ReviewedById = reviewerId;
             await db.SaveChangesAsync(cancellationToken);
-            if (attempt.Status == TestAttemptStatus.Passed)
+            if (!attempt.IsTrial && attempt.Status == TestAttemptStatus.Passed)
             {
                 await GrantPermissionGroup(attempt, DeserializeSnapshot(attempt.Snapshot), cancellationToken);
                 await TryActivateAccount(attempt.AccountId, cancellationToken);

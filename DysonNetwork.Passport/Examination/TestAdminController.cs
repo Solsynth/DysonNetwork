@@ -80,6 +80,17 @@ public class TestAdminController(AppDatabase db, TestService tests) : Controller
         return test is null ? NotFound() : Ok(TestController.ToParticipantTest(test));
     }
 
+    [HttpPost("{key}/trial/attempts")]
+    [AskPermission(PermissionKeys.TestsManage)]
+    public async Task<ActionResult<ParticipantAttempt>> StartTrial(string key)
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount user) return Unauthorized();
+        var test = await TestsQuery().FirstOrDefaultAsync(x => x.Key == key && !x.IsArchived);
+        if (test is null) return NotFound();
+        try { return Ok(TestController.ToParticipantAttempt(await tests.StartAttempt(user.Id, test, isTrial: true, cancellationToken: HttpContext.RequestAborted))); }
+        catch (InvalidOperationException ex) { return BadRequest(new ApiError { Code = "PASSPORT_TEST_TRIAL_UNAVAILABLE", Message = ex.Message, Status = 400 }); }
+    }
+
     [HttpPost("{key}/trial/grade")]
     [AskPermission(PermissionKeys.TestsManage)]
     public async Task<ActionResult<TestTrialResult>> GradeTrial(string key, [FromBody] SubmitTestAttemptRequest request)

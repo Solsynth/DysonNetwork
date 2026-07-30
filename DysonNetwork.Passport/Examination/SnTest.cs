@@ -87,6 +87,7 @@ public class SnTestAttempt : ModelBase
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid TestId { get; set; }
     public Guid AccountId { get; set; }
+    public bool IsTrial { get; set; }
     public TestAttemptStatus Status { get; set; } = TestAttemptStatus.InProgress;
     public Instant StartedAt { get; set; }
     public Instant? SubmittedAt { get; set; }
