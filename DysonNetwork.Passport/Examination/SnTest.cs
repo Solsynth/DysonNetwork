@@ -17,6 +17,7 @@ public class SnTest : ModelBase
     [MaxLength(4096)] public string? Description { get; set; }
     public bool IsPublished { get; set; }
     public bool IsListed { get; set; } = true;
+    public bool ShuffleQuestions { get; set; }
     public bool IsArchived { get; set; }
     public double PassingScore { get; set; } = 100;
     public int? MaxAttempts { get; set; }
@@ -24,14 +25,14 @@ public class SnTest : ModelBase
     public int? TimeLimitSeconds { get; set; }
     [MaxLength(1024)] public string? GrantedPermissionGroupKey { get; set; }
     [Column(TypeName = "jsonb")] public Dictionary<string, object?> Config { get; set; } = new();
-    public List<SnTestQuestion> Questions { get; set; } = [];
+    public List<SnTestQuestionGroupAssignment> QuestionGroups { get; set; } = [];
 }
 
 public class SnTestQuestion : ModelBase
 {
     public Guid Id { get; set; } = Guid.NewGuid();
-    public Guid TestId { get; set; }
-    public SnTest Test { get; set; } = null!;
+    public Guid QuestionGroupId { get; set; }
+    public SnTestQuestionGroup QuestionGroup { get; set; } = null!;
     public int SortOrder { get; set; }
     [MaxLength(8192)] public string Content { get; set; } = null!;
     public TestQuestionType Type { get; set; }
@@ -40,6 +41,27 @@ public class SnTestQuestion : ModelBase
     public double Points { get; set; } = 1;
     [Column(TypeName = "jsonb")] public Dictionary<string, object?> Config { get; set; } = new();
     public List<SnTestChoice> Choices { get; set; } = [];
+}
+
+public class SnTestQuestionGroup : ModelBase
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    [MaxLength(128)] public string Key { get; set; } = null!;
+    [MaxLength(256)] public string Title { get; set; } = null!;
+    [MaxLength(4096)] public string? Description { get; set; }
+    [Column(TypeName = "jsonb")] public Dictionary<string, object?> Config { get; set; } = new();
+    public List<SnTestQuestion> Questions { get; set; } = [];
+    public List<SnTestQuestionGroupAssignment> TestAssignments { get; set; } = [];
+}
+
+public class SnTestQuestionGroupAssignment : ModelBase
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TestId { get; set; }
+    public SnTest Test { get; set; } = null!;
+    public Guid QuestionGroupId { get; set; }
+    public SnTestQuestionGroup QuestionGroup { get; set; } = null!;
+    public int SortOrder { get; set; }
 }
 
 public class SnTestChoice : ModelBase

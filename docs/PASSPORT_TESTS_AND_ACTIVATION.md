@@ -1,6 +1,6 @@
 # Passport Tests and Account Activation
 
-Passport provides reusable tests for account onboarding and other permission-gated flows. Test definitions, questions, choices, attempts, and answers are stored only in the Passport database.
+Passport provides reusable tests for account onboarding and other permission-gated flows. Test definitions, reusable question groups, questions, choices, attempts, and answers are stored only in the Passport database.
 
 ## Activation configuration
 
@@ -65,7 +65,8 @@ All admin endpoints are under `/passport/api/admin/tests` in production.
 
 - `GET /api/admin/tests` lists test definitions, including correct choice data.
 - `POST /api/admin/tests` creates a test and its questions.
-- `PUT /api/admin/tests/{key}` replaces a test’s editable definition and questions. Existing attempts retain their stored snapshot.
+- `PUT /api/admin/tests/{key}` replaces a test’s editable definition and attached question groups. Existing attempts retain their stored snapshot.
+- `GET|POST|PUT|DELETE /api/admin/test-question-groups` manages reusable question groups and their questions.
 - `POST /api/admin/tests/{key}/publish?published=true` publishes or unpublishes a test.
 - `POST /api/admin/tests/{key}/listing?listed=true` lists or unlists a published test in the public catalog.
 - `POST /api/admin/tests/{key}/archive?archived=true` archives or restores a test.
@@ -87,23 +88,14 @@ Create a choice test and grant a group on passing:
   "time_limit_seconds": 600,
   "granted_permission_group_key": "community-member",
   "config": {},
-  "questions": [
-    {
-      "sort_order": 0,
-      "content": "Which action follows the community guidelines?",
-      "type": "single_choice",
-      "grading_mode": "auto",
-      "difficulty": 1,
-      "points": 1,
-      "config": {},
-      "choices": [
-        { "sort_order": 0, "content": "Respect other members", "is_correct": true, "config": {} },
-        { "sort_order": 1, "content": "Harass other members", "is_correct": false, "config": {} }
-      ]
-    }
+  "shuffle_questions": true,
+  "question_groups": [
+    { "question_group_key": "platform-basics", "sort_order": 0 }
   ]
 }
 ```
+
+Questions belong to reusable question groups rather than directly to a test. Tests attach one or more groups. A choice has a stable ID for grading, but Passport shuffles the choice order in participant payloads. `shuffle_questions` additionally randomizes question order when the attempt snapshot is created.
 
 `granted_permission_group_key` is optional. When the attempt passes, Passport publishes an account event; Padlock adds the account to that group and invalidates its permission cache. The named group must already exist in Padlock.
 

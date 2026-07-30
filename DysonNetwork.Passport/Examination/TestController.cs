@@ -18,7 +18,7 @@ public class TestController(AppDatabase db, TestService tests) : ControllerBase
     [AllowAnonymous]
     public async Task<ActionResult<List<ParticipantTest>>> ListPublicTests()
     {
-        var items = await db.Tests.Include(x => x.Questions).ThenInclude(x => x.Choices)
+        var items = await db.Tests.Include(x => x.QuestionGroups).ThenInclude(x => x.QuestionGroup).ThenInclude(x => x.Questions).ThenInclude(x => x.Choices)
             .Where(x => x.IsPublished && x.IsListed && !x.IsArchived).OrderBy(x => x.Title).ToListAsync();
         return Ok(items.Select(ToParticipantTest));
     }
@@ -78,14 +78,16 @@ public class TestController(AppDatabase db, TestService tests) : ControllerBase
         return attempt is null ? NotFound() : Ok(ToParticipantAttempt(attempt));
     }
 
-    private Task<SnTest?> LoadPublishedTest(string key) => db.Tests.Include(x => x.Questions).ThenInclude(x => x.Choices)
+    private Task<SnTest?> LoadPublishedTest(string key) => db.Tests.Include(x => x.QuestionGroups).ThenInclude(x => x.QuestionGroup).ThenInclude(x => x.Questions).ThenInclude(x => x.Choices)
         .FirstOrDefaultAsync(x => x.Key == key && x.IsPublished && !x.IsArchived);
 
     internal static ParticipantTest ToParticipantTest(SnTest test) => new()
     {
         Key = test.Key, Title = test.Title, Description = test.Description, TimeLimitSeconds = test.TimeLimitSeconds,
-        Questions = test.Questions.OrderBy(x => x.SortOrder).Select(q => new ParticipantQuestion
-        { Id = q.Id, Content = q.Content, Type = q.Type, Config = q.Config, Choices = q.Choices.OrderBy(c => c.SortOrder).Select(c => new ParticipantChoice { Id = c.Id, Content = c.Content, Config = c.Config }).ToList() }).ToList()
+        Questions = (test.ShuffleQuestions
+            ? test.QuestionGroups.SelectMany(x => x.QuestionGroup.Questions).OrderBy(_ => Random.Shared.Next())
+            : test.QuestionGroups.OrderBy(x => x.SortOrder).SelectMany(x => x.QuestionGroup.Questions.OrderBy(q => q.SortOrder))).Select(q => new ParticipantQuestion
+        { Id = q.Id, Content = q.Content, Type = q.Type, Config = q.Config, Choices = q.Choices.OrderBy(_ => Random.Shared.Next()).Select(c => new ParticipantChoice { Id = c.Id, Content = c.Content, Config = c.Config }).ToList() }).ToList()
     };
     internal static ParticipantAttempt ToParticipantAttempt(SnTestAttempt x) => new() { Id = x.Id, Status = x.Status, StartedAt = x.StartedAt, DeadlineAt = x.DeadlineAt, SubmittedAt = x.SubmittedAt, ReviewedAt = x.ReviewedAt, Score = x.Score, Answers = x.Answers.Select(a => new ParticipantAnswer { QuestionId = a.QuestionId, Value = a.Value, ReviewNote = a.ReviewNote }).ToList() };
 }

@@ -223,7 +223,9 @@ public class TestSnapshot
     {
         PassingScore = test.PassingScore,
         GrantedPermissionGroupKey = test.GrantedPermissionGroupKey,
-        Questions = test.Questions.OrderBy(x => x.SortOrder).Select(x => new TestQuestionSnapshot
+        Questions = (test.ShuffleQuestions
+            ? test.QuestionGroups.SelectMany(x => x.QuestionGroup.Questions).OrderBy(_ => Random.Shared.Next())
+            : test.QuestionGroups.OrderBy(x => x.SortOrder).SelectMany(x => x.QuestionGroup.Questions.OrderBy(q => q.SortOrder))).Select(x => new TestQuestionSnapshot
         {
             Id = x.Id, Content = x.Content, Type = x.Type, GradingMode = x.GradingMode, Points = x.Points,
             Choices = x.Choices.OrderBy(c => c.SortOrder).Select(c => new TestChoiceSnapshot { Id = c.Id, Content = c.Content, IsCorrect = c.IsCorrect }).ToList()

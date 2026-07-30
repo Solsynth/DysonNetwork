@@ -11,36 +11,40 @@ namespace DysonNetwork.Passport.Examination;
 [Authorize]
 [ApiController]
 [Route("/api/admin/tests")]
-[ApiFeature("admin.tests", Revision = 1)]
+[ApiFeature("admin.tests", Revision = 2)]
 public class TestAdminController(AppDatabase db, TestService tests) : ControllerBase
 {
     [HttpGet]
     [AskPermission(PermissionKeys.TestsManage)]
-    public async Task<ActionResult<List<SnTest>>> List() => Ok(await db.Tests.Include(x => x.Questions).ThenInclude(x => x.Choices).OrderBy(x => x.Key).ToListAsync());
+    public async Task<ActionResult<List<SnTest>>> List() => Ok(await TestsQuery().OrderBy(x => x.Key).ToListAsync());
 
     [HttpPost]
     [AskPermission(PermissionKeys.TestsManage)]
     public async Task<ActionResult<SnTest>> Create([FromBody] TestUpsertRequest request)
     {
+        if (!Validate(request, out var error)) return BadRequest(error);
+        var groups = await ResolveGroups(request.QuestionGroups);
+        if (groups is null) return BadRequest("One or more question groups do not exist.");
         var test = new SnTest();
-        Apply(test, request);
-        if (!Validate(test, out var error)) return BadRequest(error);
+        Apply(test, request, groups);
         db.Tests.Add(test);
         await db.SaveChangesAsync();
-        return Ok(test);
+        return Ok(await TestsQuery().FirstAsync(x => x.Id == test.Id));
     }
 
     [HttpPut("{key}")]
     [AskPermission(PermissionKeys.TestsManage)]
     public async Task<ActionResult<SnTest>> Update(string key, [FromBody] TestUpsertRequest request)
     {
-        var test = await db.Tests.Include(x => x.Questions).ThenInclude(x => x.Choices).FirstOrDefaultAsync(x => x.Key == key);
+        var test = await TestsQuery().FirstOrDefaultAsync(x => x.Key == key);
         if (test is null) return NotFound();
-        db.TestQuestions.RemoveRange(test.Questions);
-        Apply(test, request);
-        if (!Validate(test, out var error)) return BadRequest(error);
+        if (!Validate(request, out var error)) return BadRequest(error);
+        var groups = await ResolveGroups(request.QuestionGroups);
+        if (groups is null) return BadRequest("One or more question groups do not exist.");
+        db.TestQuestionGroupAssignments.RemoveRange(test.QuestionGroups);
+        Apply(test, request, groups);
         await db.SaveChangesAsync();
-        return Ok(test);
+        return Ok(await TestsQuery().FirstAsync(x => x.Id == test.Id));
     }
 
     [HttpPost("{key}/publish")]
@@ -88,23 +92,29 @@ public class TestAdminController(AppDatabase db, TestService tests) : Controller
         catch (InvalidOperationException ex) { return BadRequest(new ApiError { Code = "PASSPORT_TEST_REVIEW_FAILED", Message = ex.Message, Status = 400 }); }
     }
 
-    private static void Apply(SnTest test, TestUpsertRequest request)
+    private IQueryable<SnTest> TestsQuery() => db.Tests.Include(x => x.QuestionGroups).ThenInclude(x => x.QuestionGroup).ThenInclude(x => x.Questions).ThenInclude(x => x.Choices);
+
+    private async Task<Dictionary<string, SnTestQuestionGroup>?> ResolveGroups(List<TestQuestionGroupAssignmentUpsertRequest> assignments)
     {
-        test.Key = request.Key.Trim(); test.Title = request.Title; test.Description = request.Description; test.IsPublished = request.IsPublished; test.IsListed = request.IsListed;
-        test.PassingScore = request.PassingScore; test.MaxAttempts = request.MaxAttempts; test.AttemptPeriodDays = request.AttemptPeriodDays; test.TimeLimitSeconds = request.TimeLimitSeconds; test.GrantedPermissionGroupKey = string.IsNullOrWhiteSpace(request.GrantedPermissionGroupKey) ? null : request.GrantedPermissionGroupKey.Trim(); test.Config = request.Config;
-        test.Questions = request.Questions.Select(q => new SnTestQuestion
-        { SortOrder = q.SortOrder, Content = q.Content, Type = q.Type, GradingMode = q.GradingMode, Difficulty = q.Difficulty, Points = q.Points, Config = q.Config,
-            Choices = q.Choices.Select(c => new SnTestChoice { SortOrder = c.SortOrder, Content = c.Content, IsCorrect = c.IsCorrect, Config = c.Config }).ToList() }).ToList();
+        var keys = assignments.Select(x => x.QuestionGroupKey.Trim()).Where(x => !string.IsNullOrWhiteSpace(x)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        var groups = await db.TestQuestionGroups.Where(x => keys.Contains(x.Key)).ToListAsync();
+        return groups.Count == keys.Count ? groups.ToDictionary(x => x.Key, StringComparer.OrdinalIgnoreCase) : null;
     }
-    private static bool Validate(SnTest test, out string error)
+
+    private static void Apply(SnTest test, TestUpsertRequest request, IReadOnlyDictionary<string, SnTestQuestionGroup> groups)
     {
-        if (string.IsNullOrWhiteSpace(test.Key) || string.IsNullOrWhiteSpace(test.Title) || test.PassingScore is < 0 or > 100 || test.MaxAttempts is < 1 || test.AttemptPeriodDays < 1 || test.TimeLimitSeconds is < 1) { error = "The test configuration is invalid."; return false; }
-        if (test.Questions.Any(q => string.IsNullOrWhiteSpace(q.Content) || q.Points < 0 || (q.GradingMode == TestQuestionGradingMode.Auto && (q.Type == TestQuestionType.FreeText || !q.Choices.Any(c => c.IsCorrect))))) { error = "Auto-graded questions must be choice questions with at least one correct choice."; return false; }
+        test.Key = request.Key.Trim(); test.Title = request.Title; test.Description = request.Description; test.IsPublished = request.IsPublished; test.IsListed = request.IsListed; test.ShuffleQuestions = request.ShuffleQuestions;
+        test.PassingScore = request.PassingScore; test.MaxAttempts = request.MaxAttempts; test.AttemptPeriodDays = request.AttemptPeriodDays; test.TimeLimitSeconds = request.TimeLimitSeconds; test.GrantedPermissionGroupKey = string.IsNullOrWhiteSpace(request.GrantedPermissionGroupKey) ? null : request.GrantedPermissionGroupKey.Trim(); test.Config = request.Config;
+        test.QuestionGroups = request.QuestionGroups.Select(x => new SnTestQuestionGroupAssignment { QuestionGroup = groups[x.QuestionGroupKey.Trim()], SortOrder = x.SortOrder }).ToList();
+    }
+
+    private static bool Validate(TestUpsertRequest request, out string error)
+    {
+        if (string.IsNullOrWhiteSpace(request.Key) || string.IsNullOrWhiteSpace(request.Title) || request.PassingScore is < 0 or > 100 || request.MaxAttempts is < 1 || request.AttemptPeriodDays < 1 || request.TimeLimitSeconds is < 1 || request.QuestionGroups.Any(x => string.IsNullOrWhiteSpace(x.QuestionGroupKey)) || request.QuestionGroups.Select(x => x.QuestionGroupKey.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).Count() != request.QuestionGroups.Count) { error = "The test configuration is invalid."; return false; }
         error = string.Empty; return true;
     }
 }
 
-public class TestUpsertRequest { public string Key { get; set; } = null!; public string Title { get; set; } = null!; public string? Description { get; set; } public bool IsPublished { get; set; } public bool IsListed { get; set; } = true; public double PassingScore { get; set; } = 100; public int? MaxAttempts { get; set; } public int AttemptPeriodDays { get; set; } = 365; public int? TimeLimitSeconds { get; set; } public string? GrantedPermissionGroupKey { get; set; } public Dictionary<string, object?> Config { get; set; } = new(); public List<TestQuestionUpsertRequest> Questions { get; set; } = []; }
-public class TestQuestionUpsertRequest { public int SortOrder { get; set; } public string Content { get; set; } = null!; public TestQuestionType Type { get; set; } public TestQuestionGradingMode GradingMode { get; set; } public int Difficulty { get; set; } public double Points { get; set; } = 1; public Dictionary<string, object?> Config { get; set; } = new(); public List<TestChoiceUpsertRequest> Choices { get; set; } = []; }
-public class TestChoiceUpsertRequest { public int SortOrder { get; set; } public string Content { get; set; } = null!; public bool IsCorrect { get; set; } public Dictionary<string, object?> Config { get; set; } = new(); }
+public class TestUpsertRequest { public string Key { get; set; } = null!; public string Title { get; set; } = null!; public string? Description { get; set; } public bool IsPublished { get; set; } public bool IsListed { get; set; } = true; public bool ShuffleQuestions { get; set; } public double PassingScore { get; set; } = 100; public int? MaxAttempts { get; set; } public int AttemptPeriodDays { get; set; } = 365; public int? TimeLimitSeconds { get; set; } public string? GrantedPermissionGroupKey { get; set; } public Dictionary<string, object?> Config { get; set; } = new(); public List<TestQuestionGroupAssignmentUpsertRequest> QuestionGroups { get; set; } = []; }
+public class TestQuestionGroupAssignmentUpsertRequest { public string QuestionGroupKey { get; set; } = null!; public int SortOrder { get; set; } }
 public class ReviewTestAnswerRequest { public bool IsCorrect { get; set; } public double AwardedPoints { get; set; } public string? Note { get; set; } }
