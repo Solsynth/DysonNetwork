@@ -9,7 +9,8 @@ public class PermissionSeedService(
     AppDatabase db,
     ILogger<PermissionSeedService> logger)
 {
-    private const string DefaultGroupKey = "default";
+    public const string DefaultGroupKey = "default";
+    public const string AllUsersGroupKey = "all-users";
 
     /// <summary>
     /// Synchronizes all keys defined in <see cref="PermissionKeys"/> into the default
@@ -18,53 +19,45 @@ public class PermissionSeedService(
     /// </summary>
     public async Task EnsureSeededAsync(CancellationToken cancellationToken = default)
     {
-        var group = await db.PermissionGroups
-            .Include(g => g.Nodes)
-            .FirstOrDefaultAsync(g => g.Key == DefaultGroupKey, cancellationToken);
-
-        if (group is null)
-        {
-            logger.LogWarning("Default permission group (key={GroupKey}) not found. Skipping permission seeding.", DefaultGroupKey);
-            return;
-        }
-
-        var allKeys = typeof(PermissionKeys)
+        var defaultKeys = typeof(PermissionKeys)
             .GetFields(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static)
             .Where(f => f.IsLiteral && f.FieldType == typeof(string))
             .Select(f => (string)f.GetRawConstantValue()!)
+            .Except([PermissionKeys.TestsManage, PermissionKeys.TestsReview])
             .ToHashSet();
+        var defaultGroup = await EnsureGroupAsync(DefaultGroupKey, defaultKeys, cancellationToken);
+        var allUsersGroup = await EnsureGroupAsync(AllUsersGroupKey, [PermissionKeys.TestsTake], cancellationToken);
 
-        var existingKeys = group.Nodes
-            .Where(n => n.Type == PermissionNodeActorType.Group)
-            .Select(n => n.Key)
-            .ToHashSet();
-
-        var missing = allKeys.Except(existingKeys).ToList();
-        if (missing.Count == 0)
+        var accountActors = await db.Accounts.Select(x => x.Id.ToString()).ToListAsync(cancellationToken);
+        var currentActors = await db.PermissionGroupMembers.Where(x => x.GroupId == allUsersGroup.Id)
+            .Select(x => x.Actor).ToListAsync(cancellationToken);
+        var missingActors = accountActors.Except(currentActors).ToList();
+        foreach (var actor in missingActors)
         {
-            logger.LogDebug("Default permission group is up to date ({Count} keys).", allKeys.Count);
-            return;
+            db.PermissionGroupMembers.Add(new SnPermissionGroupMember { GroupId = allUsersGroup.Id, Actor = actor });
         }
+        if (missingActors.Count > 0) await db.SaveChangesAsync(cancellationToken);
 
-        foreach (var key in missing)
+        logger.LogInformation("Permission groups synchronized: {DefaultGroup} and {AllUsersGroup}.", defaultGroup.Key, allUsersGroup.Key);
+    }
+
+    private async Task<SnPermissionGroup> EnsureGroupAsync(string key, IEnumerable<string> keys, CancellationToken cancellationToken)
+    {
+        var group = await db.PermissionGroups.Include(g => g.Nodes).FirstOrDefaultAsync(g => g.Key == key, cancellationToken);
+        if (group is null)
         {
-            var node = new SnPermissionNode
-            {
-                Actor = $"group:{DefaultGroupKey}",
-                Type = PermissionNodeActorType.Group,
-                Key = key,
-                Value = JsonDocument.Parse(JsonSerializer.Serialize(true)),
-                GroupId = group.Id,
-                Group = group
-            };
+            group = new SnPermissionGroup { Key = key };
+            db.PermissionGroups.Add(group);
+            await db.SaveChangesAsync(cancellationToken);
+        }
+        var existing = group.Nodes.Select(x => x.Key).ToHashSet();
+        foreach (var permissionKey in keys.Except(existing))
+        {
+            var node = new SnPermissionNode { Actor = $"group:{key}", Type = PermissionNodeActorType.Group, Key = permissionKey, Value = JsonDocument.Parse(JsonSerializer.Serialize(true)), GroupId = group.Id, Group = group };
             db.PermissionNodes.Add(node);
             group.Nodes.Add(node);
         }
-
         await db.SaveChangesAsync(cancellationToken);
-
-        logger.LogInformation(
-            "Synced {MissingCount} new permission key(s) into default group ({TotalCount} total).",
-            missing.Count, allKeys.Count);
+        return group;
     }
 }

@@ -20,6 +20,7 @@
   "permissionDenied": "You do not have permission to access this resource",
   "lotteryWon": "Congratulations! You won the lottery!",
   "regConfirmTitle": "Confirm your registration",
+  "welcomeEmailTitle": "Welcome to Solar Network",
   "emailAccountDeletionTitle": "Confirm your account deletion",
   "passwordResetTitle": "Reset your password",
   "contractMethodVerificationTitle": "Verify your contact method",

@@ -4,6 +4,7 @@ using System.Text.Json.Serialization;
 using DysonNetwork.Passport.Account;
 using DysonNetwork.Passport.Models;
 using DysonNetwork.Passport.Nfc;
+using DysonNetwork.Passport.Examination;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Models;
 using Microsoft.EntityFrameworkCore;
@@ -72,6 +73,11 @@ public class AppDatabase(
 
     public DbSet<SnDomainBlock> DomainBlocks { get; set; } = null!;
     public DbSet<SnDomainValidationMetric> DomainValidationMetrics { get; set; } = null!;
+    public DbSet<SnTest> Tests { get; set; } = null!;
+    public DbSet<SnTestQuestion> TestQuestions { get; set; } = null!;
+    public DbSet<SnTestChoice> TestChoices { get; set; } = null!;
+    public DbSet<SnTestAttempt> TestAttempts { get; set; } = null!;
+    public DbSet<SnTestAnswer> TestAnswers { get; set; } = null!;
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
@@ -131,6 +137,16 @@ public class AppDatabase(
         modelBuilder.Entity<SnAccountProfile>()
             .HasIndex(p => p.AccountId)
             .IsUnique();
+
+        modelBuilder.Entity<SnTest>().HasIndex(x => x.Key).IsUnique();
+        modelBuilder.Entity<SnTestQuestion>().HasIndex(x => new { x.TestId, x.SortOrder });
+        modelBuilder.Entity<SnTestQuestion>().HasOne(x => x.Test).WithMany(x => x.Questions).HasForeignKey(x => x.TestId).OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<SnTestChoice>().HasIndex(x => new { x.QuestionId, x.SortOrder });
+        modelBuilder.Entity<SnTestChoice>().HasOne(x => x.Question).WithMany(x => x.Choices).HasForeignKey(x => x.QuestionId).OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<SnTestAttempt>().HasIndex(x => new { x.AccountId, x.TestId, x.Status });
+        modelBuilder.Entity<SnTestAttempt>().HasIndex(x => new { x.TestId, x.Status });
+        modelBuilder.Entity<SnTestAnswer>().HasIndex(x => new { x.AttemptId, x.QuestionId }).IsUnique();
+        modelBuilder.Entity<SnTestAnswer>().HasOne(x => x.Attempt).WithMany(x => x.Answers).HasForeignKey(x => x.AttemptId).OnDelete(DeleteBehavior.Cascade);
 
         modelBuilder.Entity<SnPresenceActivity>()
             .HasIndex(e => new { e.AccountId, e.Provider, e.DeletedAt });

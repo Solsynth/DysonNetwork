@@ -115,6 +115,7 @@ public class AccountService(
         };
 
         db.Accounts.Add(account);
+        await GrantPermissionGroup(account.Id, PermissionSeedService.AllUsersGroupKey, saveChanges: false);
         await db.SaveChangesAsync();
         await PublishAccountCreated(account, affiliationSpell);
         return account;
@@ -1344,28 +1345,31 @@ public class AccountService(
         }
 
         var actor = accountId.ToString();
-        var defaultGroup = await db.PermissionGroups.FirstOrDefaultAsync(g => g.Key == "default");
-        if (defaultGroup is not null)
-        {
-            var member = await db.PermissionGroupMembers
-                .FirstOrDefaultAsync(m => m.GroupId == defaultGroup.Id && m.Actor == actor);
-            if (member is null)
-            {
-                db.PermissionGroupMembers.Add(new SnPermissionGroupMember
-                {
-                    GroupId = defaultGroup.Id,
-                    Actor = actor
-                });
-            }
-            else
-            {
-                member.AffectedAt = null;
-                member.ExpiredAt = null;
-            }
-        }
+        await GrantPermissionGroup(accountId, PermissionSeedService.DefaultGroupKey, saveChanges: false);
 
         await db.SaveChangesAsync();
         await permissionService.ClearActorCacheAsync(actor);
+        return true;
+    }
+
+    public async Task<bool> GrantPermissionGroup(Guid accountId, string groupKey, bool saveChanges = true)
+    {
+        var group = await db.PermissionGroups.FirstOrDefaultAsync(g => g.Key == groupKey);
+        if (group is null) return false;
+        var actor = accountId.ToString();
+        var member = await db.PermissionGroupMembers.FirstOrDefaultAsync(m => m.GroupId == group.Id && m.Actor == actor);
+        if (member is null)
+            db.PermissionGroupMembers.Add(new SnPermissionGroupMember { GroupId = group.Id, Actor = actor });
+        else
+        {
+            member.AffectedAt = null;
+            member.ExpiredAt = null;
+        }
+        if (saveChanges)
+        {
+            await db.SaveChangesAsync();
+            await permissionService.ClearActorCacheAsync(actor);
+        }
         return true;
     }
 
@@ -1464,6 +1468,7 @@ public class AccountService(
                 Group = defaultGroup
             });
         }
+        await GrantPermissionGroup(account.Id, PermissionSeedService.AllUsersGroupKey, saveChanges: false);
 
         db.Set<SnAccount>().Add(account);
         await db.SaveChangesAsync();

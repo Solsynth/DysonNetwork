@@ -19,6 +19,7 @@ using DysonNetwork.Passport.Progression;
 using DysonNetwork.Passport.Realm;
 using DysonNetwork.Passport.Rewind;
 using DysonNetwork.Passport.Ticket;
+using DysonNetwork.Passport.Examination;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.EventBus;
@@ -41,6 +42,7 @@ public static class ServiceCollectionExtensions
         services.AddLocalization(options => options.ResourcesPath = "Resources");
 
         services.Configure<BadgesOptions>(configuration.GetSection("Badges"));
+        services.Configure<AccountActivationOptions>(configuration.GetSection("AccountActivation"));
 
         services.AddDbContext<AppDatabase>();
         services.AddHttpContextAccessor();
@@ -146,6 +148,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<AffiliationSpellService>();
         services.AddScoped<ProgressionSeedService>();
         services.AddScoped<ProgressionService>();
+        services.AddScoped<TestService>();
 
         services.AddScoped<SteamPresenceService>();
         services.AddScoped<IPresenceService, SteamPresenceService>();
@@ -183,6 +186,8 @@ public static class ServiceCollectionExtensions
                 var spells = ctx.ServiceProvider.GetRequiredService<MagicSpellService>();
                 var affiliationSpells = ctx.ServiceProvider.GetRequiredService<AffiliationSpellService>();
                 var logger = ctx.ServiceProvider.GetRequiredService<ILogger<EventBus>>();
+                var email = ctx.ServiceProvider.GetRequiredService<EmailService>();
+                var localizer = ctx.ServiceProvider.GetRequiredService<ILocalizationService>();
                 
                 logger.LogInformation("Handling account creation event for @{UserName}", evt.Name);
 
@@ -199,7 +204,7 @@ public static class ServiceCollectionExtensions
                             Language = evt.Language,
                             Region = evt.Region
                         },
-                        MagicSpellType.AccountActivation,
+                        MagicSpellType.ContactVerification,
                         new Dictionary<string, object>
                         {
                             { "contact_method", evt.PrimaryEmail! },
@@ -208,6 +213,26 @@ public static class ServiceCollectionExtensions
                         preventRepeat: true
                     );
                     await spells.NotifyMagicSpell(spell, true);
+                }
+
+                if (!string.IsNullOrWhiteSpace(evt.PrimaryEmail))
+                {
+                    try
+                    {
+                        var recipientName = string.IsNullOrWhiteSpace(evt.Nick) ? evt.Name : evt.Nick;
+                        await email.SendTemplatedEmailAsync(
+                            recipientName,
+                            evt.PrimaryEmail,
+                            localizer.Get("welcomeEmailTitle", evt.Language),
+                            "Welcome",
+                            new { nick = recipientName, site_url = configuration.GetValue<string>("SiteUrl") },
+                            evt.Language
+                        );
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogWarning(ex, "Failed to send welcome email for account {AccountId}", evt.AccountId);
+                    }
                 }
 
                 if (!string.IsNullOrWhiteSpace(evt.AffiliationSpell))

@@ -67,6 +67,7 @@ public class AppDatabase(
                     .GetFields(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static)
                     .Where(f => f.IsLiteral && f.FieldType == typeof(string))
                     .Select(f => (string)f.GetRawConstantValue()!)
+                    .Except([DysonNetwork.Shared.Auth.PermissionKeys.TestsManage, DysonNetwork.Shared.Auth.PermissionKeys.TestsReview])
                     .ToList();
 
                 context.Set<SnPermissionGroup>().Add(new SnPermissionGroup

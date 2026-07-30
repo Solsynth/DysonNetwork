@@ -6,6 +6,7 @@ using DysonNetwork.Passport;
 using DysonNetwork.Shared.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using NetTopologySuite.Geometries;
 using NodaTime;
@@ -16,9 +17,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace DysonNetwork.Passport.Migrations
 {
     [DbContext(typeof(AppDatabase))]
-    partial class AppDatabaseModelSnapshot : ModelSnapshot
+    [Migration("20260730044035_AddAccountTests")]
+    partial class AddAccountTests
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -189,10 +192,6 @@ namespace DysonNetwork.Passport.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.Property<int>("AttemptPeriodDays")
-                        .HasColumnType("integer")
-                        .HasColumnName("attempt_period_days");
-
                     b.Property<Dictionary<string, object>>("Config")
                         .IsRequired()
                         .HasColumnType("jsonb")
@@ -210,11 +209,6 @@ namespace DysonNetwork.Passport.Migrations
                         .HasMaxLength(4096)
                         .HasColumnType("character varying(4096)")
                         .HasColumnName("description");
-
-                    b.Property<string>("GrantedPermissionGroupKey")
-                        .HasMaxLength(1024)
-                        .HasColumnType("character varying(1024)")
-                        .HasColumnName("granted_permission_group_key");
 
                     b.Property<bool>("IsArchived")
                         .HasColumnType("boolean")

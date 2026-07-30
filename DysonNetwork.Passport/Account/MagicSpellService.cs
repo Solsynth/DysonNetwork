@@ -130,11 +130,12 @@ public class MagicSpellService(
             switch (spell.Type)
             {
                 case MagicSpellType.AccountActivation:
+                case MagicSpellType.ContactVerification:
                     await email.SendTemplatedEmailAsync(
                         recipientName,
                         recipient,
-                        localizer.Get("regConfirmTitle", accountLanguage),
-                        "Welcome",
+                        localizer.Get("contractMethodVerificationTitle", accountLanguage),
+                        "ContactVerification",
                         new { nick = recipientName, link },
                         accountLanguage
                     );
@@ -155,16 +156,6 @@ public class MagicSpellService(
                         recipient,
                         localizer.Get("passwordResetTitle", accountLanguage),
                         "PasswordReset",
-                        new { nick = recipientName, link },
-                        accountLanguage
-                    );
-                    break;
-                case MagicSpellType.ContactVerification:
-                    await email.SendTemplatedEmailAsync(
-                        recipientName,
-                        recipient,
-                        localizer.Get("contractMethodVerificationTitle", accountLanguage),
-                        "ContactVerification",
                         new { nick = recipientName, link },
                         accountLanguage
                     );
@@ -191,7 +182,6 @@ public class MagicSpellService(
     public async Task<IReadOnlyList<string>> ApplyMagicSpell(SnMagicSpell spell)
     {
         var publishedEventTypes = new List<string>();
-        AccountActivatedEvent? accountActivatedEvent = null;
         AccountContactVerifiedEvent? accountContactVerifiedEvent = null;
         AccountRemovalConfirmedEvent? accountRemovalConfirmedEvent = null;
 
@@ -229,15 +219,10 @@ public class MagicSpellService(
                 }
                 break;
             case MagicSpellType.AccountActivation:
+                // Legacy account-activation spells are treated as contact verification only.
                 if (spell.AccountId.HasValue)
                 {
                     var activatedAt = SystemClock.Instance.GetCurrentInstant();
-                    accountActivatedEvent = new AccountActivatedEvent
-                    {
-                        AccountId = spell.AccountId.Value,
-                        ActivatedAt = activatedAt
-                    };
-
                     if (Guid.TryParse(GetMetaString(spell, "contact_id"), out var activationContactId))
                     {
                         accountContactVerifiedEvent = new AccountContactVerifiedEvent
@@ -274,11 +259,6 @@ public class MagicSpellService(
         db.Remove(spell);
         await db.SaveChangesAsync();
 
-        if (accountActivatedEvent is not null)
-        {
-            await eventBus.PublishAsync(AccountActivatedEvent.Type, accountActivatedEvent);
-            publishedEventTypes.Add(AccountActivatedEvent.Type);
-        }
         if (accountContactVerifiedEvent is not null)
         {
             await eventBus.PublishAsync(AccountContactVerifiedEvent.Type, accountContactVerifiedEvent);

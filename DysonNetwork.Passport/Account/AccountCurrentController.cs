@@ -8,6 +8,7 @@ using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
+using DysonNetwork.Passport.Examination;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -36,9 +37,18 @@ public class AccountCurrentController(
     DyFileService.DyFileServiceClient files,
     Credit.SocialCreditService creditService,
     RemoteSubscriptionService remoteSubscription,
-    RemoteActionLogService remoteActionLogs
+    RemoteActionLogService remoteActionLogs,
+    TestService tests
 ) : ControllerBase
 {
+    [HttpGet("activation/progress")]
+    [AskPermission(PermissionKeys.TestsTake)]
+    public async Task<ActionResult<ActivationRequirementState>> GetActivationProgress()
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
+        return Ok(await tests.GetActivationRequirements(currentUser.Id, HttpContext.RequestAborted));
+    }
+
     [HttpGet]
     [ProducesResponseType<SnAccount>(StatusCodes.Status200OK)]
     [ProducesResponseType<ApiError>(StatusCodes.Status401Unauthorized)]

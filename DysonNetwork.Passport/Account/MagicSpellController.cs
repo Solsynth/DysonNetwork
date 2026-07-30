@@ -19,15 +19,15 @@ public class MagicSpellController(
     DyAccountService.DyAccountServiceClient accountGrpc
 ) : ControllerBase
 {
-    [HttpPost("activation/resend")]
+    [HttpPost("contact-verification/resend")]
     [Authorize]
     public async Task<ActionResult> ResendActivationMagicSpell()
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var spell = await db.MagicSpells.FirstOrDefaultAsync(s =>
-            s.Type == MagicSpellType.AccountActivation && s.AccountId == currentUser.Id);
-        if (spell is null) return BadRequest(new ApiError { Code = "PASSPORT_SPELL_NOT_FOUND", Message = "Unable to find activation magic spell.", Status = 400, TraceId = HttpContext.TraceIdentifier });
+            s.Type == MagicSpellType.ContactVerification && s.AccountId == currentUser.Id);
+        if (spell is null) return BadRequest(new ApiError { Code = "PASSPORT_SPELL_NOT_FOUND", Message = "Unable to find contact verification spell.", Status = 400, TraceId = HttpContext.TraceIdentifier });
         
         await sp.NotifyMagicSpell(spell, true);
         return Ok();

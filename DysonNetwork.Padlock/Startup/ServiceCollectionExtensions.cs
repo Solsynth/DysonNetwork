@@ -211,6 +211,18 @@ public static class ServiceCollectionExtensions
                     evt.AccountId
                 );
             })
+            .AddListener<AccountTestPassedPermissionGroupEvent>(async (evt, ctx) =>
+            {
+                var logger = ctx.ServiceProvider.GetRequiredService<ILogger<EventBus>>();
+                var accounts = ctx.ServiceProvider.GetRequiredService<AccountService>();
+                var granted = await accounts.GrantPermissionGroup(evt.AccountId, evt.PermissionGroupKey);
+                if (!granted)
+                {
+                    logger.LogWarning("Permission group {PermissionGroupKey} was not found for passed test {TestId}", evt.PermissionGroupKey, evt.TestId);
+                    return;
+                }
+                logger.LogInformation("Granted permission group {PermissionGroupKey} to account {AccountId} for passed test {TestId}", evt.PermissionGroupKey, evt.AccountId, evt.TestId);
+            })
             .AddListener<AccountRemovalConfirmedEvent>(async (evt, ctx) =>
             {
                 var logger = ctx.ServiceProvider.GetRequiredService<ILogger<EventBus>>();
