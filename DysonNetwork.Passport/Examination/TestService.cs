@@ -251,10 +251,28 @@ public static class TestQuestionSelector
         var count = test.RandomQuestionCount ?? questions.Count;
         if (count >= questions.Count) return questions.OrderBy(_ => Random.Shared.Next());
         var simpleTarget = (int)Math.Round(count * test.SimpleQuestionPercentage / 100d, MidpointRounding.AwayFromZero);
-        var simple = questions.Where(x => x.Difficulty <= 2).OrderBy(_ => Random.Shared.Next()).Take(simpleTarget).ToList();
-        var hard = questions.Where(x => x.Difficulty >= 3).OrderBy(_ => Random.Shared.Next()).Take(count - simple.Count).ToList();
+        var simple = PickBalancedByCategory(questions.Where(x => x.Difficulty <= 2), simpleTarget);
+        var hard = PickBalancedByCategory(questions.Where(x => x.Difficulty >= 3).Except(simple), count - simple.Count);
         var selected = simple.Concat(hard).ToList();
-        if (selected.Count < count) selected.AddRange(questions.Except(selected).OrderBy(_ => Random.Shared.Next()).Take(count - selected.Count));
+        if (selected.Count < count) selected.AddRange(PickBalancedByCategory(questions.Except(selected), count - selected.Count));
         return selected.OrderBy(_ => Random.Shared.Next());
+    }
+
+    private static List<SnTestQuestion> PickBalancedByCategory(IEnumerable<SnTestQuestion> source, int count)
+    {
+        var buckets = source.GroupBy(x => x.Category?.Trim() ?? string.Empty, StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.OrderBy(_ => Random.Shared.Next()).ToList()).Where(group => group.Count > 0).ToList();
+        var selected = new List<SnTestQuestion>();
+        while (selected.Count < count && buckets.Count > 0)
+        {
+            foreach (var bucket in buckets.OrderBy(_ => Random.Shared.Next()).ToList())
+            {
+                if (selected.Count == count) break;
+                selected.Add(bucket[0]);
+                bucket.RemoveAt(0);
+            }
+            buckets.RemoveAll(bucket => bucket.Count == 0);
+        }
+        return selected;
     }
 }

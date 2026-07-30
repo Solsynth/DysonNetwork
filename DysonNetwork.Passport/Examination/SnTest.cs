@@ -52,6 +52,7 @@ public class SnTestQuestion : ModelBase
     public SnTestQuestionGroup QuestionGroup { get; set; } = null!;
     public int SortOrder { get; set; }
     [MaxLength(8192)] public string Content { get; set; } = null!;
+    [MaxLength(128)] public string? Category { get; set; }
     public TestQuestionType Type { get; set; }
     public TestQuestionGradingMode GradingMode { get; set; }
     public int Difficulty { get; set; }

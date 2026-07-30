@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Linq.Expressions;
+using System.Text;
 
 namespace DysonNetwork.Passport.Examination;
 
@@ -58,6 +59,37 @@ public class TestQuestionAdminController(AppDatabase db) : ControllerBase
         return Ok(new TestQuestionImportResult { ImportedCount = request.Questions.Count });
     }
 
+    [HttpGet("export")]
+    [AskPermission(PermissionKeys.TestsManage)]
+    public async Task<FileContentResult> Export([FromQuery] string? groupKey)
+    {
+        var questions = await db.TestQuestions.AsNoTracking().Include(x => x.QuestionGroup).Include(x => x.Choices)
+            .Where(x => string.IsNullOrWhiteSpace(groupKey) || x.QuestionGroup.Key == groupKey)
+            .OrderBy(x => x.QuestionGroup.Key).ThenBy(x => x.SortOrder).ToListAsync();
+        var csv = new StringBuilder("question_group_key,content,category,type,grading_mode,difficulty,points,choices,correct_choices\n");
+        foreach (var question in questions)
+        {
+            var choices = question.Choices.OrderBy(x => x.SortOrder).ToList();
+            csv.AppendLine(string.Join(',', [
+                Csv(question.QuestionGroup.Key), Csv(question.Content), Csv(question.Category), Csv(question.Type switch { TestQuestionType.SingleChoice => "single_choice", TestQuestionType.MultipleChoice => "multiple_choice", _ => "free_text" }),
+                Csv(question.GradingMode == TestQuestionGradingMode.Auto ? "auto" : "manual"), question.Difficulty, question.Points,
+                Csv(string.Join('|', choices.Select(x => x.Content))), Csv(string.Join('|', choices.Select((x, index) => (x, index)).Where(x => x.x.IsCorrect).Select(x => x.index)))
+            ]));
+        }
+        return File(Encoding.UTF8.GetBytes(csv.ToString()), "text/csv", $"test-question-bank{(string.IsNullOrWhiteSpace(groupKey) ? string.Empty : $"-{groupKey}")}.csv");
+    }
+
+    [HttpDelete("prune")]
+    [AskPermission(PermissionKeys.TestsManage)]
+    public async Task<ActionResult<TestQuestionPruneResult>> Prune([FromQuery] string? groupKey, [FromQuery] bool confirm = false)
+    {
+        if (!confirm) return BadRequest("Set confirm=true to prune question-bank questions.");
+        var query = db.TestQuestions.Where(x => string.IsNullOrWhiteSpace(groupKey) || x.QuestionGroup.Key == groupKey);
+        var removedCount = await query.CountAsync();
+        await query.ExecuteDeleteAsync();
+        return Ok(new TestQuestionPruneResult { RemovedCount = removedCount });
+    }
+
     [HttpPut("{id:guid}")]
     [AskPermission(PermissionKeys.TestsManage)]
     public async Task<ActionResult<TestQuestionResponse>> Update(Guid id, [FromBody] TestQuestionUpsertRequest request)
@@ -86,11 +118,12 @@ public class TestQuestionAdminController(AppDatabase db) : ControllerBase
     }
 
     private IQueryable<TestQuestionResponse> Questions() => db.TestQuestions.AsNoTracking().Include(x => x.Choices).Select(ToResponse());
-    private static Expression<Func<SnTestQuestion, TestQuestionResponse>> ToResponse() => x => new TestQuestionResponse { Id = x.Id, SortOrder = x.SortOrder, Content = x.Content, Type = x.Type, GradingMode = x.GradingMode, Difficulty = x.Difficulty, Points = x.Points, Config = x.Config, Choices = x.Choices.OrderBy(c => c.SortOrder).Select(c => new TestChoiceResponse { Id = c.Id, SortOrder = c.SortOrder, Content = c.Content, IsCorrect = c.IsCorrect, Config = c.Config }).ToList() };
+    private static string Csv(string? value) => $"\"{(value ?? string.Empty).Replace("\"", "\"\"")}\"";
+    private static Expression<Func<SnTestQuestion, TestQuestionResponse>> ToResponse() => x => new TestQuestionResponse { Id = x.Id, SortOrder = x.SortOrder, Content = x.Content, Category = x.Category, Type = x.Type, GradingMode = x.GradingMode, Difficulty = x.Difficulty, Points = x.Points, Config = x.Config, Choices = x.Choices.OrderBy(c => c.SortOrder).Select(c => new TestChoiceResponse { Id = c.Id, SortOrder = c.SortOrder, Content = c.Content, IsCorrect = c.IsCorrect, Config = c.Config }).ToList() };
     private static bool Valid(TestQuestionUpsertRequest request) => !string.IsNullOrWhiteSpace(request.QuestionGroupKey) && !string.IsNullOrWhiteSpace(request.Content) && request.Points >= 0 && !(request.GradingMode == TestQuestionGradingMode.Auto && (request.Type == TestQuestionType.FreeText || !request.Choices.Any(x => x.IsCorrect)));
     private void Apply(SnTestQuestion question, TestQuestionUpsertRequest request)
     {
-        question.Content = request.Content; question.Type = request.Type; question.GradingMode = request.Type == TestQuestionType.FreeText ? TestQuestionGradingMode.Manual : request.GradingMode; question.Difficulty = request.Difficulty; question.Points = request.Points; question.Config = request.Config;
+        question.Content = request.Content; question.Category = string.IsNullOrWhiteSpace(request.Category) ? null : request.Category.Trim(); question.Type = request.Type; question.GradingMode = request.Type == TestQuestionType.FreeText ? TestQuestionGradingMode.Manual : request.GradingMode; question.Difficulty = request.Difficulty; question.Points = request.Points; question.Config = request.Config;
         var existing = question.Choices.ToDictionary(x => x.Id);
         question.Choices = request.Choices.Select((choice, index) =>
         {
@@ -104,8 +137,9 @@ public class TestQuestionAdminController(AppDatabase db) : ControllerBase
 
 public class TestQuestionPage { public int TotalCount { get; set; } public List<TestQuestionResponse> Items { get; set; } = []; }
 public class TestQuestionImportResult { public int ImportedCount { get; set; } }
-public class TestQuestionResponse { public Guid Id { get; set; } public int SortOrder { get; set; } public string Content { get; set; } = null!; public TestQuestionType Type { get; set; } public TestQuestionGradingMode GradingMode { get; set; } public int Difficulty { get; set; } public double Points { get; set; } public Dictionary<string, object?> Config { get; set; } = new(); public List<TestChoiceResponse> Choices { get; set; } = []; }
+public class TestQuestionPruneResult { public int RemovedCount { get; set; } }
+public class TestQuestionResponse { public Guid Id { get; set; } public int SortOrder { get; set; } public string Content { get; set; } = null!; public string? Category { get; set; } public TestQuestionType Type { get; set; } public TestQuestionGradingMode GradingMode { get; set; } public int Difficulty { get; set; } public double Points { get; set; } public Dictionary<string, object?> Config { get; set; } = new(); public List<TestChoiceResponse> Choices { get; set; } = []; }
 public class TestChoiceResponse { public Guid Id { get; set; } public int SortOrder { get; set; } public string Content { get; set; } = null!; public bool IsCorrect { get; set; } public Dictionary<string, object?> Config { get; set; } = new(); }
-public class TestQuestionUpsertRequest { public string? QuestionGroupKey { get; set; } public int? SortOrder { get; set; } public string Content { get; set; } = null!; public TestQuestionType Type { get; set; } public TestQuestionGradingMode GradingMode { get; set; } public int Difficulty { get; set; } public double Points { get; set; } = 1; public Dictionary<string, object?> Config { get; set; } = new(); public List<TestChoiceUpsertRequest> Choices { get; set; } = []; }
+public class TestQuestionUpsertRequest { public string? QuestionGroupKey { get; set; } public int? SortOrder { get; set; } public string Content { get; set; } = null!; public string? Category { get; set; } public TestQuestionType Type { get; set; } public TestQuestionGradingMode GradingMode { get; set; } public int Difficulty { get; set; } public double Points { get; set; } = 1; public Dictionary<string, object?> Config { get; set; } = new(); public List<TestChoiceUpsertRequest> Choices { get; set; } = []; }
 public class TestChoiceUpsertRequest { public Guid? Id { get; set; } public int SortOrder { get; set; } public string Content { get; set; } = null!; public bool IsCorrect { get; set; } public Dictionary<string, object?> Config { get; set; } = new(); }
 public class TestQuestionImportRequest { public string QuestionGroupKey { get; set; } = null!; public List<TestQuestionUpsertRequest> Questions { get; set; } = []; }

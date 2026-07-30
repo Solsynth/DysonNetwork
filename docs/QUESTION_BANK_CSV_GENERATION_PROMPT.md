@@ -9,14 +9,18 @@ Purpose: [DESCRIBE WHAT THE TEST SHOULD ASSESS]
 Audience: [DESCRIBE THE TARGET USERS]
 Difficulty range: [FOR EXAMPLE: 1-3]
 Language: [LANGUAGE]
+Category identifiers: [FOR EXAMPLE: platform, security, networking]
 
 Return CSV only. Do not include Markdown fences, explanations, headings, or blank lines.
 
 Use this exact header:
-content,type,grading_mode,difficulty,points,choices,correct_choices
+content,category,type,grading_mode,difficulty,points,choices,correct_choices
 
 Rules:
 - Each row is one question.
+- category must be one of the supplied category identifiers. Use lowercase kebab-case identifiers such as `networking` or `platform-basics`.
+- Distribute questions as evenly as possible across the supplied categories. This allows test shuffling to select a balanced mix.
+- If no category identifiers are supplied, leave category empty for every row.
 - type must be one of: single_choice, multiple_choice, free_text.
 - grading_mode must be auto or manual.
 - Use auto only for choice questions with at least one correct answer.
@@ -32,8 +36,8 @@ Rules:
 - Do not repeat questions or make "all of the above" / "none of the above" choices.
 
 Example:
-content,type,grading_mode,difficulty,points,choices,correct_choices
-What is 2+2?,single_choice,auto,1,1,3|4|5,1
-Which are prime numbers?,multiple_choice,auto,2,2,2|3|4|5,0|1|3
-Explain why version control is useful.,free_text,manual,2,3,,
+content,category,type,grading_mode,difficulty,points,choices,correct_choices
+What is 2+2?,math,single_choice,auto,1,1,3|4|5,1
+Which are prime numbers?,math,multiple_choice,auto,2,2,2|3|4|5,0|1|3
+Explain why version control is useful.,workflow,free_text,manual,2,3,,
 ~~~
