@@ -20,7 +20,7 @@ public class TestController(AppDatabase db, TestService tests) : ControllerBase
     {
         var items = await db.Tests.Include(x => x.QuestionGroups).ThenInclude(x => x.QuestionGroup).ThenInclude(x => x.Questions).ThenInclude(x => x.Choices)
             .Where(x => x.IsPublished && x.IsListed && !x.IsArchived).OrderBy(x => x.Title).ToListAsync();
-        return Ok(items.Select(ToParticipantTest));
+        return Ok(items.Select(test => ToParticipantTest(test, includeQuestions: false)));
     }
     [HttpGet("activation")]
     [AskPermission(PermissionKeys.TestsTake)]
@@ -44,7 +44,7 @@ public class TestController(AppDatabase db, TestService tests) : ControllerBase
     public async Task<ActionResult<ParticipantTest>> GetTest(string key)
     {
         var test = await LoadPublishedTest(key);
-        return test is null ? NotFound() : Ok(ToParticipantTest(test));
+        return test is null ? NotFound() : Ok(ToParticipantTest(test, includeQuestions: false));
     }
 
     [HttpPost("{key}/attempts")]
@@ -81,20 +81,32 @@ public class TestController(AppDatabase db, TestService tests) : ControllerBase
     private Task<SnTest?> LoadPublishedTest(string key) => db.Tests.Include(x => x.QuestionGroups).ThenInclude(x => x.QuestionGroup).ThenInclude(x => x.Questions).ThenInclude(x => x.Choices)
         .FirstOrDefaultAsync(x => x.Key == key && x.IsPublished && !x.IsArchived);
 
-    internal static ParticipantTest ToParticipantTest(SnTest test) => new()
+    internal static ParticipantTest ToParticipantTest(SnTest test, bool includeQuestions = true) => new()
     {
         Key = test.Key, Title = test.Title, Description = test.Description, TimeLimitSeconds = test.TimeLimitSeconds,
-        Questions = (test.ShuffleQuestions
-            ? test.QuestionGroups.SelectMany(x => x.QuestionGroup.Questions).OrderBy(_ => Random.Shared.Next())
+        Questions = includeQuestions ? (test.ShuffleQuestions
+            ? test.QuestionGroups.SelectMany(x => x.QuestionGroup.Questions).OrderBy(_ => Random.Shared.Next()).Take(test.RandomQuestionCount ?? int.MaxValue)
             : test.QuestionGroups.OrderBy(x => x.SortOrder).SelectMany(x => x.QuestionGroup.Questions.OrderBy(q => q.SortOrder))).Select(q => new ParticipantQuestion
-        { Id = q.Id, Content = q.Content, Type = q.Type, Config = q.Config, Choices = q.Choices.OrderBy(_ => Random.Shared.Next()).Select(c => new ParticipantChoice { Id = c.Id, Content = c.Content, Config = c.Config }).ToList() }).ToList()
+        { Id = q.Id, Content = q.Content, Type = q.Type, Config = q.Config, Choices = q.Choices.OrderBy(_ => Random.Shared.Next()).Select(c => new ParticipantChoice { Id = c.Id, Content = c.Content, Config = c.Config }).ToList() }).ToList() : []
     };
-    internal static ParticipantAttempt ToParticipantAttempt(SnTestAttempt x) => new() { Id = x.Id, Status = x.Status, StartedAt = x.StartedAt, DeadlineAt = x.DeadlineAt, SubmittedAt = x.SubmittedAt, ReviewedAt = x.ReviewedAt, Score = x.Score, Answers = x.Answers.Select(a => new ParticipantAnswer { QuestionId = a.QuestionId, Value = a.Value, ReviewNote = a.ReviewNote }).ToList() };
+    internal static ParticipantAttempt ToParticipantAttempt(SnTestAttempt x)
+    {
+        var snapshot = TestSnapshot.FromDictionary(x.Snapshot);
+        return new ParticipantAttempt
+        {
+            Id = x.Id, Status = x.Status, StartedAt = x.StartedAt, DeadlineAt = x.DeadlineAt, SubmittedAt = x.SubmittedAt, ReviewedAt = x.ReviewedAt, Score = x.Score,
+            Questions = snapshot.Questions.Select(q => new ParticipantQuestion
+            {
+                Id = q.Id, Content = q.Content, Type = q.Type, Config = new(), Choices = q.Choices.Select(c => new ParticipantChoice { Id = c.Id, Content = c.Content, Config = new() }).ToList()
+            }).ToList(),
+            Answers = x.Answers.Select(a => new ParticipantAnswer { QuestionId = a.QuestionId, Value = a.Value, ReviewNote = a.ReviewNote }).ToList()
+        };
+    }
 }
 
 public class SubmitTestAttemptRequest { public List<TestAnswerInput> Answers { get; set; } = []; }
 public class ParticipantTest { public string Key { get; set; } = null!; public string Title { get; set; } = null!; public string? Description { get; set; } public int? TimeLimitSeconds { get; set; } public List<ParticipantQuestion> Questions { get; set; } = []; }
 public class ParticipantQuestion { public Guid Id { get; set; } public string Content { get; set; } = null!; public TestQuestionType Type { get; set; } public Dictionary<string, object?> Config { get; set; } = new(); public List<ParticipantChoice> Choices { get; set; } = []; }
 public class ParticipantChoice { public Guid Id { get; set; } public string Content { get; set; } = null!; public Dictionary<string, object?> Config { get; set; } = new(); }
-public class ParticipantAttempt { public Guid Id { get; set; } public TestAttemptStatus Status { get; set; } public NodaTime.Instant StartedAt { get; set; } public NodaTime.Instant? DeadlineAt { get; set; } public NodaTime.Instant? SubmittedAt { get; set; } public NodaTime.Instant? ReviewedAt { get; set; } public double? Score { get; set; } public List<ParticipantAnswer> Answers { get; set; } = []; }
+public class ParticipantAttempt { public Guid Id { get; set; } public TestAttemptStatus Status { get; set; } public NodaTime.Instant StartedAt { get; set; } public NodaTime.Instant? DeadlineAt { get; set; } public NodaTime.Instant? SubmittedAt { get; set; } public NodaTime.Instant? ReviewedAt { get; set; } public double? Score { get; set; } public List<ParticipantQuestion> Questions { get; set; } = []; public List<ParticipantAnswer> Answers { get; set; } = []; }
 public class ParticipantAnswer { public Guid QuestionId { get; set; } public Dictionary<string, object?> Value { get; set; } = new(); public string? ReviewNote { get; set; } }

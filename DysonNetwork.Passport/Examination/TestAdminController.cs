@@ -103,18 +103,18 @@ public class TestAdminController(AppDatabase db, TestService tests) : Controller
 
     private static void Apply(SnTest test, TestUpsertRequest request, IReadOnlyDictionary<string, SnTestQuestionGroup> groups)
     {
-        test.Key = request.Key.Trim(); test.Title = request.Title; test.Description = request.Description; test.IsPublished = request.IsPublished; test.IsListed = request.IsListed; test.ShuffleQuestions = request.ShuffleQuestions;
+        test.Key = request.Key.Trim(); test.Title = request.Title; test.Description = request.Description; test.IsPublished = request.IsPublished; test.IsListed = request.IsListed; test.ShuffleQuestions = request.ShuffleQuestions; test.RandomQuestionCount = request.ShuffleQuestions ? request.RandomQuestionCount : null;
         test.PassingScore = request.PassingScore; test.MaxAttempts = request.MaxAttempts; test.AttemptPeriodDays = request.AttemptPeriodDays; test.TimeLimitSeconds = request.TimeLimitSeconds; test.GrantedPermissionGroupKey = string.IsNullOrWhiteSpace(request.GrantedPermissionGroupKey) ? null : request.GrantedPermissionGroupKey.Trim(); test.Config = request.Config;
         test.QuestionGroups = request.QuestionGroups.Select(x => new SnTestQuestionGroupAssignment { QuestionGroup = groups[x.QuestionGroupKey.Trim()], SortOrder = x.SortOrder }).ToList();
     }
 
     private static bool Validate(TestUpsertRequest request, out string error)
     {
-        if (string.IsNullOrWhiteSpace(request.Key) || string.IsNullOrWhiteSpace(request.Title) || request.PassingScore is < 0 or > 100 || request.MaxAttempts is < 1 || request.AttemptPeriodDays < 1 || request.TimeLimitSeconds is < 1 || request.QuestionGroups.Any(x => string.IsNullOrWhiteSpace(x.QuestionGroupKey)) || request.QuestionGroups.Select(x => x.QuestionGroupKey.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).Count() != request.QuestionGroups.Count) { error = "The test configuration is invalid."; return false; }
+        if (string.IsNullOrWhiteSpace(request.Key) || string.IsNullOrWhiteSpace(request.Title) || request.PassingScore is < 0 or > 100 || request.MaxAttempts is < 1 || request.AttemptPeriodDays < 1 || request.TimeLimitSeconds is < 1 || request.RandomQuestionCount is < 1 || request.QuestionGroups.Any(x => string.IsNullOrWhiteSpace(x.QuestionGroupKey)) || request.QuestionGroups.Select(x => x.QuestionGroupKey.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).Count() != request.QuestionGroups.Count) { error = "The test configuration is invalid."; return false; }
         error = string.Empty; return true;
     }
 }
 
-public class TestUpsertRequest { public string Key { get; set; } = null!; public string Title { get; set; } = null!; public string? Description { get; set; } public bool IsPublished { get; set; } public bool IsListed { get; set; } = true; public bool ShuffleQuestions { get; set; } public double PassingScore { get; set; } = 100; public int? MaxAttempts { get; set; } public int AttemptPeriodDays { get; set; } = 365; public int? TimeLimitSeconds { get; set; } public string? GrantedPermissionGroupKey { get; set; } public Dictionary<string, object?> Config { get; set; } = new(); public List<TestQuestionGroupAssignmentUpsertRequest> QuestionGroups { get; set; } = []; }
+public class TestUpsertRequest { public string Key { get; set; } = null!; public string Title { get; set; } = null!; public string? Description { get; set; } public bool IsPublished { get; set; } public bool IsListed { get; set; } = true; public bool ShuffleQuestions { get; set; } public int? RandomQuestionCount { get; set; } public double PassingScore { get; set; } = 100; public int? MaxAttempts { get; set; } public int AttemptPeriodDays { get; set; } = 365; public int? TimeLimitSeconds { get; set; } public string? GrantedPermissionGroupKey { get; set; } public Dictionary<string, object?> Config { get; set; } = new(); public List<TestQuestionGroupAssignmentUpsertRequest> QuestionGroups { get; set; } = []; }
 public class TestQuestionGroupAssignmentUpsertRequest { public string QuestionGroupKey { get; set; } = null!; public int SortOrder { get; set; } }
 public class ReviewTestAnswerRequest { public bool IsCorrect { get; set; } public double AwardedPoints { get; set; } public string? Note { get; set; } }

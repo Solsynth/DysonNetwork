@@ -197,7 +197,7 @@ public class TestService(
     }
 
     private static Dictionary<string, object?> SerializeSnapshot(TestSnapshot snapshot) => JsonSerializer.Deserialize<Dictionary<string, object?>>(JsonSerializer.Serialize(snapshot))!;
-    private static TestSnapshot DeserializeSnapshot(Dictionary<string, object?> snapshot) => JsonSerializer.Deserialize<TestSnapshot>(JsonSerializer.Serialize(snapshot))!;
+    private static TestSnapshot DeserializeSnapshot(Dictionary<string, object?> snapshot) => TestSnapshot.FromDictionary(snapshot);
 }
 
 public class ActivationRequirementState
@@ -219,16 +219,17 @@ public class TestSnapshot
     public double PassingScore { get; set; }
     public string? GrantedPermissionGroupKey { get; set; }
     public List<TestQuestionSnapshot> Questions { get; set; } = [];
+    public static TestSnapshot FromDictionary(Dictionary<string, object?> snapshot) => JsonSerializer.Deserialize<TestSnapshot>(JsonSerializer.Serialize(snapshot))!;
     public static TestSnapshot FromTest(SnTest test) => new()
     {
         PassingScore = test.PassingScore,
         GrantedPermissionGroupKey = test.GrantedPermissionGroupKey,
         Questions = (test.ShuffleQuestions
-            ? test.QuestionGroups.SelectMany(x => x.QuestionGroup.Questions).OrderBy(_ => Random.Shared.Next())
+            ? test.QuestionGroups.SelectMany(x => x.QuestionGroup.Questions).OrderBy(_ => Random.Shared.Next()).Take(test.RandomQuestionCount ?? int.MaxValue)
             : test.QuestionGroups.OrderBy(x => x.SortOrder).SelectMany(x => x.QuestionGroup.Questions.OrderBy(q => q.SortOrder))).Select(x => new TestQuestionSnapshot
         {
             Id = x.Id, Content = x.Content, Type = x.Type, GradingMode = x.GradingMode, Points = x.Points,
-            Choices = x.Choices.OrderBy(c => c.SortOrder).Select(c => new TestChoiceSnapshot { Id = c.Id, Content = c.Content, IsCorrect = c.IsCorrect }).ToList()
+            Choices = x.Choices.OrderBy(_ => Random.Shared.Next()).Select(c => new TestChoiceSnapshot { Id = c.Id, Content = c.Content, IsCorrect = c.IsCorrect }).ToList()
         }).ToList()
     };
 }
