@@ -300,12 +300,12 @@ public class TestSnapshot
         SelectedCategories = selectedCategories?.ToList() ?? [],
         Questions = TestQuestionSelector.Select(test, previouslyAskedQuestionIds, selectedCategories).Select(x => new TestQuestionSnapshot
         {
-            Id = x.Id, Content = x.Content, Type = x.Type, GradingMode = x.GradingMode, Difficulty = x.Difficulty, Points = x.Points,
+            Id = x.Id, Content = x.Content, Category = x.Category, Type = x.Type, GradingMode = x.GradingMode, Difficulty = x.Difficulty, Points = x.Points,
             Choices = TestQuestionSelector.Shuffle(x.Choices).Select(c => new TestChoiceSnapshot { Id = c.Id, Content = c.Content, IsCorrect = c.IsCorrect }).ToList()
         }).ToList()
     };
 }
-public class TestQuestionSnapshot { public Guid Id { get; set; } public string Content { get; set; } = null!; public TestQuestionType Type { get; set; } public TestQuestionGradingMode GradingMode { get; set; } public int Difficulty { get; set; } public double Points { get; set; } public List<TestChoiceSnapshot> Choices { get; set; } = []; }
+public class TestQuestionSnapshot { public Guid Id { get; set; } public string Content { get; set; } = null!; public string? Category { get; set; } public TestQuestionType Type { get; set; } public TestQuestionGradingMode GradingMode { get; set; } public int Difficulty { get; set; } public double Points { get; set; } public List<TestChoiceSnapshot> Choices { get; set; } = []; }
 public class TestChoiceSnapshot { public Guid Id { get; set; } public string Content { get; set; } = null!; public bool IsCorrect { get; set; } }
 
 public static class TestQuestionSelector

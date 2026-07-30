@@ -3,6 +3,7 @@ using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Capabilities;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Networking;
+using DysonNetwork.Passport.Examination;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -12,7 +13,7 @@ namespace DysonNetwork.Passport.Affiliation;
 [ApiController]
 [Route("/api/affiliations")]
 [ApiFeature("affiliations", Revision = 1)]
-public class AffiliationSpellController(AppDatabase db, AffiliationSpellService ars) : ControllerBase
+public class AffiliationSpellController(AppDatabase db, AffiliationSpellService ars, TestService tests) : ControllerBase
 {
     public class CreateAffiliationSpellRequest
     {
@@ -31,6 +32,26 @@ public class AffiliationSpellController(AppDatabase db, AffiliationSpellService 
         public Guid PurchaseId { get; set; }
         public Guid OrderId { get; set; }
         public decimal Amount { get; set; }
+    }
+
+    public class ConsumeRegistrationInviteRequest
+    {
+        [Required, MaxLength(1024)] public string Spell { get; set; } = null!;
+    }
+
+    [HttpPost("registration-invites/consume")]
+    [Authorize]
+    public async Task<ActionResult<ActivationRequirementState>> ConsumeRegistrationInvite([FromBody] ConsumeRegistrationInviteRequest request)
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
+        var state = await tests.GetActivationRequirements(currentUser.Id, HttpContext.RequestAborted);
+        if (state.IsActivated)
+            return BadRequest(new ApiError { Code = "PASSPORT_AFFILIATION_INVITE_ACCOUNT_ACTIVE", Message = "Registration invitations can only be used by unactivated accounts.", Status = 400, TraceId = HttpContext.TraceIdentifier });
+        var result = await ars.ConsumeRegistrationInvite(request.Spell.Trim(), currentUser.Id, HttpContext.RequestAborted);
+        if (!result.Consumed)
+            return BadRequest(new ApiError { Code = "PASSPORT_AFFILIATION_INVITE_INVALID", Message = "The registration invitation is invalid, expired, or has no remaining uses.", Status = 400, TraceId = HttpContext.TraceIdentifier });
+        await tests.TryActivateAccount(currentUser.Id, HttpContext.RequestAborted);
+        return Ok(await tests.GetActivationRequirements(currentUser.Id, HttpContext.RequestAborted));
     }
 
     [HttpPost("purchase")]

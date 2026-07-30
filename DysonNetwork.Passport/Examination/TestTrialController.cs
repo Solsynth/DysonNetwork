@@ -24,12 +24,12 @@ public class TestTrialController(AppDatabase db, TestService tests) : Controller
 
     [HttpPost("{key}/attempts")]
     [AskPermission(PermissionKeys.TestsTake)]
-    public async Task<ActionResult<ParticipantAttempt>> Start(string key)
+    public async Task<ActionResult<ParticipantAttempt>> Start(string key, [FromBody] StartTestAttemptRequest? request)
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount user) return Unauthorized();
         var trial = await Load(key);
         if (trial is null) return NotFound();
-        try { return Ok(TestController.ToParticipantAttempt(await tests.StartAttempt(user.Id, trial.Test, isTrial: true, trialId: trial.Id, cancellationToken: HttpContext.RequestAborted))); }
+        try { return Ok(TestController.ToParticipantAttempt(await tests.StartAttempt(user.Id, trial.Test, request?.Categories, isTrial: true, trialId: trial.Id, cancellationToken: HttpContext.RequestAborted))); }
         catch (InvalidOperationException ex) { return BadRequest(new ApiError { Code = "PASSPORT_TEST_TRIAL_UNAVAILABLE", Message = ex.Message, Status = 400 }); }
     }
 
