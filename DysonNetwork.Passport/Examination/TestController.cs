@@ -49,12 +49,12 @@ public class TestController(AppDatabase db, TestService tests) : ControllerBase
 
     [HttpPost("{key}/attempts")]
     [AskPermission(PermissionKeys.TestsTake)]
-    public async Task<ActionResult<ParticipantAttempt>> StartAttempt(string key)
+    public async Task<ActionResult<ParticipantAttempt>> StartAttempt(string key, [FromBody] StartTestAttemptRequest? request)
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount user) return Unauthorized();
         var test = await LoadPublishedTest(key);
         if (test is null) return NotFound();
-        try { return Ok(ToParticipantAttempt(await tests.StartAttempt(user.Id, test, cancellationToken: HttpContext.RequestAborted))); }
+        try { return Ok(ToParticipantAttempt(await tests.StartAttempt(user.Id, test, request?.Categories, cancellationToken: HttpContext.RequestAborted))); }
         catch (InvalidOperationException ex) { return BadRequest(new ApiError { Code = "PASSPORT_TEST_ATTEMPT_UNAVAILABLE", Message = ex.Message, Status = 400 }); }
     }
 
@@ -83,7 +83,7 @@ public class TestController(AppDatabase db, TestService tests) : ControllerBase
 
     internal static ParticipantTest ToParticipantTest(SnTest test, bool includeQuestions = true) => new()
     {
-        Key = test.Key, Title = test.Title, Description = test.Description, TimeLimitSeconds = test.TimeLimitSeconds, RewardExperience = test.RewardExperience, MaxAttempts = test.MaxAttempts,
+        Key = test.Key, Title = test.Title, Description = test.Description, TimeLimitSeconds = test.TimeLimitSeconds, RewardExperience = test.RewardExperience, MaxAttempts = test.MaxAttempts, AllowCategorySelection = test.AllowCategorySelection, AvailableCategories = TestQuestionSelector.GetCategories(test),
         Questions = includeQuestions ? TestQuestionSelector.Select(test).Select(q => new ParticipantQuestion
         { Id = q.Id, Content = q.Content, Type = q.Type, Difficulty = q.Difficulty, Points = q.Points, Config = q.Config, Choices = TestQuestionSelector.Shuffle(q.Choices).Select(c => new ParticipantChoice { Id = c.Id, Content = c.Content, Config = c.Config }).ToList() }).ToList() : []
     };
@@ -110,8 +110,9 @@ public class TestController(AppDatabase db, TestService tests) : ControllerBase
     }
 }
 
+public class StartTestAttemptRequest { public List<string> Categories { get; set; } = []; }
 public class SubmitTestAttemptRequest { public List<TestAnswerInput> Answers { get; set; } = []; }
-public class ParticipantTest { public string Key { get; set; } = null!; public string Title { get; set; } = null!; public string? Description { get; set; } public int? TimeLimitSeconds { get; set; } public long? RewardExperience { get; set; } public int? MaxAttempts { get; set; } public List<ParticipantQuestion> Questions { get; set; } = []; }
+public class ParticipantTest { public string Key { get; set; } = null!; public string Title { get; set; } = null!; public string? Description { get; set; } public int? TimeLimitSeconds { get; set; } public long? RewardExperience { get; set; } public int? MaxAttempts { get; set; } public bool AllowCategorySelection { get; set; } public List<string> AvailableCategories { get; set; } = []; public List<ParticipantQuestion> Questions { get; set; } = []; }
 public class ParticipantQuestion { public Guid Id { get; set; } public string Content { get; set; } = null!; public TestQuestionType Type { get; set; } public int Difficulty { get; set; } public double Points { get; set; } public Dictionary<string, object?> Config { get; set; } = new(); public List<ParticipantChoice> Choices { get; set; } = []; }
 public class ParticipantChoice { public Guid Id { get; set; } public string Content { get; set; } = null!; public Dictionary<string, object?> Config { get; set; } = new(); }
 public class ParticipantAttempt { public Guid Id { get; set; } public string Key { get; set; } = null!; public string Title { get; set; } = null!; public bool IsTrial { get; set; } public TestAttemptStatus Status { get; set; } public NodaTime.Instant StartedAt { get; set; } public NodaTime.Instant? DeadlineAt { get; set; } public NodaTime.Instant? SubmittedAt { get; set; } public NodaTime.Instant? ReviewedAt { get; set; } public double? Score { get; set; } public List<ParticipantQuestion> Questions { get; set; } = []; public List<ParticipantAnswer> Answers { get; set; } = []; }

@@ -86,7 +86,7 @@ public class TestService(
         return true;
     }
 
-    public async Task<SnTestAttempt> StartAttempt(Guid accountId, SnTest test, bool isTrial = false, Guid? trialId = null, CancellationToken cancellationToken = default)
+    public async Task<SnTestAttempt> StartAttempt(Guid accountId, SnTest test, IReadOnlyCollection<string>? selectedCategories = null, bool isTrial = false, Guid? trialId = null, CancellationToken cancellationToken = default)
     {
         var now = clock.GetCurrentInstant();
         var active = await db.TestAttempts.Include(x => x.Answers)
@@ -103,6 +103,7 @@ public class TestService(
         if (test.MaxAttempts.HasValue && used >= test.MaxAttempts.Value)
             throw new InvalidOperationException("The maximum number of attempts has been reached.");
 
+        var categories = ResolveSelectedCategories(test, selectedCategories, isTrial);
         var previousSnapshots = await db.TestAttempts.AsNoTracking()
             .Where(x => x.AccountId == accountId && x.TestId == test.Id && x.IsTrial == isTrial && x.TrialId == trialId && x.Status != TestAttemptStatus.InProgress)
             .Select(x => x.Snapshot)
@@ -112,7 +113,7 @@ public class TestService(
             .SelectMany(x => x.Questions)
             .Select(x => x.Id)
             .ToHashSet();
-        var snapshot = TestSnapshot.FromTest(test, previouslyAskedQuestionIds);
+        var snapshot = TestSnapshot.FromTest(test, previouslyAskedQuestionIds, categories);
         var attempt = new SnTestAttempt
         {
             AccountId = accountId,
@@ -246,6 +247,21 @@ public class TestService(
         await experience.AddRecord("test.completed", reason, snapshot.RewardExperience.Value, attempt.AccountId);
     }
 
+    private static List<string> ResolveSelectedCategories(SnTest test, IReadOnlyCollection<string>? selectedCategories, bool isTrial)
+    {
+        if (!test.AllowCategorySelection) return [];
+        var available = TestQuestionSelector.GetCategories(test);
+        var selected = (selectedCategories ?? [])
+            .Select(x => x.Trim())
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (isTrial && selected.Count == 0) return available;
+        if (selected.Count is < 3 or > 5 || selected.Any(x => !available.Contains(x, StringComparer.OrdinalIgnoreCase)))
+            throw new InvalidOperationException("Select between three and five available question categories.");
+        return selected;
+    }
+
     private static Dictionary<string, object?> SerializeSnapshot(TestSnapshot snapshot) => JsonSerializer.Deserialize<Dictionary<string, object?>>(JsonSerializer.Serialize(snapshot))!;
     private static TestSnapshot DeserializeSnapshot(Dictionary<string, object?> snapshot) => TestSnapshot.FromDictionary(snapshot);
 }
@@ -271,16 +287,18 @@ public class TestSnapshot
     public double PassingScore { get; set; }
     public long? RewardExperience { get; set; }
     public string? GrantedPermissionGroupKey { get; set; }
+    public List<string> SelectedCategories { get; set; } = [];
     public List<TestQuestionSnapshot> Questions { get; set; } = [];
     public static TestSnapshot FromDictionary(Dictionary<string, object?> snapshot) => JsonSerializer.Deserialize<TestSnapshot>(JsonSerializer.Serialize(snapshot))!;
-    public static TestSnapshot FromTest(SnTest test, ISet<Guid>? previouslyAskedQuestionIds = null) => new()
+    public static TestSnapshot FromTest(SnTest test, ISet<Guid>? previouslyAskedQuestionIds = null, IReadOnlyCollection<string>? selectedCategories = null) => new()
     {
         Key = test.Key,
         Title = test.Title,
         PassingScore = test.PassingScore,
         RewardExperience = test.RewardExperience,
         GrantedPermissionGroupKey = test.GrantedPermissionGroupKey,
-        Questions = TestQuestionSelector.Select(test, previouslyAskedQuestionIds).Select(x => new TestQuestionSnapshot
+        SelectedCategories = selectedCategories?.ToList() ?? [],
+        Questions = TestQuestionSelector.Select(test, previouslyAskedQuestionIds, selectedCategories).Select(x => new TestQuestionSnapshot
         {
             Id = x.Id, Content = x.Content, Type = x.Type, GradingMode = x.GradingMode, Difficulty = x.Difficulty, Points = x.Points,
             Choices = TestQuestionSelector.Shuffle(x.Choices).Select(c => new TestChoiceSnapshot { Id = c.Id, Content = c.Content, IsCorrect = c.IsCorrect }).ToList()
@@ -292,9 +310,19 @@ public class TestChoiceSnapshot { public Guid Id { get; set; } public string Con
 
 public static class TestQuestionSelector
 {
-    public static IEnumerable<SnTestQuestion> Select(SnTest test, ISet<Guid>? previouslyAskedQuestionIds = null)
+    public static List<string> GetCategories(SnTest test) => test.QuestionGroups
+        .SelectMany(x => x.QuestionGroup.Questions)
+        .Select(x => x.Category?.Trim())
+        .Where(x => !string.IsNullOrWhiteSpace(x))
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .Order(StringComparer.OrdinalIgnoreCase)
+        .ToList()!;
+
+    public static IEnumerable<SnTestQuestion> Select(SnTest test, ISet<Guid>? previouslyAskedQuestionIds = null, IReadOnlyCollection<string>? selectedCategories = null)
     {
         var questions = test.QuestionGroups.OrderBy(x => x.SortOrder).SelectMany(x => x.QuestionGroup.Questions.OrderBy(q => q.SortOrder)).ToList();
+        if (selectedCategories is { Count: > 0 })
+            questions = questions.Where(x => x.Category is not null && selectedCategories.Contains(x.Category, StringComparer.OrdinalIgnoreCase)).ToList();
         if (!test.ShuffleQuestions) return questions;
         var count = test.RandomQuestionCount ?? questions.Count;
         if (count >= questions.Count) return Shuffle(questions);

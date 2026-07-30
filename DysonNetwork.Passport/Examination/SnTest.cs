@@ -19,6 +19,7 @@ public class SnTest : ModelBase
     public bool IsPublished { get; set; }
     public bool IsListed { get; set; } = true;
     public bool ShuffleQuestions { get; set; }
+    public bool AllowCategorySelection { get; set; }
     public int? RandomQuestionCount { get; set; }
     public int SimpleQuestionPercentage { get; set; } = 60;
     public bool IsArchived { get; set; }
