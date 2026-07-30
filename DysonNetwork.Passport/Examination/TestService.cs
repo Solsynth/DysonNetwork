@@ -72,11 +72,11 @@ public class TestService(
         return true;
     }
 
-    public async Task<SnTestAttempt> StartAttempt(Guid accountId, SnTest test, bool isTrial = false, CancellationToken cancellationToken = default)
+    public async Task<SnTestAttempt> StartAttempt(Guid accountId, SnTest test, bool isTrial = false, Guid? trialId = null, CancellationToken cancellationToken = default)
     {
         var now = clock.GetCurrentInstant();
         var active = await db.TestAttempts.Include(x => x.Answers)
-            .FirstOrDefaultAsync(x => x.AccountId == accountId && x.TestId == test.Id && x.IsTrial == isTrial && x.Status == TestAttemptStatus.InProgress, cancellationToken);
+            .FirstOrDefaultAsync(x => x.AccountId == accountId && x.TestId == test.Id && x.IsTrial == isTrial && x.TrialId == trialId && x.Status == TestAttemptStatus.InProgress, cancellationToken);
         if (active is not null && (active.DeadlineAt is null || active.DeadlineAt > now)) return active;
         if (active is not null)
         {
@@ -95,6 +95,7 @@ public class TestService(
             AccountId = accountId,
             TestId = test.Id,
             IsTrial = isTrial,
+            TrialId = trialId,
             StartedAt = now,
             DeadlineAt = test.TimeLimitSeconds.HasValue ? now + Duration.FromSeconds(test.TimeLimitSeconds.Value) : null,
             Snapshot = SerializeSnapshot(snapshot)
@@ -233,12 +234,12 @@ public class TestSnapshot
         GrantedPermissionGroupKey = test.GrantedPermissionGroupKey,
         Questions = TestQuestionSelector.Select(test).Select(x => new TestQuestionSnapshot
         {
-            Id = x.Id, Content = x.Content, Type = x.Type, GradingMode = x.GradingMode, Points = x.Points,
+            Id = x.Id, Content = x.Content, Type = x.Type, GradingMode = x.GradingMode, Difficulty = x.Difficulty, Points = x.Points,
             Choices = x.Choices.OrderBy(_ => Random.Shared.Next()).Select(c => new TestChoiceSnapshot { Id = c.Id, Content = c.Content, IsCorrect = c.IsCorrect }).ToList()
         }).ToList()
     };
 }
-public class TestQuestionSnapshot { public Guid Id { get; set; } public string Content { get; set; } = null!; public TestQuestionType Type { get; set; } public TestQuestionGradingMode GradingMode { get; set; } public double Points { get; set; } public List<TestChoiceSnapshot> Choices { get; set; } = []; }
+public class TestQuestionSnapshot { public Guid Id { get; set; } public string Content { get; set; } = null!; public TestQuestionType Type { get; set; } public TestQuestionGradingMode GradingMode { get; set; } public int Difficulty { get; set; } public double Points { get; set; } public List<TestChoiceSnapshot> Choices { get; set; } = []; }
 public class TestChoiceSnapshot { public Guid Id { get; set; } public string Content { get; set; } = null!; public bool IsCorrect { get; set; } }
 
 public static class TestQuestionSelector

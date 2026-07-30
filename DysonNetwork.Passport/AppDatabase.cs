@@ -76,6 +76,7 @@ public class AppDatabase(
     public DbSet<SnDomainBlock> DomainBlocks { get; set; } = null!;
     public DbSet<SnDomainValidationMetric> DomainValidationMetrics { get; set; } = null!;
     public DbSet<SnTest> Tests { get; set; } = null!;
+    public DbSet<SnTestTrial> TestTrials { get; set; } = null!;
     public DbSet<SnTestQuestionGroup> TestQuestionGroups { get; set; } = null!;
     public DbSet<SnTestQuestionGroupAssignment> TestQuestionGroupAssignments { get; set; } = null!;
     public DbSet<SnTestQuestion> TestQuestions { get; set; } = null!;
@@ -152,6 +153,9 @@ public class AppDatabase(
         modelBuilder.Entity<SnTestQuestionGroupAssignment>().HasIndex(x => new { x.TestId, x.SortOrder });
         modelBuilder.Entity<SnTestQuestionGroupAssignment>().HasOne(x => x.Test).WithMany(x => x.QuestionGroups).HasForeignKey(x => x.TestId).OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<SnTestQuestionGroupAssignment>().HasOne(x => x.QuestionGroup).WithMany(x => x.TestAssignments).HasForeignKey(x => x.QuestionGroupId).OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<SnTestTrial>().HasIndex(x => x.Key).IsUnique();
+        modelBuilder.Entity<SnTestTrial>().HasIndex(x => new { x.TestId, x.IsPublished });
+        modelBuilder.Entity<SnTestTrial>().HasOne(x => x.Test).WithMany(x => x.Trials).HasForeignKey(x => x.TestId).OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<SnTestAttempt>().HasIndex(x => new { x.AccountId, x.TestId, x.Status });
         modelBuilder.Entity<SnTestAttempt>().HasIndex(x => new { x.TestId, x.Status });
         modelBuilder.Entity<SnTestAnswer>().HasIndex(x => new { x.AttemptId, x.QuestionId }).IsUnique();

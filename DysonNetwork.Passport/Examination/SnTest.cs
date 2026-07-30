@@ -29,6 +29,19 @@ public class SnTest : ModelBase
     [MaxLength(1024)] public string? GrantedPermissionGroupKey { get; set; }
     [Column(TypeName = "jsonb")] public Dictionary<string, object?> Config { get; set; } = new();
     public List<SnTestQuestionGroupAssignment> QuestionGroups { get; set; } = [];
+    public List<SnTestTrial> Trials { get; set; } = [];
+}
+
+public class SnTestTrial : ModelBase
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid TestId { get; set; }
+    [JsonIgnore]
+    public SnTest Test { get; set; } = null!;
+    [MaxLength(128)] public string Key { get; set; } = null!;
+    [MaxLength(256)] public string Title { get; set; } = null!;
+    [MaxLength(4096)] public string? Description { get; set; }
+    public bool IsPublished { get; set; } = true;
 }
 
 public class SnTestQuestion : ModelBase
@@ -88,6 +101,7 @@ public class SnTestAttempt : ModelBase
     public Guid TestId { get; set; }
     public Guid AccountId { get; set; }
     public bool IsTrial { get; set; }
+    public Guid? TrialId { get; set; }
     public TestAttemptStatus Status { get; set; } = TestAttemptStatus.InProgress;
     public Instant StartedAt { get; set; }
     public Instant? SubmittedAt { get; set; }
