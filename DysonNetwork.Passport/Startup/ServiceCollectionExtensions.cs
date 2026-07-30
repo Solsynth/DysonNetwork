@@ -239,7 +239,10 @@ public static class ServiceCollectionExtensions
 
                 if (!string.IsNullOrWhiteSpace(evt.AffiliationSpell))
                 {
-                    if (evt.ActivatedAt is null && await affiliationSpells.ConsumeRegistrationInvite(evt.AffiliationSpell, evt.AccountId, ctx.CancellationToken))
+                    var inviteUse = evt.ActivatedAt is null
+                        ? await affiliationSpells.ConsumeRegistrationInvite(evt.AffiliationSpell, evt.AccountId, ctx.CancellationToken)
+                        : new AffiliationInviteUseResult();
+                    if (inviteUse.Consumed && inviteUse.SkipsTests)
                         await tests.TryActivateAccount(evt.AccountId, ctx.CancellationToken);
                 }
 

@@ -4,6 +4,7 @@ using DysonNetwork.Shared.Queue;
 using DysonNetwork.Shared.Registry;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
+using DysonNetwork.Passport.Affiliation;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using NodaTime;
@@ -29,10 +30,10 @@ public class TestService(
         if (_activation.RequireVerifiedContact)
             state.HasVerifiedContact = (await contacts.ListContactsAsync(accountId, verifiedOnly: true, cancellationToken: cancellationToken)).Count > 0;
 
-        state.TestsBypassed = await db.AffiliationResults.Include(x => x.Spell).AnyAsync(x =>
-            x.ResourceIdentifier == $"account:{accountId}" &&
-            x.Spell.Type == AffiliationSpellType.RegistrationInvite &&
-            x.Spell.AffectedAt != null, cancellationToken);
+        var affiliationResults = await db.AffiliationResults.Include(x => x.Spell)
+            .Where(x => x.ResourceIdentifier == $"account:{accountId}" && x.Spell.Type == AffiliationSpellType.RegistrationInvite)
+            .ToListAsync(cancellationToken);
+        state.TestsBypassed = affiliationResults.Any(x => AffiliationSpellService.SkipsTests(x.Spell));
 
         foreach (var key in (_activation.TestsEnabled && !state.TestsBypassed ? _activation.RequiredTestKeys : []).Distinct(StringComparer.OrdinalIgnoreCase))
         {

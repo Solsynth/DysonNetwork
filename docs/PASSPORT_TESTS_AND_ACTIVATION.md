@@ -51,6 +51,8 @@ Authenticated users can create a Wallet order with `POST /api/affiliations/purch
 
 The purchase cap is enforced when an order is created. A paid spell can be used once by an unactivated account during registration. It bypasses configured test requirements but does not bypass the configured verified-contact requirement.
 
+Administrators with `affiliations.manage` can instead create a spell with `POST /api/affiliations`. Provide `spell` for a custom code, `max_usages` for a finite shared-use limit, or omit `max_usages` for unlimited usage. Set `skip_tests` to `false` when the code should be tracked as an affiliation but must not bypass onboarding tests.
+
 ## Admin API
 
 All admin endpoints are under `/passport/api/admin/tests` in production.

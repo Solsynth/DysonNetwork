@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Globalization;
+using System.Text.Json;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Registry;
 using Microsoft.EntityFrameworkCore;
@@ -28,7 +29,7 @@ public class AffiliationSpellService(AppDatabase db, RemotePaymentService paymen
         return result;
     }
 
-    public async Task<SnAffiliationSpell> CreateAffiliationSpell(Guid accountId, string? spellWord)
+    public async Task<SnAffiliationSpell> CreateAffiliationSpell(Guid accountId, string? spellWord, int? maxUsages = null, bool skipTests = true)
     {
         spellWord ??= _GenerateRandomString(8);
         if (await CheckAffiliationSpellHasTaken(spellWord))
@@ -37,7 +38,12 @@ public class AffiliationSpellService(AppDatabase db, RemotePaymentService paymen
         var spell = new SnAffiliationSpell
         {
             AccountId = accountId,
-            Spell = spellWord
+            Spell = spellWord,
+            Meta = new Dictionary<string, object>
+            {
+                ["max_usages"] = maxUsages is null ? null! : maxUsages.Value,
+                ["skip_tests"] = skipTests
+            }
         };
 
         db.AffiliationSpells.Add(spell);
@@ -73,7 +79,7 @@ public class AffiliationSpellService(AppDatabase db, RemotePaymentService paymen
     {
         var purchase = await db.AffiliationSpellPurchases.FirstOrDefaultAsync(x => x.Id == purchaseId && x.OrderId == orderId, cancellationToken);
         if (purchase is null || purchase.FulfilledAt is not null) return null;
-        var spell = await CreateAffiliationSpell(purchase.AccountId, null);
+        var spell = await CreateAffiliationSpell(purchase.AccountId, null, maxUsages: 1, skipTests: true);
         spell.Type = AffiliationSpellType.RegistrationInvite;
         purchase.SpellId = spell.Id;
         purchase.FulfilledAt = clock.GetCurrentInstant();
@@ -81,14 +87,31 @@ public class AffiliationSpellService(AppDatabase db, RemotePaymentService paymen
         return spell;
     }
 
-    public async Task<bool> ConsumeRegistrationInvite(string spellWord, Guid accountId, CancellationToken cancellationToken = default)
+    public async Task<AffiliationInviteUseResult> ConsumeRegistrationInvite(string spellWord, Guid accountId, CancellationToken cancellationToken = default)
     {
         var spell = await db.AffiliationSpells.FirstOrDefaultAsync(x => x.Spell == spellWord && x.Type == AffiliationSpellType.RegistrationInvite, cancellationToken);
-        if (spell is null || spell.AffectedAt is not null || (spell.ExpiresAt is not null && spell.ExpiresAt <= clock.GetCurrentInstant())) return false;
-        spell.AffectedAt = clock.GetCurrentInstant();
+        if (spell is null || (spell.ExpiresAt is not null && spell.ExpiresAt <= clock.GetCurrentInstant())) return new();
+        var usages = await db.AffiliationResults.CountAsync(x => x.SpellId == spell.Id, cancellationToken);
+        var maxUsages = GetIntMeta(spell, "max_usages");
+        if (maxUsages.HasValue && usages >= maxUsages.Value) return new();
+        if (maxUsages == 1) spell.AffectedAt = clock.GetCurrentInstant();
         db.AffiliationResults.Add(new SnAffiliationResult { SpellId = spell.Id, ResourceIdentifier = $"account:{accountId}" });
         await db.SaveChangesAsync(cancellationToken);
-        return true;
+        return new AffiliationInviteUseResult { Consumed = true, SkipsTests = GetBoolMeta(spell, "skip_tests") };
+    }
+
+    public static bool SkipsTests(SnAffiliationSpell spell) => GetBoolMeta(spell, "skip_tests");
+
+    private static int? GetIntMeta(SnAffiliationSpell spell, string key)
+    {
+        if (!spell.Meta.TryGetValue(key, out var value) || value is null) return null;
+        return value switch { int number => number, long number => (int)number, JsonElement { ValueKind: JsonValueKind.Number } element => element.GetInt32(), _ => null };
+    }
+
+    private static bool GetBoolMeta(SnAffiliationSpell spell, string key)
+    {
+        if (!spell.Meta.TryGetValue(key, out var value) || value is null) return false;
+        return value switch { bool flag => flag, JsonElement { ValueKind: JsonValueKind.True } => true, _ => false };
     }
 
     public async Task<SnAffiliationResult> CreateAffiliationResult(string spellWord, string resourceId)
@@ -116,3 +139,5 @@ public class AffiliationSpellService(AppDatabase db, RemotePaymentService paymen
         return new string(result);
     }
 }
+
+public class AffiliationInviteUseResult { public bool Consumed { get; set; } public bool SkipsTests { get; set; } }

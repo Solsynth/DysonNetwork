@@ -17,6 +17,8 @@ public class AffiliationSpellController(AppDatabase db, AffiliationSpellService 
     public class CreateAffiliationSpellRequest
     {
         [MaxLength(1024)] public string? Spell { get; set; }
+        [Range(1, int.MaxValue)] public int? MaxUsages { get; set; }
+        public bool SkipTests { get; set; } = true;
     }
 
     public class CreateAffiliationResultRequest
@@ -56,7 +58,7 @@ public class AffiliationSpellController(AppDatabase db, AffiliationSpellService 
 
         try
         {
-            var spell = await ars.CreateAffiliationSpell(currentUser.Id, request.Spell);
+            var spell = await ars.CreateAffiliationSpell(currentUser.Id, request.Spell, request.MaxUsages, request.SkipTests);
             return Ok(spell);
         }
         catch (InvalidOperationException e)
