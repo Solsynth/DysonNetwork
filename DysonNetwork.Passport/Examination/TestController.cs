@@ -84,9 +84,7 @@ public class TestController(AppDatabase db, TestService tests) : ControllerBase
     internal static ParticipantTest ToParticipantTest(SnTest test, bool includeQuestions = true) => new()
     {
         Key = test.Key, Title = test.Title, Description = test.Description, TimeLimitSeconds = test.TimeLimitSeconds,
-        Questions = includeQuestions ? (test.ShuffleQuestions
-            ? test.QuestionGroups.SelectMany(x => x.QuestionGroup.Questions).OrderBy(_ => Random.Shared.Next()).Take(test.RandomQuestionCount ?? int.MaxValue)
-            : test.QuestionGroups.OrderBy(x => x.SortOrder).SelectMany(x => x.QuestionGroup.Questions.OrderBy(q => q.SortOrder))).Select(q => new ParticipantQuestion
+        Questions = includeQuestions ? TestQuestionSelector.Select(test).Select(q => new ParticipantQuestion
         { Id = q.Id, Content = q.Content, Type = q.Type, Config = q.Config, Choices = q.Choices.OrderBy(_ => Random.Shared.Next()).Select(c => new ParticipantChoice { Id = c.Id, Content = c.Content, Config = c.Config }).ToList() }).ToList() : []
     };
     internal static ParticipantAttempt ToParticipantAttempt(SnTestAttempt x)

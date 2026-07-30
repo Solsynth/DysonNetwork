@@ -120,24 +120,26 @@ public class TestService(
         foreach (var question in snapshot.Questions)
         {
             inputByQuestion.TryGetValue(question.Id, out var input);
+            var wasAnswered = input?.ChoiceIds?.Count > 0 || !string.IsNullOrWhiteSpace(input?.Text);
             var answer = new SnTestAnswer
             {
                 AttemptId = attempt.Id,
                 QuestionId = question.Id,
                 Value = new Dictionary<string, object?> { ["choice_ids"] = input?.ChoiceIds ?? [], ["text"] = input?.Text }
             };
-            if (question.GradingMode == TestQuestionGradingMode.Auto)
+            if (question.GradingMode == TestQuestionGradingMode.Auto && wasAnswered)
             {
                 var selected = (input?.ChoiceIds ?? []).Order().ToArray();
                 var correct = question.Choices.Where(x => x.IsCorrect).Select(x => x.Id).Order().ToArray();
                 answer.IsCorrect = selected.SequenceEqual(correct);
-                answer.AwardedPoints = answer.IsCorrect.Value ? question.Points : 0;
+                answer.AwardedPoints = answer.IsCorrect.Value ? question.Points : -question.Points;
             }
+            else if (!wasAnswered) answer.AwardedPoints = 0;
             db.TestAnswers.Add(answer);
             attempt.Answers.Add(answer);
         }
         attempt.SubmittedAt = now;
-        attempt.Status = snapshot.Questions.Any(x => x.GradingMode == TestQuestionGradingMode.Manual)
+        attempt.Status = snapshot.Questions.Any(x => x.GradingMode == TestQuestionGradingMode.Manual && attempt.Answers.Any(a => a.QuestionId == x.Id && a.AwardedPoints is null))
             ? TestAttemptStatus.PendingReview : ResolveFinalStatus(attempt, snapshot);
         await db.SaveChangesAsync(cancellationToken);
         if (attempt.Status == TestAttemptStatus.Passed)
@@ -224,9 +226,7 @@ public class TestSnapshot
     {
         PassingScore = test.PassingScore,
         GrantedPermissionGroupKey = test.GrantedPermissionGroupKey,
-        Questions = (test.ShuffleQuestions
-            ? test.QuestionGroups.SelectMany(x => x.QuestionGroup.Questions).OrderBy(_ => Random.Shared.Next()).Take(test.RandomQuestionCount ?? int.MaxValue)
-            : test.QuestionGroups.OrderBy(x => x.SortOrder).SelectMany(x => x.QuestionGroup.Questions.OrderBy(q => q.SortOrder))).Select(x => new TestQuestionSnapshot
+        Questions = TestQuestionSelector.Select(test).Select(x => new TestQuestionSnapshot
         {
             Id = x.Id, Content = x.Content, Type = x.Type, GradingMode = x.GradingMode, Points = x.Points,
             Choices = x.Choices.OrderBy(_ => Random.Shared.Next()).Select(c => new TestChoiceSnapshot { Id = c.Id, Content = c.Content, IsCorrect = c.IsCorrect }).ToList()
@@ -235,3 +235,20 @@ public class TestSnapshot
 }
 public class TestQuestionSnapshot { public Guid Id { get; set; } public string Content { get; set; } = null!; public TestQuestionType Type { get; set; } public TestQuestionGradingMode GradingMode { get; set; } public double Points { get; set; } public List<TestChoiceSnapshot> Choices { get; set; } = []; }
 public class TestChoiceSnapshot { public Guid Id { get; set; } public string Content { get; set; } = null!; public bool IsCorrect { get; set; } }
+
+public static class TestQuestionSelector
+{
+    public static IEnumerable<SnTestQuestion> Select(SnTest test)
+    {
+        var questions = test.QuestionGroups.OrderBy(x => x.SortOrder).SelectMany(x => x.QuestionGroup.Questions.OrderBy(q => q.SortOrder)).ToList();
+        if (!test.ShuffleQuestions) return questions;
+        var count = test.RandomQuestionCount ?? questions.Count;
+        if (count >= questions.Count) return questions.OrderBy(_ => Random.Shared.Next());
+        var simpleTarget = (int)Math.Round(count * test.SimpleQuestionPercentage / 100d, MidpointRounding.AwayFromZero);
+        var simple = questions.Where(x => x.Difficulty <= 2).OrderBy(_ => Random.Shared.Next()).Take(simpleTarget).ToList();
+        var hard = questions.Where(x => x.Difficulty >= 3).OrderBy(_ => Random.Shared.Next()).Take(count - simple.Count).ToList();
+        var selected = simple.Concat(hard).ToList();
+        if (selected.Count < count) selected.AddRange(questions.Except(selected).OrderBy(_ => Random.Shared.Next()).Take(count - selected.Count));
+        return selected.OrderBy(_ => Random.Shared.Next());
+    }
+}

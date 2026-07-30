@@ -20,6 +20,7 @@ public class SnTest : ModelBase
     public bool IsListed { get; set; } = true;
     public bool ShuffleQuestions { get; set; }
     public int? RandomQuestionCount { get; set; }
+    public int SimpleQuestionPercentage { get; set; } = 60;
     public bool IsArchived { get; set; }
     public double PassingScore { get; set; } = 100;
     public int? MaxAttempts { get; set; }

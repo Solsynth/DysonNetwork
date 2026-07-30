@@ -36,12 +36,12 @@ public class TestAdminController(AppDatabase db, TestService tests) : Controller
     [AskPermission(PermissionKeys.TestsManage)]
     public async Task<ActionResult<SnTest>> Update(string key, [FromBody] TestUpsertRequest request)
     {
-        var test = await TestsQuery().FirstOrDefaultAsync(x => x.Key == key);
+        var test = await db.Tests.FirstOrDefaultAsync(x => x.Key == key);
         if (test is null) return NotFound();
         if (!Validate(request, out var error)) return BadRequest(error);
         var groups = await ResolveGroups(request.QuestionGroups);
         if (groups is null) return BadRequest("One or more question groups do not exist.");
-        db.TestQuestionGroupAssignments.RemoveRange(test.QuestionGroups);
+        await db.TestQuestionGroupAssignments.Where(x => x.TestId == test.Id).ExecuteDeleteAsync();
         Apply(test, request, groups);
         await db.SaveChangesAsync();
         return Ok(await TestsQuery().FirstAsync(x => x.Id == test.Id));
@@ -90,10 +90,12 @@ public class TestAdminController(AppDatabase db, TestService tests) : Controller
         {
             if (question.GradingMode == TestQuestionGradingMode.Manual) return new TestTrialAnswerResult { QuestionId = question.Id };
             inputs.TryGetValue(question.Id, out var input);
+            var wasAnswered = input?.ChoiceIds?.Count > 0 || !string.IsNullOrWhiteSpace(input?.Text);
+            if (!wasAnswered) return new TestTrialAnswerResult { QuestionId = question.Id, AwardedPoints = 0 };
             var selected = (input?.ChoiceIds ?? []).Order().ToArray();
             var correct = question.Choices.Where(choice => choice.IsCorrect).Select(choice => choice.Id).Order().ToArray();
             var isCorrect = selected.SequenceEqual(correct);
-            return new TestTrialAnswerResult { QuestionId = question.Id, IsCorrect = isCorrect, AwardedPoints = isCorrect ? question.Points : 0 };
+            return new TestTrialAnswerResult { QuestionId = question.Id, IsCorrect = isCorrect, AwardedPoints = isCorrect ? question.Points : -question.Points };
         }).ToList();
         var possible = questions.Where(x => x.GradingMode == TestQuestionGradingMode.Auto).Sum(x => x.Points);
         var score = possible == 0 ? (double?)null : answers.Sum(x => x.AwardedPoints ?? 0) / possible * 100;
@@ -133,19 +135,19 @@ public class TestAdminController(AppDatabase db, TestService tests) : Controller
 
     private static void Apply(SnTest test, TestUpsertRequest request, IReadOnlyDictionary<string, SnTestQuestionGroup> groups)
     {
-        test.Key = request.Key.Trim(); test.Title = request.Title; test.Description = request.Description; test.IsPublished = request.IsPublished; test.IsListed = request.IsListed; test.ShuffleQuestions = request.ShuffleQuestions; test.RandomQuestionCount = request.ShuffleQuestions ? request.RandomQuestionCount : null;
+        test.Key = request.Key.Trim(); test.Title = request.Title; test.Description = request.Description; test.IsPublished = request.IsPublished; test.IsListed = request.IsListed; test.ShuffleQuestions = request.ShuffleQuestions; test.RandomQuestionCount = request.ShuffleQuestions ? request.RandomQuestionCount : null; test.SimpleQuestionPercentage = request.SimpleQuestionPercentage;
         test.PassingScore = request.PassingScore; test.MaxAttempts = request.MaxAttempts; test.AttemptPeriodDays = request.AttemptPeriodDays; test.TimeLimitSeconds = request.TimeLimitSeconds; test.GrantedPermissionGroupKey = string.IsNullOrWhiteSpace(request.GrantedPermissionGroupKey) ? null : request.GrantedPermissionGroupKey.Trim(); test.Config = request.Config;
         test.QuestionGroups = request.QuestionGroups.Select(x => new SnTestQuestionGroupAssignment { QuestionGroup = groups[x.QuestionGroupKey.Trim()], SortOrder = x.SortOrder }).ToList();
     }
 
     private static bool Validate(TestUpsertRequest request, out string error)
     {
-        if (string.IsNullOrWhiteSpace(request.Key) || string.IsNullOrWhiteSpace(request.Title) || request.PassingScore is < 0 or > 100 || request.MaxAttempts is < 1 || request.AttemptPeriodDays < 1 || request.TimeLimitSeconds is < 1 || request.RandomQuestionCount is < 1 || request.QuestionGroups.Any(x => string.IsNullOrWhiteSpace(x.QuestionGroupKey)) || request.QuestionGroups.Select(x => x.QuestionGroupKey.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).Count() != request.QuestionGroups.Count) { error = "The test configuration is invalid."; return false; }
+        if (string.IsNullOrWhiteSpace(request.Key) || string.IsNullOrWhiteSpace(request.Title) || request.PassingScore is < 0 or > 100 || request.MaxAttempts is < 1 || request.AttemptPeriodDays < 1 || request.TimeLimitSeconds is < 1 || request.RandomQuestionCount is < 1 || request.SimpleQuestionPercentage is < 0 or > 100 || request.QuestionGroups.Any(x => string.IsNullOrWhiteSpace(x.QuestionGroupKey)) || request.QuestionGroups.Select(x => x.QuestionGroupKey.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).Count() != request.QuestionGroups.Count) { error = "The test configuration is invalid."; return false; }
         error = string.Empty; return true;
     }
 }
 
-public class TestUpsertRequest { public string Key { get; set; } = null!; public string Title { get; set; } = null!; public string? Description { get; set; } public bool IsPublished { get; set; } public bool IsListed { get; set; } = true; public bool ShuffleQuestions { get; set; } public int? RandomQuestionCount { get; set; } public double PassingScore { get; set; } = 100; public int? MaxAttempts { get; set; } public int AttemptPeriodDays { get; set; } = 365; public int? TimeLimitSeconds { get; set; } public string? GrantedPermissionGroupKey { get; set; } public Dictionary<string, object?> Config { get; set; } = new(); public List<TestQuestionGroupAssignmentUpsertRequest> QuestionGroups { get; set; } = []; }
+public class TestUpsertRequest { public string Key { get; set; } = null!; public string Title { get; set; } = null!; public string? Description { get; set; } public bool IsPublished { get; set; } public bool IsListed { get; set; } = true; public bool ShuffleQuestions { get; set; } public int? RandomQuestionCount { get; set; } public int SimpleQuestionPercentage { get; set; } = 60; public double PassingScore { get; set; } = 100; public int? MaxAttempts { get; set; } public int AttemptPeriodDays { get; set; } = 365; public int? TimeLimitSeconds { get; set; } public string? GrantedPermissionGroupKey { get; set; } public Dictionary<string, object?> Config { get; set; } = new(); public List<TestQuestionGroupAssignmentUpsertRequest> QuestionGroups { get; set; } = []; }
 public class TestQuestionGroupAssignmentUpsertRequest { public string QuestionGroupKey { get; set; } = null!; public int SortOrder { get; set; } }
 public class ReviewTestAnswerRequest { public bool IsCorrect { get; set; } public double AwardedPoints { get; set; } public string? Note { get; set; } }
 public class TestTrialResult { public double? Score { get; set; } public bool Passed { get; set; } public List<TestTrialAnswerResult> Answers { get; set; } = []; }
