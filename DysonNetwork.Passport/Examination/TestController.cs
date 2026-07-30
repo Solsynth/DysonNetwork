@@ -92,7 +92,7 @@ public class TestController(AppDatabase db, TestService tests) : ControllerBase
         var snapshot = TestSnapshot.FromDictionary(x.Snapshot);
         return new ParticipantAttempt
         {
-            Id = x.Id, Status = x.Status, StartedAt = x.StartedAt, DeadlineAt = x.DeadlineAt, SubmittedAt = x.SubmittedAt, ReviewedAt = x.ReviewedAt, Score = x.Score,
+            Id = x.Id, Key = snapshot.Key, Title = snapshot.Title, Status = x.Status, StartedAt = x.StartedAt, DeadlineAt = x.DeadlineAt, SubmittedAt = x.SubmittedAt, ReviewedAt = x.ReviewedAt, Score = x.Score,
             Questions = snapshot.Questions.Select(q => new ParticipantQuestion
             {
                 Id = q.Id, Content = q.Content, Type = q.Type, Config = new(), Choices = q.Choices.Select(c => new ParticipantChoice { Id = c.Id, Content = c.Content, Config = new() }).ToList()
@@ -106,5 +106,5 @@ public class SubmitTestAttemptRequest { public List<TestAnswerInput> Answers { g
 public class ParticipantTest { public string Key { get; set; } = null!; public string Title { get; set; } = null!; public string? Description { get; set; } public int? TimeLimitSeconds { get; set; } public List<ParticipantQuestion> Questions { get; set; } = []; }
 public class ParticipantQuestion { public Guid Id { get; set; } public string Content { get; set; } = null!; public TestQuestionType Type { get; set; } public Dictionary<string, object?> Config { get; set; } = new(); public List<ParticipantChoice> Choices { get; set; } = []; }
 public class ParticipantChoice { public Guid Id { get; set; } public string Content { get; set; } = null!; public Dictionary<string, object?> Config { get; set; } = new(); }
-public class ParticipantAttempt { public Guid Id { get; set; } public TestAttemptStatus Status { get; set; } public NodaTime.Instant StartedAt { get; set; } public NodaTime.Instant? DeadlineAt { get; set; } public NodaTime.Instant? SubmittedAt { get; set; } public NodaTime.Instant? ReviewedAt { get; set; } public double? Score { get; set; } public List<ParticipantQuestion> Questions { get; set; } = []; public List<ParticipantAnswer> Answers { get; set; } = []; }
+public class ParticipantAttempt { public Guid Id { get; set; } public string Key { get; set; } = null!; public string Title { get; set; } = null!; public TestAttemptStatus Status { get; set; } public NodaTime.Instant StartedAt { get; set; } public NodaTime.Instant? DeadlineAt { get; set; } public NodaTime.Instant? SubmittedAt { get; set; } public NodaTime.Instant? ReviewedAt { get; set; } public double? Score { get; set; } public List<ParticipantQuestion> Questions { get; set; } = []; public List<ParticipantAnswer> Answers { get; set; } = []; }
 public class ParticipantAnswer { public Guid QuestionId { get; set; } public Dictionary<string, object?> Value { get; set; } = new(); public string? ReviewNote { get; set; } }

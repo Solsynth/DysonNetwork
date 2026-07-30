@@ -218,12 +218,16 @@ public class ActivationTestRequirement { public string Key { get; set; } = null!
 public class TestAnswerInput { public Guid QuestionId { get; set; } public List<Guid>? ChoiceIds { get; set; } public string? Text { get; set; } }
 public class TestSnapshot
 {
+    public string Key { get; set; } = null!;
+    public string Title { get; set; } = null!;
     public double PassingScore { get; set; }
     public string? GrantedPermissionGroupKey { get; set; }
     public List<TestQuestionSnapshot> Questions { get; set; } = [];
     public static TestSnapshot FromDictionary(Dictionary<string, object?> snapshot) => JsonSerializer.Deserialize<TestSnapshot>(JsonSerializer.Serialize(snapshot))!;
     public static TestSnapshot FromTest(SnTest test) => new()
     {
+        Key = test.Key,
+        Title = test.Title,
         PassingScore = test.PassingScore,
         GrantedPermissionGroupKey = test.GrantedPermissionGroupKey,
         Questions = TestQuestionSelector.Select(test).Select(x => new TestQuestionSnapshot
