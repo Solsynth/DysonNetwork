@@ -45,7 +45,7 @@ public class DeliveryObservabilityAdminController(AppDatabase db, IClock clock) 
     }
 
     [HttpGet("emails")]
-    [AskPermission("emails.send")]
+    [AskPermission(PermissionKeys.EmailsSend)]
     public async Task<ActionResult<EmailDeliveryOverview>> GetEmailDeliveryOverview(
         [FromQuery] Instant? from = null,
         [FromQuery] Instant? to = null,

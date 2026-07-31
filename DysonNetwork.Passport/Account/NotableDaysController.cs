@@ -115,7 +115,7 @@ public class NotableDaysController(
     }
 
     [HttpPost]
-    [AskPermission("notable-days.create")]
+    [AskPermission(PermissionKeys.NotableDaysCreate)]
     public async Task<ActionResult<SnNotableDay>> CreateNotableDay([FromBody] NotableDayRequest request)
     {
         if (request.EndDate <= request.StartDate && !request.IsPeriod)
@@ -148,7 +148,7 @@ public class NotableDaysController(
     }
 
     [HttpPut("{id:guid}")]
-    [AskPermission("notable-days.update")]
+    [AskPermission(PermissionKeys.NotableDaysUpdate)]
     public async Task<ActionResult<SnNotableDay>> UpdateNotableDay(Guid id, [FromBody] NotableDayRequest request)
     {
         var day = await db.NotableDays
@@ -180,7 +180,7 @@ public class NotableDaysController(
     }
 
     [HttpDelete("{id:guid}")]
-    [AskPermission("notable-days.delete")]
+    [AskPermission(PermissionKeys.NotableDaysDelete)]
     public async Task<ActionResult> DeleteNotableDay(Guid id)
     {
         var day = await db.NotableDays

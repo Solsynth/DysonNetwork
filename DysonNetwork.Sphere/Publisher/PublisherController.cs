@@ -1034,7 +1034,7 @@ public class PublisherController(
 
     [HttpPost("rewards/settle")]
     [Authorize]
-    [AskPermission("publishers.reward.settle")]
+    [AskPermission(PermissionKeys.PublishersRewardsSettle)]
     public async Task<IActionResult> SettlePublisherAward()
     {
         await ps.SettlePublisherRewards();
@@ -1044,7 +1044,7 @@ public class PublisherController(
 
     [HttpPost("awards/settle")]
     [Authorize]
-    [AskPermission("publishers.reward.settle")]
+    [AskPermission(PermissionKeys.PublishersRewardsSettle)]
     public async Task<IActionResult> SettlePostAwards()
     {
         await ps.SettlePostAwardsAsync();
@@ -1060,7 +1060,7 @@ public class PublisherController(
 
     [HttpPost("rewards/resettle")]
     [Authorize]
-    [AskPermission("publishers.reward.settle")]
+    [AskPermission(PermissionKeys.PublishersRewardsSettle)]
     public async Task<IActionResult> AggressiveResettle([FromBody] AggressiveResettleRequest request)
     {
         var results = await ps.AggressiveResettle(

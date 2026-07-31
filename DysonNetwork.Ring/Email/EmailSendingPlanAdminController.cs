@@ -31,7 +31,7 @@ public class EmailSendingPlanAdminController(EmailSendingPlanService plans) : Co
     }
 
     [HttpPost]
-    [AskPermission("emails.send")]
+    [AskPermission(PermissionKeys.EmailsSend)]
     public async Task<ActionResult<EmailSendingPlanService.EmailSendingPlanView>> CreatePlan(
         [FromBody] CreateEmailSendingPlanRequest request,
         CancellationToken cancellationToken
@@ -79,7 +79,7 @@ public class EmailSendingPlanAdminController(EmailSendingPlanService plans) : Co
     }
 
     [HttpGet]
-    [AskPermission("emails.send")]
+    [AskPermission(PermissionKeys.EmailsSend)]
     public async Task<ActionResult<List<EmailSendingPlanService.EmailSendingPlanView>>> ListPlans(
         [FromQuery] int take = 20,
         [FromQuery] int offset = 0,
@@ -96,7 +96,7 @@ public class EmailSendingPlanAdminController(EmailSendingPlanService plans) : Co
     }
 
     [HttpGet("{planId:guid}")]
-    [AskPermission("emails.send")]
+    [AskPermission(PermissionKeys.EmailsSend)]
     public async Task<ActionResult<EmailSendingPlanService.EmailSendingPlanView>> GetPlan(
         Guid planId,
         CancellationToken cancellationToken
@@ -109,7 +109,7 @@ public class EmailSendingPlanAdminController(EmailSendingPlanService plans) : Co
     }
 
     [HttpPost("{planId:guid}/pause")]
-    [AskPermission("emails.send")]
+    [AskPermission(PermissionKeys.EmailsSend)]
     public async Task<ActionResult<EmailSendingPlanService.EmailSendingPlanView>> PausePlan(
         Guid planId,
         CancellationToken cancellationToken
@@ -130,7 +130,7 @@ public class EmailSendingPlanAdminController(EmailSendingPlanService plans) : Co
     }
 
     [HttpPost("{planId:guid}/resume")]
-    [AskPermission("emails.send")]
+    [AskPermission(PermissionKeys.EmailsSend)]
     public async Task<ActionResult<EmailSendingPlanService.EmailSendingPlanView>> ResumePlan(
         Guid planId,
         CancellationToken cancellationToken
@@ -151,7 +151,7 @@ public class EmailSendingPlanAdminController(EmailSendingPlanService plans) : Co
     }
 
     [HttpPost("{planId:guid}/advance")]
-    [AskPermission("emails.send")]
+    [AskPermission(PermissionKeys.EmailsSend)]
     public async Task<ActionResult<EmailSendingPlanService.EmailSendingPlanView>> AdvancePlan(
         Guid planId,
         CancellationToken cancellationToken

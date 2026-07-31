@@ -950,7 +950,7 @@ public class AccountAdminController(
     }
 
     [HttpPost("emails")]
-    [AskPermission("emails.send")]
+    [AskPermission(PermissionKeys.EmailsSend)]
     public async Task<ActionResult<AdminMessageDispatchResponse>> SendEmails(
         [FromBody] SendAdminEmailRequest request,
         [FromServices] DysonNetwork.Padlock.Mailer.EmailService mailer
@@ -1010,7 +1010,7 @@ public class AccountAdminController(
     }
 
     [HttpGet("emails/export")]
-    [AskPermission("emails.send")]
+    [AskPermission(PermissionKeys.EmailsSend)]
     public async Task<IActionResult> ExportEmailContactsCsv(
         [FromQuery] ExportAdminEmailContactsRequest request
     )
