@@ -182,6 +182,7 @@ public static class ServiceCollectionExtensions
         services.Configure<DomainBlockSettings>(configuration.GetSection("DomainBlock"));
         services.AddScoped<DomainTrustService>();
         services.AddEventBus()
+            .AddFileMetadataReferenceListener<AppDatabase>()
             .AddListener<AccountCreatedEvent>(async (evt, ctx) =>
             {
                 var spells = ctx.ServiceProvider.GetRequiredService<MagicSpellService>();

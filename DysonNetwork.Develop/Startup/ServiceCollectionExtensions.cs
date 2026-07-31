@@ -66,7 +66,8 @@ public static class ServiceCollectionExtensions
             "https://_grpc.padlock",
             "DyAuthorizedAppService");
 
-        services.AddEventBus();
+        services.AddEventBus()
+            .AddFileMetadataReferenceListener<AppDatabase>();
 
         return services;
     }

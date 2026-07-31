@@ -75,7 +75,8 @@ public static class ServiceCollectionExtensions
         services.AddHostedService<QueueBackgroundService>();
 
         // Register EventBus (needed for WebSocketController to publish events)
-        services.AddEventBus();
+        services.AddEventBus()
+            .AddFileMetadataReferenceListener<AppDatabase>();
 
         return services;
     }

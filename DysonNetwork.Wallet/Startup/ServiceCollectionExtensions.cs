@@ -112,6 +112,7 @@ public static class ServiceCollectionExtensions
         services.AddHostedService<LegacyInAppSubscriptionAvailabilityValidationService>();
 
         services.AddEventBus()
+            .AddFileMetadataReferenceListener<AppDatabase>()
             .AddListener<PaymentOrderEvent>(
                 PaymentOrderEventBase.Type,
                 async (evt, ctx) =>

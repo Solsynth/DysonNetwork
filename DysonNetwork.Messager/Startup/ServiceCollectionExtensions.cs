@@ -84,6 +84,7 @@ public static class ServiceCollectionExtensions
             services.AddLazyGrpcClientFactory<DyStickerService.DyStickerServiceClient>();
 
             services.AddEventBus()
+                .AddFileMetadataReferenceListener<AppDatabase>()
                 .AddListener<AccountDeletedEvent>(
                     AccountDeletedEvent.Type,
                     async (evt, ctx) =>

@@ -175,6 +175,7 @@ public static class ServiceCollectionExtensions
         services.Configure<OidcProviderOptions>(configuration.GetSection("OidcProvider"));
         services.AddScoped<OidcProviderService>();
         services.AddEventBus()
+            .AddFileMetadataReferenceListener<AppDatabase>()
             .AddListener<AccountActivatedEvent>(async (evt, ctx) =>
             {
                 var logger = ctx.ServiceProvider.GetRequiredService<ILogger<EventBus>>();
