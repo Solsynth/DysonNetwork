@@ -95,7 +95,10 @@ public class PermissionSeedService(
         PermissionKeys.SurveysClone,
         PermissionKeys.NotableDaysCreate,
         PermissionKeys.NotableDaysUpdate,
-        PermissionKeys.NotableDaysDelete
+        PermissionKeys.NotableDaysDelete,
+        PermissionKeys.TicketsCreate,
+        PermissionKeys.ProgressionBadgesManage,
+        PermissionKeys.FilesUpload
     };
 
     private static readonly IReadOnlySet<string> VerifiedPermissionKeys = new HashSet<string>
@@ -225,7 +228,7 @@ public class PermissionSeedService(
 
     /// <summary>
     /// Synchronizes all keys defined in <see cref="PermissionKeys"/> into the default
-    /// permission group. Missing keys are inserted; existing keys are skipped.
+    /// permission groups. Missing keys are inserted; existing keys are preserved.
     /// Run at service startup so newly added PermissionKeys are always picked up.
     /// </summary>
     public async Task EnsureSeededAsync(CancellationToken cancellationToken = default)
@@ -259,10 +262,7 @@ public class PermissionSeedService(
             db.PermissionGroups.Add(group);
             await db.SaveChangesAsync(cancellationToken);
         }
-        var expected = keys.ToHashSet();
-        var obsoleteNodes = group.Nodes.Where(x => !expected.Contains(x.Key)).ToList();
-        db.PermissionNodes.RemoveRange(obsoleteNodes);
-        var existing = group.Nodes.Select(x => x.Key).Except(obsoleteNodes.Select(x => x.Key)).ToHashSet();
+        var existing = group.Nodes.Select(x => x.Key).ToHashSet();
         foreach (var permissionKey in keys.Except(existing))
         {
             var node = new SnPermissionNode { Actor = $"group:{key}", Type = PermissionNodeActorType.Group, Key = permissionKey, Value = JsonDocument.Parse(JsonSerializer.Serialize(true)), GroupId = group.Id, Group = group };
