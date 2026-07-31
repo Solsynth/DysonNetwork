@@ -582,7 +582,6 @@ public static class ServiceCollectionExtensions
                 Type = "text",
                 SenderId = member.Id,
                 ChatRoomId = requestData.ChatRoomId,
-                Nonce = requestData.Nonce ?? Guid.NewGuid().ToString(),
                 Meta = requestData.Meta ?? new Dictionary<string, object>(),
                 IsEncrypted = requestData.IsEncrypted,
                 Ciphertext = requestData.Ciphertext,
@@ -593,7 +592,7 @@ public static class ServiceCollectionExtensions
                 EncryptionMessageType = requestData.IsEncrypted
                     ? ChatMessageHelpers.NormalizeEncryptionMessageType(requestData.EncryptionMessageType, "text")
                     : null,
-                ClientMessageId = requestData.ClientMessageId
+                ClientMessageId = requestData.ClientMessageId ?? requestData.Nonce
             };
 
             if (!e2eeMode && requestData.Embeds is { Count: > 0 })

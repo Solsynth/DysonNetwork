@@ -14,7 +14,6 @@ namespace DysonNetwork.Messager.Chat;
 public interface ISendMessageRequest
 {
     string? Content { get; }
-    string? Nonce { get; }
     string? ClientMessageId { get; }
     Guid? FundId { get; }
     Guid? SurveyId { get; }

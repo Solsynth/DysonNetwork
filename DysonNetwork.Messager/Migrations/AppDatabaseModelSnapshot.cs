@@ -437,12 +437,6 @@ namespace DysonNetwork.Messager.Migrations
                         .HasColumnType("jsonb")
                         .HasColumnName("meta");
 
-                    b.Property<string>("Nonce")
-                        .IsRequired()
-                        .HasMaxLength(36)
-                        .HasColumnType("character varying(36)")
-                        .HasColumnName("nonce");
-
                     b.Property<Dictionary<string, int>>("ReactionsCount")
                         .IsRequired()
                         .HasColumnType("jsonb")

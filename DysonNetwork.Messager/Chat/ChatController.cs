@@ -351,6 +351,7 @@ public partial class ChatController(
     public class SendMessageRequest : ISendMessageRequest
     {
         [MaxLength(4096)] public string? Content { get; set; }
+        // Legacy clients used nonce as the client-generated message identifier.
         [MaxLength(36)] public string? Nonce { get; set; }
         [MaxLength(128)] public string? ClientMessageId { get; set; }
         public Guid? FundId { get; set; }
@@ -377,6 +378,8 @@ public partial class ChatController(
 
     public class DeleteMessageRequest
     {
+        // Legacy clients used nonce as the client-generated message identifier.
+        [MaxLength(36)] public string? Nonce { get; set; }
         [MaxLength(128)] public string? ClientMessageId { get; set; }
         public byte[]? Ciphertext { get; set; }
         public byte[]? EncryptionHeader { get; set; }
@@ -394,7 +397,9 @@ public partial class ChatController(
     public class SendVoiceMessageRequest
     {
         [Required] public IFormFile File { get; set; } = null!;
+        // Legacy clients used nonce as the client-generated message identifier.
         [MaxLength(36)] public string? Nonce { get; set; }
+        [MaxLength(128)] public string? ClientMessageId { get; set; }
         public int? DurationMs { get; set; }
         public Guid? RepliedMessageId { get; set; }
         public Guid? ForwardedMessageId { get; set; }
@@ -695,7 +700,6 @@ public partial class ChatController(
             Type = "text",
             SenderId = member.Id,
             ChatRoomId = roomId,
-            Nonce = request.Nonce ?? Guid.NewGuid().ToString(),
             Meta = request.Meta ?? new Dictionary<string, object>(),
             IsEncrypted = request.IsEncrypted,
             Ciphertext = request.Ciphertext,
@@ -706,7 +710,7 @@ public partial class ChatController(
             EncryptionMessageType = request.IsEncrypted
                 ? ChatMessageHelpers.NormalizeEncryptionMessageType(request.EncryptionMessageType, "text")
                 : null,
-            ClientMessageId = request.ClientMessageId
+            ClientMessageId = request.ClientMessageId ?? request.Nonce
         };
 
         // If client provides the complete embeds list, use it directly
@@ -869,7 +873,7 @@ public partial class ChatController(
             Type = "voice",
             SenderId = member.Id,
             ChatRoomId = roomId,
-            Nonce = request.Nonce ?? Guid.NewGuid().ToString(),
+            ClientMessageId = request.ClientMessageId ?? request.Nonce,
             Meta = messageMeta,
             RepliedMessageId = request.RepliedMessageId,
             ForwardedMessageId = request.ForwardedMessageId
@@ -1302,7 +1306,7 @@ public partial class ChatController(
             request?.EncryptionScheme,
             request?.EncryptionEpoch,
             request is null ? null : ChatMessageHelpers.NormalizeEncryptionMessageType(request.EncryptionMessageType, "messages.delete"),
-            request?.ClientMessageId
+            request is null ? null : request.ClientMessageId ?? request.Nonce
         );
 
         return Ok();

@@ -451,7 +451,6 @@ public partial class ChatService(
                         Type = "messages.sync.links",
                         ChatRoomId = dbMessage.ChatRoomId,
                         SenderId = dbMessage.SenderId,
-                        Nonce = Guid.NewGuid().ToString(),
                         Meta = new Dictionary<string, object>
                         {
                             ["message_id"] = dbMessage.Id,
@@ -645,9 +644,6 @@ public partial class ChatService(
                     throw new InvalidOperationException("You cannot send messages to a blocked user.");
             }
         }
-
-        if (string.IsNullOrWhiteSpace(message.Nonce))
-            message.Nonce = Guid.NewGuid().ToString();
 
         await NormalizeStickerPlaceholderMessageAsync(message);
         await EnrichInlineStickerPreviewAsync(message);
@@ -884,7 +880,7 @@ public partial class ChatService(
             ["type"] = sourceMessage.Type,
             ["content"] = sourceMessage.Content ?? string.Empty,
             ["meta"] = CloneRedirectMeta(sourceMessage.Meta),
-            ["nonce"] = sourceMessage.Nonce ?? string.Empty,
+            ["client_message_id"] = sourceMessage.ClientMessageId,
             ["edited_at"] = sourceMessage.EditedAt?.ToUnixTimeMilliseconds(),
             ["replied_message_id"] = sourceMessage.RepliedMessageId?.ToString(),
             ["forwarded_message_id"] = sourceMessage.ForwardedMessageId?.ToString(),
@@ -1006,7 +1002,6 @@ public partial class ChatService(
             Type = "text",
             SenderId = redirector.Id,
             ChatRoomId = destinationRoom.Id,
-            Nonce = Guid.NewGuid().ToString(),
             Content = localization.Get("chatRedirectHistory", null),
             Meta = meta,
             Attachments = [],
@@ -1037,7 +1032,6 @@ public partial class ChatService(
             SenderId = sender.Id,
             Content = content,
             Meta = meta ?? new Dictionary<string, object>(),
-            Nonce = Guid.NewGuid().ToString(),
         };
 
         db.ChatMessages.Add(systemMessage);
@@ -2166,7 +2160,6 @@ public partial class ChatService(
             RepliedMessageId = message.RepliedMessageId,
             ForwardedMessageId = message.ForwardedMessageId,
             EditedAt = message.EditedAt,
-            Nonce = Guid.NewGuid().ToString(),
             Meta =
                 message.Meta != null
                     ? new Dictionary<string, object>(message.Meta) { ["message_id"] = message.Id }
@@ -2252,7 +2245,6 @@ public partial class ChatService(
                 ? NormalizeEncryptionMessageType(encryptionMessageType, "messages.delete")
                 : null,
             ClientMessageId = clientMessageId ?? message.ClientMessageId,
-            Nonce = Guid.NewGuid().ToString(),
             Meta = new Dictionary<string, object> { ["message_id"] = message.Id },
             CreatedAt = message.DeletedAt.Value,
             UpdatedAt = message.DeletedAt.Value,
@@ -2399,7 +2391,6 @@ public partial class ChatService(
             Type = WebSocketPacketType.MessageReactionAdded,
             ChatRoomId = message.ChatRoomId,
             SenderId = sender.Id,
-            Nonce = Guid.NewGuid().ToString(),
             Meta = new Dictionary<string, object>
             {
                 ["message_id"] = message.Id,
@@ -2508,7 +2499,6 @@ public partial class ChatService(
             Type = WebSocketPacketType.MessageReactionRemoved,
             ChatRoomId = message.ChatRoomId,
             SenderId = sender.Id,
-            Nonce = Guid.NewGuid().ToString(),
             Meta = new Dictionary<string, object>
             {
                 ["message_id"] = message.Id,
@@ -2641,7 +2631,6 @@ public partial class ChatService(
             Type = PlaceholderContentType,
             SenderId = sender.Id,
             ChatRoomId = room.Id,
-            Nonce = Guid.NewGuid().ToString(),
             Meta = meta,
             Attachments = [],
             MembersMentioned = [],
@@ -2762,7 +2751,6 @@ public partial class ChatService(
             SenderId = message.SenderId,
             Content = message.Content,
             Attachments = message.Attachments,
-            Nonce = Guid.NewGuid().ToString(),
             Meta = message.Meta != null
                 ? new Dictionary<string, object>(message.Meta) { ["message_id"] = message.Id }
                 : new Dictionary<string, object> { ["message_id"] = message.Id },
