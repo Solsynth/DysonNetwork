@@ -68,8 +68,6 @@ public class AppDatabase(
             .HasForeignKey(m => m.RepliedMessageId)
             .OnDelete(DeleteBehavior.Restrict);
         modelBuilder.Entity<SnChatMessage>()
-            .HasIndex(m => new { m.ChatRoomId, m.IsEncrypted, m.CreatedAt });
-        modelBuilder.Entity<SnChatMessage>()
             .HasIndex(m => new { m.ChatRoomId, m.RoomSequence })
             .IsUnique();
         modelBuilder.Entity<SnChatMessage>()
@@ -80,7 +78,7 @@ public class AppDatabase(
             .HasIndex(m => m.Content)
             .HasMethod("gin")
             .HasOperators("gin_trgm_ops")
-            .HasFilter("type = 'text' AND is_encrypted = FALSE AND content IS NOT NULL AND deleted_at IS NULL");
+            .HasFilter("type = 'text' AND encryption_meta IS NULL AND content IS NOT NULL AND deleted_at IS NULL");
 
         // Partial unique index: max 1 active placeholder per member per room
         modelBuilder.Entity<SnChatMessage>()

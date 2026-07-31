@@ -472,7 +472,7 @@ public static class ServiceCollectionExtensions
             var mlsMode = member.ChatRoom.EncryptionMode == ChatRoomEncryptionMode.E2eeMls;
             if (e2eeMode)
             {
-                if (!requestData.IsEncrypted || !ChatMessageHelpers.HasEncryptedPayload(requestData))
+                if (!ChatMessageHelpers.HasEncryptedPayload(requestData))
                 {
                     await SendErrorResponse(evt, "Encrypted payload is required for E2EE rooms.", ws);
                     return;
@@ -495,11 +495,11 @@ public static class ServiceCollectionExtensions
                     try
                     {
                         var state = await mlsService.GetGroupStateAsync(member.ChatRoom.MlsGroupId);
-                        if (state.Epoch != requestData.EncryptionEpoch)
+                        if (state.Epoch != requestData.EncryptionMeta?.Epoch)
                         {
                             await SendErrorResponse(
                                 evt,
-                                $"MLS epoch mismatch. Current epoch is {state.Epoch}; message epoch is {requestData.EncryptionEpoch}.",
+                                $"MLS epoch mismatch. Current epoch is {state.Epoch}; message epoch is {requestData.EncryptionMeta?.Epoch}.",
                                 ws);
                             return;
                         }
@@ -511,7 +511,7 @@ public static class ServiceCollectionExtensions
                     }
                 }
 
-                if (ChatMessageHelpers.LooksLikePlaintextJson(requestData.Ciphertext))
+                if (ChatMessageHelpers.LooksLikePlaintextJson(requestData.EncryptionMeta?.Ciphertext))
                 {
                     await SendErrorResponse(evt, "Ciphertext appears to be plaintext JSON.", ws);
                     return;
@@ -584,15 +584,7 @@ public static class ServiceCollectionExtensions
                 SenderId = member.Id,
                 ChatRoomId = requestData.ChatRoomId,
                 Meta = requestData.Meta ?? new Dictionary<string, object>(),
-                IsEncrypted = requestData.IsEncrypted,
-                Ciphertext = requestData.Ciphertext,
-                EncryptionHeader = requestData.EncryptionHeader,
-                EncryptionSignature = requestData.EncryptionSignature,
-                EncryptionScheme = requestData.EncryptionScheme,
-                EncryptionEpoch = requestData.EncryptionEpoch,
-                EncryptionMessageType = requestData.IsEncrypted
-                    ? ChatMessageHelpers.NormalizeEncryptionMessageType(requestData.EncryptionMessageType, "text")
-                    : null,
+                EncryptionMeta = requestData.EncryptionMeta,
                 ClientMessageId = requestData.ClientMessageId ?? requestData.Nonce
             };
 

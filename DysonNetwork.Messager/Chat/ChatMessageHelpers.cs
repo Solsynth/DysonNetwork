@@ -28,13 +28,7 @@ public interface ISendMessageRequest
     Dictionary<string, object>? Meta { get; }
     Guid? RepliedMessageId { get; }
     Guid? ForwardedMessageId { get; }
-    bool IsEncrypted { get; }
-    byte[]? Ciphertext { get; }
-    byte[]? EncryptionHeader { get; }
-    byte[]? EncryptionSignature { get; }
-    string? EncryptionScheme { get; }
-    long? EncryptionEpoch { get; }
-    string? EncryptionMessageType { get; }
+    SnChatEncryptionMeta? EncryptionMeta { get; }
 }
 
 public static class ChatMessageHelpers
@@ -43,27 +37,14 @@ public static class ChatMessageHelpers
 
     public static bool HasEncryptedPayload(ISendMessageRequest request)
     {
-        return request.Ciphertext is { Length: > 0 } &&
-               !string.IsNullOrWhiteSpace(request.EncryptionScheme) &&
-               !string.IsNullOrWhiteSpace(request.EncryptionMessageType);
+        return request.EncryptionMeta?.Ciphertext is { Length: > 0 } &&
+               !string.IsNullOrWhiteSpace(request.EncryptionMeta.Scheme);
     }
 
     public static bool IsMlsPayloadValid(ISendMessageRequest request)
     {
-        var schemeOk = string.Equals(request.EncryptionScheme, MlsEncryptionScheme, StringComparison.Ordinal);
-        return schemeOk && request.EncryptionEpoch.HasValue;
-    }
-
-    public static string NormalizeEncryptionMessageType(string? messageType, string fallbackType)
-    {
-        if (string.IsNullOrWhiteSpace(messageType)) return fallbackType;
-        return messageType switch
-        {
-            "content.new" => "text",
-            "content.edit" => "messages.update",
-            "content.delete" => "messages.delete",
-            _ => messageType
-        };
+        var schemeOk = string.Equals(request.EncryptionMeta?.Scheme, MlsEncryptionScheme, StringComparison.Ordinal);
+        return schemeOk && request.EncryptionMeta?.Epoch.HasValue == true;
     }
 
     public static bool HasLocationPayload(string? locationName, string? locationAddress, string? locationWkt)

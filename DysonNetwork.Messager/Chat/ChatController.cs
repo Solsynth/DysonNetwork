@@ -367,13 +367,7 @@ public partial class ChatController(
         public Dictionary<string, object>? Meta { get; set; }
         public Guid? RepliedMessageId { get; set; }
         public Guid? ForwardedMessageId { get; set; }
-        public bool IsEncrypted { get; set; }
-        public byte[]? Ciphertext { get; set; }
-        public byte[]? EncryptionHeader { get; set; }
-        public byte[]? EncryptionSignature { get; set; }
-        [MaxLength(128)] public string? EncryptionScheme { get; set; }
-        public long? EncryptionEpoch { get; set; }
-        [MaxLength(128)] public string? EncryptionMessageType { get; set; }
+        public SnChatEncryptionMeta? EncryptionMeta { get; set; }
     }
 
     public class DeleteMessageRequest
@@ -381,12 +375,7 @@ public partial class ChatController(
         // Legacy clients used nonce as the client-generated message identifier.
         [MaxLength(36)] public string? Nonce { get; set; }
         [MaxLength(128)] public string? ClientMessageId { get; set; }
-        public byte[]? Ciphertext { get; set; }
-        public byte[]? EncryptionHeader { get; set; }
-        public byte[]? EncryptionSignature { get; set; }
-        [MaxLength(128)] public string? EncryptionScheme { get; set; }
-        public long? EncryptionEpoch { get; set; }
-        [MaxLength(128)] public string? EncryptionMessageType { get; set; }
+        public SnChatEncryptionMeta? EncryptionMeta { get; set; }
     }
 
     public class RedirectMessagesRequest
@@ -451,7 +440,7 @@ public partial class ChatController(
 
         var accountId = Guid.Parse(currentUser.Id);
         var messagesQuery = db.ChatMessages
-            .Where(m => m.Type == "text" && !m.IsEncrypted && m.Content != null)
+            .Where(m => m.Type == "text" && m.EncryptionMeta == null && m.Content != null)
             .Where(m => db.ChatMembers.Any(member =>
                 member.ChatRoomId == m.ChatRoomId &&
                 member.AccountId == accountId &&
@@ -631,13 +620,13 @@ public partial class ChatController(
         var mlsMode = member.ChatRoom.EncryptionMode == ChatRoomEncryptionMode.E2eeMls;
         if (e2eeMode)
         {
-            if (!request.IsEncrypted || !ChatMessageHelpers.HasEncryptedPayload(request))
+            if (!ChatMessageHelpers.HasEncryptedPayload(request))
                 return E2EeError("chat.e2ee_payload_required", "Encrypted payload is required for E2EE rooms.");
             if (mlsMode && !ChatMessageHelpers.IsMlsPayloadValid(request))
                 return E2EeError("chat.mls_payload_required", "MLS rooms require scheme chat.mls.v2 and encryption_epoch.");
-            if (mlsMode && await EnsureCurrentMlsEpochAsync(member.ChatRoom, request.EncryptionEpoch) is { } epochError)
+            if (mlsMode && await EnsureCurrentMlsEpochAsync(member.ChatRoom, request.EncryptionMeta?.Epoch) is { } epochError)
                 return epochError;
-            if (ChatMessageHelpers.LooksLikePlaintextJson(request.Ciphertext))
+            if (ChatMessageHelpers.LooksLikePlaintextJson(request.EncryptionMeta?.Ciphertext))
                 return E2EeError("chat.e2ee_ciphertext_invalid", "Ciphertext appears to be plaintext JSON.");
             if (ChatMessageHelpers.HasPlaintextFields(request))
                 return E2EeError("chat.e2ee_plaintext_forbidden", "Plaintext fields are forbidden for E2EE rooms.");
@@ -701,15 +690,7 @@ public partial class ChatController(
             SenderId = member.Id,
             ChatRoomId = roomId,
             Meta = request.Meta ?? new Dictionary<string, object>(),
-            IsEncrypted = request.IsEncrypted,
-            Ciphertext = request.Ciphertext,
-            EncryptionHeader = request.EncryptionHeader,
-            EncryptionSignature = request.EncryptionSignature,
-            EncryptionScheme = request.EncryptionScheme,
-            EncryptionEpoch = request.EncryptionEpoch,
-            EncryptionMessageType = request.IsEncrypted
-                ? ChatMessageHelpers.NormalizeEncryptionMessageType(request.EncryptionMessageType, "text")
-                : null,
+            EncryptionMeta = request.EncryptionMeta,
             ClientMessageId = request.ClientMessageId ?? request.Nonce
         };
 
@@ -1075,13 +1056,13 @@ public partial class ChatController(
 
         if (e2eeMode)
         {
-            if (!request.IsEncrypted || !ChatMessageHelpers.HasEncryptedPayload(request))
+            if (!ChatMessageHelpers.HasEncryptedPayload(request))
                 return E2EeError("chat.e2ee_payload_required", "Encrypted payload is required for E2EE rooms.");
             if (mlsMode && !ChatMessageHelpers.IsMlsPayloadValid(request))
                 return E2EeError("chat.mls_payload_required", "MLS rooms require scheme chat.mls.v2 and encryption_epoch.");
-            if (mlsMode && await EnsureCurrentMlsEpochAsync(message.ChatRoom, request.EncryptionEpoch) is { } epochError)
+            if (mlsMode && await EnsureCurrentMlsEpochAsync(message.ChatRoom, request.EncryptionMeta?.Epoch) is { } epochError)
                 return epochError;
-            if (ChatMessageHelpers.LooksLikePlaintextJson(request.Ciphertext))
+            if (ChatMessageHelpers.LooksLikePlaintextJson(request.EncryptionMeta?.Ciphertext))
                 return E2EeError("chat.e2ee_ciphertext_invalid", "Ciphertext appears to be plaintext JSON.");
             if (ChatMessageHelpers.HasPlaintextFields(request))
                 return E2EeError("chat.e2ee_plaintext_forbidden", "Plaintext fields are forbidden for E2EE rooms.");
@@ -1233,13 +1214,7 @@ public partial class ChatController(
 
         if (e2eeMode)
         {
-            message.IsEncrypted = request.IsEncrypted;
-            message.Ciphertext = request.Ciphertext;
-            message.EncryptionHeader = request.EncryptionHeader;
-            message.EncryptionSignature = request.EncryptionSignature;
-            message.EncryptionScheme = request.EncryptionScheme;
-            message.EncryptionEpoch = request.EncryptionEpoch;
-            message.EncryptionMessageType = ChatMessageHelpers.NormalizeEncryptionMessageType(request.EncryptionMessageType, "messages.update");
+            message.EncryptionMeta = request.EncryptionMeta;
             message.ClientMessageId = request.ClientMessageId;
             message.Content = null;
             message.Meta ??= [];
@@ -1253,13 +1228,7 @@ public partial class ChatController(
             request.RepliedMessageId,
             request.ForwardedMessageId,
             request.AttachmentsId,
-            request.IsEncrypted,
-            request.Ciphertext,
-            request.EncryptionHeader,
-            request.EncryptionSignature,
-            request.EncryptionScheme,
-            request.EncryptionEpoch,
-            ChatMessageHelpers.NormalizeEncryptionMessageType(request.EncryptionMessageType, "messages.update"),
+            request.EncryptionMeta,
             request.ClientMessageId
         );
 
@@ -1284,12 +1253,12 @@ public partial class ChatController(
         if (e2eeMode)
         {
             if (mlsMode && request is not null &&
-                (!string.Equals(request.EncryptionScheme, ChatMessageHelpers.MlsEncryptionScheme, StringComparison.Ordinal) ||
-                 !request.EncryptionEpoch.HasValue))
+                (!string.Equals(request.EncryptionMeta?.Scheme, ChatMessageHelpers.MlsEncryptionScheme, StringComparison.Ordinal) ||
+                 request.EncryptionMeta?.Epoch.HasValue != true))
                 return E2EeError("chat.mls_payload_required", "MLS rooms require scheme chat.mls.v2 and encryption_epoch.");
-            if (mlsMode && await EnsureCurrentMlsEpochAsync(message.ChatRoom, request?.EncryptionEpoch) is { } epochError)
+            if (mlsMode && await EnsureCurrentMlsEpochAsync(message.ChatRoom, request?.EncryptionMeta?.Epoch) is { } epochError)
                 return epochError;
-            if (ChatMessageHelpers.LooksLikePlaintextJson(request?.Ciphertext))
+            if (ChatMessageHelpers.LooksLikePlaintextJson(request?.EncryptionMeta?.Ciphertext))
                 return E2EeError("chat.e2ee_ciphertext_invalid", "Ciphertext appears to be plaintext JSON.");
         }
 
@@ -1300,12 +1269,7 @@ public partial class ChatController(
         // Call service method to delete the message
         await cs.DeleteMessageAsync(
             message,
-            request?.Ciphertext,
-            request?.EncryptionHeader,
-            request?.EncryptionSignature,
-            request?.EncryptionScheme,
-            request?.EncryptionEpoch,
-            request is null ? null : ChatMessageHelpers.NormalizeEncryptionMessageType(request.EncryptionMessageType, "messages.delete"),
+            request?.EncryptionMeta,
             request is null ? null : request.ClientMessageId ?? request.Nonce
         );
 

@@ -373,10 +373,6 @@ namespace DysonNetwork.Messager.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("chat_room_id");
 
-                    b.Property<byte[]>("Ciphertext")
-                        .HasColumnType("bytea")
-                        .HasColumnName("ciphertext");
-
                     b.Property<string>("ClientMessageId")
                         .HasMaxLength(128)
                         .HasColumnType("character varying(128)")
@@ -399,35 +395,13 @@ namespace DysonNetwork.Messager.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("edited_at");
 
-                    b.Property<long?>("EncryptionEpoch")
-                        .HasColumnType("bigint")
-                        .HasColumnName("encryption_epoch");
-
-                    b.Property<byte[]>("EncryptionHeader")
-                        .HasColumnType("bytea")
-                        .HasColumnName("encryption_header");
-
-                    b.Property<string>("EncryptionMessageType")
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)")
-                        .HasColumnName("encryption_message_type");
-
-                    b.Property<string>("EncryptionScheme")
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)")
-                        .HasColumnName("encryption_scheme");
-
-                    b.Property<byte[]>("EncryptionSignature")
-                        .HasColumnType("bytea")
-                        .HasColumnName("encryption_signature");
+                    b.Property<SnChatEncryptionMeta>("EncryptionMeta")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("encryption_meta");
 
                     b.Property<Guid?>("ForwardedMessageId")
                         .HasColumnType("uuid")
                         .HasColumnName("forwarded_message_id");
-
-                    b.Property<bool>("IsEncrypted")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_encrypted");
 
                     b.PrimitiveCollection<string>("MembersMentioned")
                         .HasColumnType("jsonb")
@@ -469,7 +443,7 @@ namespace DysonNetwork.Messager.Migrations
 
                     b.HasIndex("Content")
                         .HasDatabaseName("ix_chat_messages_content")
-                        .HasFilter("type = 'text' AND is_encrypted = FALSE AND content IS NOT NULL AND deleted_at IS NULL");
+                        .HasFilter("type = 'text' AND encryption_meta IS NULL AND content IS NOT NULL AND deleted_at IS NULL");
 
                     NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex("Content"), "gin");
                     NpgsqlIndexBuilderExtensions.HasOperators(b.HasIndex("Content"), new[] { "gin_trgm_ops" });
@@ -491,9 +465,6 @@ namespace DysonNetwork.Messager.Migrations
                         .IsUnique()
                         .HasDatabaseName("ix_chat_messages_chat_room_id_sender_id")
                         .HasFilter("type = 'placeholder' AND deleted_at IS NULL");
-
-                    b.HasIndex("ChatRoomId", "IsEncrypted", "CreatedAt")
-                        .HasDatabaseName("ix_chat_messages_chat_room_id_is_encrypted_created_at");
 
                     b.HasIndex("ChatRoomId", "SenderId", "ClientMessageId")
                         .HasDatabaseName("ix_chat_messages_chat_room_id_sender_id_client_message_id")

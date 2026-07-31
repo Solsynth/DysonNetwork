@@ -100,19 +100,6 @@ public partial class ChatService(
             .FirstOrDefaultAsync();
     }
 
-    private static string NormalizeEncryptionMessageType(string? messageType, string fallbackType)
-    {
-        if (string.IsNullOrWhiteSpace(messageType))
-            return fallbackType;
-        return messageType switch
-        {
-            "content.new" => "text",
-            "content.edit" => "messages.update",
-            "content.delete" => "messages.delete",
-            _ => messageType,
-        };
-    }
-
     private static bool IsUserEncryptedMessage(SnChatMessage message)
     {
         if (!message.IsEncrypted)
@@ -2077,13 +2064,7 @@ public partial class ChatService(
         Guid? repliedMessageId = null,
         Guid? forwardedMessageId = null,
         List<string>? attachmentsId = null,
-        bool? isEncrypted = null,
-        byte[]? ciphertext = null,
-        byte[]? encryptionHeader = null,
-        byte[]? encryptionSignature = null,
-        string? encryptionScheme = null,
-        long? encryptionEpoch = null,
-        string? encryptionMessageType = null,
+        SnChatEncryptionMeta? encryptionMeta = null,
         string? clientMessageId = null
     )
     {
@@ -2094,8 +2075,8 @@ public partial class ChatService(
         var prevIsEncrypted = message.IsEncrypted;
         var isContentChanged = content is not null && content != message.Content;
         var isAttachmentsChanged = attachmentsId is not null;
-        var isCiphertextChanged = ciphertext is not null;
-        var isEncryptedFlagChanged = isEncrypted.HasValue && isEncrypted.Value != prevIsEncrypted;
+        var isCiphertextChanged = encryptionMeta is not null;
+        var isEncryptedFlagChanged = encryptionMeta is not null != prevIsEncrypted;
 
         string? prevContent = null;
         if (isContentChanged && !prevIsEncrypted)
@@ -2103,23 +2084,8 @@ public partial class ChatService(
 
         if (content is not null)
             message.Content = content;
-        if (isEncrypted.HasValue)
-            message.IsEncrypted = isEncrypted.Value;
-        if (ciphertext is not null)
-            message.Ciphertext = ciphertext;
-        if (encryptionHeader is not null)
-            message.EncryptionHeader = encryptionHeader;
-        if (encryptionSignature is not null)
-            message.EncryptionSignature = encryptionSignature;
-        if (encryptionScheme is not null)
-            message.EncryptionScheme = encryptionScheme;
-        if (encryptionEpoch.HasValue)
-            message.EncryptionEpoch = encryptionEpoch.Value;
-        if (encryptionMessageType is not null)
-            message.EncryptionMessageType = NormalizeEncryptionMessageType(
-                encryptionMessageType,
-                "messages.update"
-            );
+        if (encryptionMeta is not null)
+            message.EncryptionMeta = encryptionMeta;
         if (!string.IsNullOrWhiteSpace(clientMessageId))
             message.ClientMessageId = clientMessageId;
 
@@ -2144,16 +2110,7 @@ public partial class ChatService(
             ChatRoomId = message.ChatRoomId,
             SenderId = message.SenderId,
             Content = message.Content,
-            IsEncrypted = message.IsEncrypted,
-            Ciphertext = message.Ciphertext,
-            EncryptionHeader = message.EncryptionHeader,
-            EncryptionSignature = message.EncryptionSignature,
-            EncryptionScheme = message.EncryptionScheme,
-            EncryptionEpoch = message.EncryptionEpoch,
-            EncryptionMessageType = NormalizeEncryptionMessageType(
-                message.EncryptionMessageType,
-                "messages.update"
-            ),
+            EncryptionMeta = message.EncryptionMeta,
             ClientMessageId = message.ClientMessageId,
             Attachments = message.Attachments,
             MembersMentioned = message.MembersMentioned,
@@ -2202,12 +2159,7 @@ public partial class ChatService(
     /// <param name="message">The message to delete</param>
     public async Task DeleteMessageAsync(
         SnChatMessage message,
-        byte[]? ciphertext = null,
-        byte[]? encryptionHeader = null,
-        byte[]? encryptionSignature = null,
-        string? encryptionScheme = null,
-        long? encryptionEpoch = null,
-        string? encryptionMessageType = null,
+        SnChatEncryptionMeta? encryptionMeta = null,
         string? clientMessageId = null
     )
     {
@@ -2235,15 +2187,7 @@ public partial class ChatService(
             Type = "messages.delete",
             ChatRoomId = message.ChatRoomId,
             SenderId = message.SenderId,
-            IsEncrypted = message.IsEncrypted,
-            Ciphertext = ciphertext ?? message.Ciphertext,
-            EncryptionHeader = encryptionHeader ?? message.EncryptionHeader,
-            EncryptionSignature = encryptionSignature ?? message.EncryptionSignature,
-            EncryptionScheme = encryptionScheme ?? message.EncryptionScheme,
-            EncryptionEpoch = encryptionEpoch ?? message.EncryptionEpoch,
-            EncryptionMessageType = message.IsEncrypted
-                ? NormalizeEncryptionMessageType(encryptionMessageType, "messages.delete")
-                : null,
+            EncryptionMeta = encryptionMeta ?? message.EncryptionMeta,
             ClientMessageId = clientMessageId ?? message.ClientMessageId,
             Meta = new Dictionary<string, object> { ["message_id"] = message.Id },
             CreatedAt = message.DeletedAt.Value,
