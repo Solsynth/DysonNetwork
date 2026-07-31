@@ -19,6 +19,12 @@ public class WalletServiceGrpc(WalletService walletService) : DyWalletService.Dy
         return wallet == null ? throw new RpcException(new Status(StatusCode.NotFound, "Wallet not found.")) : wallet.ToProtoValue();
     }
 
+    public override async Task<DyCheckWalletExistsResponse> CheckWalletExists(DyCheckWalletExistsRequest request, ServerCallContext context)
+    {
+        var exists = await walletService.CheckWalletExistsAsync(Guid.Parse(request.AccountId));
+        return new DyCheckWalletExistsResponse { Exists = exists };
+    }
+
     public override async Task<DyWallet> CreateWallet(DyCreateWalletRequest request, ServerCallContext context)
     {
         var wallet = await walletService.CreateWalletAsync(

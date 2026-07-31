@@ -31,6 +31,11 @@ public class WalletService(AppDatabase db)
             .ToListAsync();
     }
 
+    public async Task<bool> CheckWalletExistsAsync(Guid accountId)
+    {
+        return await db.Wallets.AnyAsync(w => w.AccountId == accountId);
+    }
+
     public async Task<SnWallet?> GetAccountWalletAsync(Guid accountId)
     {
         return await db.Wallets
