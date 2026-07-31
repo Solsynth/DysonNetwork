@@ -77,6 +77,8 @@ public static class ServiceCollectionExtensions
 
             services.AddHostedService<ActivityPubDeliveryWorker>();
 
+            services.AddScoped<FileMetadataReferenceUpdater>();
+
             services.AddEventBus()
                 .AddListener<PaymentOrderEvent>(
                     PaymentOrderEventBase.Type,
@@ -207,6 +209,21 @@ public static class ServiceCollectionExtensions
                         opts.UseJetStream = true;
                         // StreamName is auto-detected from event class
                         opts.MaxRetries = 3;
+                    }
+                )
+                .AddListener<FileMetadataUpdatedEvent>(
+                    FileMetadataUpdatedEvent.Type,
+                    async (evt, ctx) =>
+                    {
+                        var updater = ctx.ServiceProvider.GetRequiredService<FileMetadataReferenceUpdater>();
+                        var changed = await updater.ApplyAsync(evt, ctx.CancellationToken);
+                        ctx.ServiceProvider.GetRequiredService<ILogger<EventBus>>()
+                            .LogDebug("Applied file metadata update {FileId} to {ChangedCount} references", evt.FileId, changed);
+                    },
+                    opts =>
+                    {
+                        opts.UseJetStream = true;
+                        opts.MaxRetries = 5;
                     }
                 );
 
