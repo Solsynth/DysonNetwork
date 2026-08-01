@@ -209,9 +209,44 @@ public static class ServiceCollectionExtensions
                         opts.MaxRetries = 3;
                     }
                 )
-                .AddFileMetadataReferenceListener<AppDatabase>(opts => opts.MaxRetries = 5);
+                .AddFileMetadataReferenceListener<AppDatabase>(
+                    opts => opts.MaxRetries = 5,
+                    onUpdated: OnFileMetadataUpdated
+                );
 
             return services;
+        }
+
+        /// <summary>
+        /// After a filesystem file metadata update lands (the reference listener
+        /// has already rewritten the attachment snapshots inside the post rows),
+        /// re-broadcast every post that embeds the file so connected clients see
+        /// the refreshed attachment state in realtime.
+        /// </summary>
+        private static async Task OnFileMetadataUpdated(FileMetadataUpdatedEvent evt, EventContext ctx)
+        {
+            try
+            {
+                var snapshot = evt.File;
+                if (snapshot is null || string.IsNullOrWhiteSpace(snapshot.Id))
+                    return;
+
+                var postService = ctx.ServiceProvider.GetRequiredService<PostService>();
+                var logger = ctx.ServiceProvider.GetRequiredService<ILogger<EventBus>>();
+                var broadcast = await postService.BroadcastFileAttachmentUpdateAsync(snapshot.Id);
+
+                logger.LogInformation(
+                    "Broadcast file metadata update for file {FileId} (status {Status}) to {Count} posts",
+                    snapshot.Id,
+                    snapshot.Status,
+                    broadcast
+                );
+            }
+            catch (Exception ex)
+            {
+                var logger = ctx.ServiceProvider.GetRequiredService<ILogger<EventBus>>();
+                logger.LogError(ex, "Failed to broadcast file metadata update for file {FileId}", evt.FileId);
+            }
         }
 
         public IServiceCollection AddAppAuthentication()

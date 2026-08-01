@@ -1107,8 +1107,10 @@ public partial class PostService(
             if (targetUserIds.Count == 0)
                 return;
 
-            // Preload necessary post data
-            post = await scopedPost.LoadPostInfo(post);
+            // Preload necessary post data. Realtime broadcasts must not count
+            // as views, otherwise every create/edit/delete push inflates the
+            // post's view counter.
+            post = await scopedPost.LoadPostInfo(post, trackViews: false);
 
             // Serialize the post to JSON
             var postData = JsonSerializer.Serialize(
@@ -1183,6 +1185,45 @@ public partial class PostService(
                 reaction.PostId.ToString()
             );
         }
+    }
+
+    /// <summary>
+    /// Re-broadcasts every post whose attachment list references the given
+    /// file as a <c>post.updated</c> packet. The filesystem reference listener
+    /// has already rewritten the attachment snapshots inside the post rows, so
+    /// the pushed payload carries the refreshed file status (thumbnail,
+    /// compression, upload state).
+    /// </summary>
+    /// <returns>The number of posts broadcast.</returns>
+    public async Task<int> BroadcastFileAttachmentUpdateAsync(string fileId)
+    {
+        if (string.IsNullOrWhiteSpace(fileId))
+            return 0;
+
+        var postIds = await db.Database.SqlQuery<Guid>(
+            $"""
+            SELECT id AS "Value" FROM posts
+            WHERE attachments @> jsonb_build_array(jsonb_build_object('id', {fileId}))
+              AND deleted_at IS NULL
+            """).ToListAsync();
+
+        var broadcast = 0;
+        foreach (var postId in postIds)
+        {
+            try
+            {
+                var post = await db.Posts.FirstOrDefaultAsync(p => p.Id == postId);
+                if (post is null)
+                    continue;
+                await BroadcastPostUpdateAsync(post, "post.updated");
+                broadcast++;
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Failed to broadcast attachment update for post {PostId} (file {FileId})", postId, fileId);
+            }
+        }
+        return broadcast;
     }
 
     private async Task<List<string>> FilterUsersByPostVisibility(
@@ -2975,11 +3016,12 @@ public partial class PostService(
     public async Task<SnPost> LoadPostInfo(
         SnPost post,
         DyAccount? currentUser = null,
-        bool truncate = false
+        bool truncate = false,
+        bool trackViews = true
     )
     {
         // Convert single post to list, process it, then return the single post
-        var posts = await LoadPostInfo([post], currentUser, truncate);
+        var posts = await LoadPostInfo([post], currentUser, truncate, trackViews);
         return posts.First();
     }
 
