@@ -617,7 +617,10 @@ public partial class ChatService(
     {
         var existingMessage = await GetExistingClientMessageAsync(message);
         if (existingMessage is not null)
+        {
+            EscapeMarkdownHeadings([existingMessage]);
             return existingMessage;
+        }
 
         if (room.Type == ChatRoomType.DirectMessage && sender.AccountId != Guid.Empty)
         {
@@ -637,6 +640,8 @@ public partial class ChatService(
 
         db.ChatMessages.Add(message);
         await db.SaveChangesAsync();
+
+        EscapeMarkdownHeadings([message]);
 
         // Sending a message implies read-through at least to this message for the sender.
         await db
@@ -2131,6 +2136,8 @@ public partial class ChatService(
         db.ChatMessages.Add(syncMessage);
         await db.SaveChangesAsync();
 
+        EscapeMarkdownHeadings([message, syncMessage]);
+
         // Process link preview in the background if content was updated
         if (isContentChanged && ShouldQueueLinkPreview(message))
             _ = CreateLinkPreviewBackgroundAsync(message);
@@ -2791,6 +2798,8 @@ public partial class ChatService(
         db.ChatMessages.Add(syncMessage);
         await db.SaveChangesAsync();
 
+        EscapeMarkdownHeadings([message, syncMessage]);
+
         syncMessage.Sender = message.Sender;
         syncMessage.ChatRoom = message.ChatRoom;
 
@@ -2899,6 +2908,77 @@ public partial class ChatService(
         await scopedWs.PushWebSocketPacketToUsers(userIds, WebSocketPacketType.PlaceholderExpired, payload.ToByteArray());
     }
 
+    private static void EscapeMarkdownHeadings(IEnumerable<SnChatMessage> messages)
+    {
+        foreach (var message in messages)
+        {
+            if (message.EncryptionMeta != null || string.IsNullOrEmpty(message.Content))
+                continue;
+
+            message.Content = EscapeMarkdownHeadingMarkers(message.Content);
+        }
+    }
+
+    private static string? EscapeMarkdownHeadingMarkers(string? content)
+    {
+        if (string.IsNullOrEmpty(content))
+            return content;
+
+        var lines = content.Split('\n');
+        var inFencedCodeBlock = false;
+        var fenceMarker = string.Empty;
+
+        for (var i = 0; i < lines.Length; i++)
+        {
+            var line = lines[i];
+            var trimmedStart = line.TrimStart();
+
+            if (trimmedStart.Length > 0 && trimmedStart[0] is '`' or '~')
+            {
+                var marker = trimmedStart[0];
+                var runLength = 0;
+                while (runLength < trimmedStart.Length && trimmedStart[runLength] == marker)
+                    runLength++;
+
+                if (runLength >= 3)
+                {
+                    if (!inFencedCodeBlock)
+                    {
+                        inFencedCodeBlock = true;
+                        fenceMarker = new string(marker, runLength);
+                    }
+                    else if (
+                        trimmedStart.StartsWith(fenceMarker, StringComparison.Ordinal)
+                        && trimmedStart[fenceMarker.Length..].Trim().Length == 0
+                    )
+                    {
+                        inFencedCodeBlock = false;
+                        fenceMarker = string.Empty;
+                    }
+                }
+
+                continue;
+            }
+
+            if (inFencedCodeBlock)
+                continue;
+
+            var index = 0;
+            while (index < line.Length && index < 3 && line[index] == ' ')
+                index++;
+            var hashStart = index;
+            while (index < line.Length && line[index] == '#' && index - hashStart < 6)
+                index++;
+            if (
+                index - hashStart is >= 1 and <= 6
+                && (index == line.Length || char.IsWhiteSpace(line[index]))
+            )
+                lines[i] = line.Insert(hashStart, "\\");
+        }
+
+        return string.Join('\n', lines);
+    }
+
     public async Task HydrateMessageReactionsAsync(
         List<SnChatMessage> messages,
         Guid? accountId = null
@@ -2930,6 +3010,8 @@ public partial class ChatService(
                 ? reactionMadeMap.GetValueOrDefault(message.Id, [])
                 : null;
         }
+
+        EscapeMarkdownHeadings(messages);
     }
 }
 

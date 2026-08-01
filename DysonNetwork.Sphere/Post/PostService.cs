@@ -763,6 +763,84 @@ public partial class PostService(
         return input;
     }
 
+    private static List<SnPost> EscapeMarkdownHeadings(List<SnPost> input)
+    {
+        foreach (var post in input)
+        {
+            EscapeMarkdownHeadings(post);
+            if (post.RepliedPost != null)
+                EscapeMarkdownHeadings(post.RepliedPost);
+            if (post.ForwardedPost != null)
+                EscapeMarkdownHeadings(post.ForwardedPost);
+        }
+
+        return input;
+    }
+
+    private static void EscapeMarkdownHeadings(SnPost post)
+    {
+        if (post.Type != PostType.Moment || post.ContentType != PostContentType.Markdown)
+            return;
+
+        var content = post.Content;
+        if (string.IsNullOrEmpty(content))
+            return;
+
+        var lines = content.Split('\n');
+        var inFencedCodeBlock = false;
+        var fenceMarker = string.Empty;
+
+        for (var i = 0; i < lines.Length; i++)
+        {
+            var line = lines[i];
+            var trimmedStart = line.TrimStart();
+
+            if (trimmedStart.Length > 0 && trimmedStart[0] is '`' or '~')
+            {
+                var marker = trimmedStart[0];
+                var runLength = 0;
+                while (runLength < trimmedStart.Length && trimmedStart[runLength] == marker)
+                    runLength++;
+
+                if (runLength >= 3)
+                {
+                    if (!inFencedCodeBlock)
+                    {
+                        inFencedCodeBlock = true;
+                        fenceMarker = new string(marker, runLength);
+                    }
+                    else if (
+                        trimmedStart.StartsWith(fenceMarker, StringComparison.Ordinal)
+                        && trimmedStart[fenceMarker.Length..].Trim().Length == 0
+                    )
+                    {
+                        inFencedCodeBlock = false;
+                        fenceMarker = string.Empty;
+                    }
+                }
+
+                continue;
+            }
+
+            if (inFencedCodeBlock)
+                continue;
+
+            var index = 0;
+            while (index < line.Length && index < 3 && line[index] == ' ')
+                index++;
+            var hashStart = index;
+            while (index < line.Length && line[index] == '#' && index - hashStart < 6)
+                index++;
+            if (
+                index - hashStart is >= 1 and <= 6
+                && (index == line.Length || char.IsWhiteSpace(line[index]))
+            )
+                lines[i] = line.Insert(hashStart, "\\");
+        }
+
+        post.Content = string.Join('\n', lines);
+    }
+
     public (string? title, string? content) ChopPostForNotification(SnPost post, String locale)
     {
         var content = !string.IsNullOrEmpty(post.Description)
@@ -3009,6 +3087,8 @@ public partial class PostService(
 
         if (truncate)
             posts = TruncatePostContent(posts);
+
+        posts = EscapeMarkdownHeadings(posts);
 
         return posts;
     }
