@@ -84,7 +84,7 @@ public static class ServiceCollectionExtensions
             services.AddLazyGrpcClientFactory<DyStickerService.DyStickerServiceClient>();
 
             services.AddEventBus()
-                .AddFileMetadataReferenceListener<AppDatabase>()
+                .AddFileMetadataReferenceListener<AppDatabase>(onUpdated: OnFileMetadataUpdated)
                 .AddListener<AccountDeletedEvent>(
                     AccountDeletedEvent.Type,
                     async (evt, ctx) =>
@@ -358,6 +358,38 @@ public static class ServiceCollectionExtensions
                 accountId,
                 packetCount
             );
+        }
+
+        /// <summary>
+        /// After a filesystem file metadata update lands (the reference listener
+        /// has already rewritten the attachment snapshots inside the message
+        /// rows), push the updated chat messages to their rooms so connected
+        /// clients see the new file status without polling.
+        /// </summary>
+        private static async Task OnFileMetadataUpdated(FileMetadataUpdatedEvent evt, EventContext ctx)
+        {
+            try
+            {
+                var snapshot = evt.File;
+                if (snapshot is null || string.IsNullOrWhiteSpace(snapshot.Id))
+                    return;
+
+                var chatService = ctx.ServiceProvider.GetRequiredService<ChatService>();
+                var logger = ctx.ServiceProvider.GetRequiredService<ILogger<EventBus>>();
+                var delivered = await chatService.DeliverFileAttachmentUpdateAsync(snapshot.Id);
+
+                logger.LogInformation(
+                    "Delivered file metadata update for file {FileId} (status {Status}) as {Count} message updates",
+                    snapshot.Id,
+                    snapshot.Status,
+                    delivered
+                );
+            }
+            catch (Exception ex)
+            {
+                var logger = ctx.ServiceProvider.GetRequiredService<ILogger<EventBus>>();
+                logger.LogError(ex, "Failed to deliver file metadata update for file {FileId}", evt.FileId);
+            }
         }
 
         private static async Task HandleMessageRead(WebSocketPacketEvent evt, WebSocketPacket packet, EventContext ctx)

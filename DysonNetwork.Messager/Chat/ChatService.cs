@@ -2154,6 +2154,92 @@ public partial class ChatService(
     }
 
     /// <summary>
+    /// Delivers a filesystem file metadata update (upload status, thumbnail or
+    /// compression availability) to every chat message that embeds the file as
+    /// an attachment. The reference listener has already rewritten the
+    /// attachment snapshots inside the message rows; this method pushes the
+    /// updated message to the room members via the standard messages.update
+    /// packet, exactly like an edit.
+    /// </summary>
+    /// <returns>The number of chat messages the update was delivered for.</returns>
+    public async Task<int> DeliverFileAttachmentUpdateAsync(string fileId)
+    {
+        if (string.IsNullOrWhiteSpace(fileId))
+            return 0;
+
+        var messageIds = await db.Database.SqlQuery<Guid>(
+            $"""
+            SELECT id AS "Value" FROM chat_messages
+            WHERE attachments @> jsonb_build_array(jsonb_build_object('id', {fileId}))
+              AND deleted_at IS NULL
+            """).ToListAsync();
+        if (messageIds.Count == 0)
+            return 0;
+
+        var delivered = 0;
+        foreach (var messageId in messageIds)
+        {
+            try
+            {
+                var message = await db.ChatMessages
+                    .Include(m => m.Sender)
+                    .Include(m => m.ChatRoom)
+                    .FirstOrDefaultAsync(m => m.Id == messageId);
+                if (message is null || message.Sender is null || message.ChatRoom is null)
+                    continue;
+
+                // Mirror UpdateMessageAsync: a sync message tells clients which
+                // original message changed and carries its current full payload,
+                // including the refreshed attachment snapshot. The sync family
+                // (messages.sync.*) is for server-initiated refreshes, unlike
+                // messages.update which clients treat as a user edit.
+                var syncMessage = new SnChatMessage
+                {
+                    Type = "messages.sync.file",
+                    ChatRoomId = message.ChatRoomId,
+                    SenderId = message.SenderId,
+                    Content = message.Content,
+                    EncryptionMeta = message.EncryptionMeta,
+                    ClientMessageId = message.ClientMessageId,
+                    Attachments = message.Attachments,
+                    MembersMentioned = message.MembersMentioned,
+                    RepliedMessageId = message.RepliedMessageId,
+                    ForwardedMessageId = message.ForwardedMessageId,
+                    Meta =
+                        message.Meta != null
+                            ? new Dictionary<string, object>(message.Meta) { ["message_id"] = message.Id }
+                            : new Dictionary<string, object> { ["message_id"] = message.Id },
+                    CreatedAt = message.UpdatedAt,
+                    UpdatedAt = message.UpdatedAt,
+                };
+
+                db.ChatMessages.Add(syncMessage);
+                await db.SaveChangesAsync();
+
+                if (message.Sender.Account is null)
+                    message.Sender = await crs.LoadMemberAccount(message.Sender);
+
+                syncMessage.Sender = message.Sender;
+                syncMessage.ChatRoom = message.ChatRoom;
+
+                await DeliverMessageAsync(
+                    syncMessage,
+                    syncMessage.Sender,
+                    syncMessage.ChatRoom,
+                    type: syncMessage.Type,
+                    notify: false
+                );
+                delivered++;
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Failed to deliver attachment update for message {MessageId} (file {FileId})", messageId, fileId);
+            }
+        }
+        return delivered;
+    }
+
+    /// <summary>
     /// Soft deletes a message and notifies other chat members
     /// </summary>
     /// <param name="message">The message to delete</param>
