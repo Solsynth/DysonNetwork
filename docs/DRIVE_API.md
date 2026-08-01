@@ -616,7 +616,7 @@ Returns information needed to resume an interrupted upload. **Authenticated.**
 ### Cancel Upload
 
 ```
-DELETE /files/upload/task/{taskId}
+DELETE /files/upload/{taskId}
 ```
 
 Cancels an in-progress upload and cleans up temp files. **Authenticated.**
