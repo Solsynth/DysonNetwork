@@ -3,6 +3,7 @@ using Minio.DataModel.Args;
 using System.Text.Json;
 using System.IO.Compression;
 using System.Security.Cryptography;
+using DysonNetwork.Develop.Models;
 
 namespace DysonNetwork.Develop.MiniApp;
 
@@ -76,30 +77,17 @@ public class MiniAppStorageService(IConfiguration configuration)
         return client.Build();
     });
 
+    private static readonly JsonSerializerOptions PackageManifestJsonOptions = new()
+    {
+        PropertyNameCaseInsensitive = true
+    };
+
     public async Task<MiniAppPackageUploadResult> SavePackageAsync(
         Guid miniAppId,
-        IFormFile file,
+        MemoryStream buffer,
+        string fileName,
         CancellationToken cancellationToken = default)
     {
-        if (file.Length <= 0)
-            throw new InvalidOperationException("Plugin package cannot be empty.");
-        if (file.Length > MiniAppStorageConfiguration.MaxPackageFileSizeBytes)
-            throw new InvalidOperationException("Plugin package is too large. Maximum allowed is 5242880 bytes.");
-
-        var contentType = file.ContentType?.Split(';', 2)[0].Trim();
-        var hasZipExtension = string.Equals(Path.GetExtension(file.FileName), ".zip", StringComparison.OrdinalIgnoreCase);
-        var isZipContentType = string.Equals(contentType, "application/zip", StringComparison.OrdinalIgnoreCase) ||
-                               string.Equals(contentType, "application/x-zip-compressed", StringComparison.OrdinalIgnoreCase);
-        if (!hasZipExtension && !isZipContentType)
-            throw new InvalidOperationException("Only ZIP plugin packages are supported.");
-
-        await using var input = file.OpenReadStream();
-        await using var buffer = new MemoryStream();
-        await input.CopyToAsync(buffer, cancellationToken);
-        if (buffer.Length > MiniAppStorageConfiguration.MaxPackageFileSizeBytes)
-            throw new InvalidOperationException("Plugin package is too large. Maximum allowed is 5242880 bytes.");
-
-        ValidatePackage(buffer);
         var sha256 = Convert.ToHexString(SHA256.HashData(buffer.ToArray())).ToLowerInvariant();
 
         var prefix = (_config.KeyPrefix ?? string.Empty).Trim('/');
@@ -118,13 +106,40 @@ public class MiniAppStorageService(IConfiguration configuration)
         return new MiniAppPackageUploadResult(
             Key: key,
             Url: BuildPublicUrl(key),
-            FileName: Path.GetFileName(file.FileName),
+            FileName: Path.GetFileName(fileName),
             ContentType: "application/zip",
             Size: buffer.Length,
             Sha256: sha256);
     }
 
-    private static void ValidatePackage(MemoryStream buffer)
+    /// <summary>Reads an uploaded package into memory and returns it together with the manifest parsed from it.</summary>
+    public static async Task<(MemoryStream Buffer, MiniAppManifest Manifest, string FileName)> ReadPackageAsync(
+        IFormFile file,
+        CancellationToken cancellationToken = default)
+    {
+        if (file.Length <= 0)
+            throw new InvalidOperationException("Plugin package cannot be empty.");
+        if (file.Length > MiniAppStorageConfiguration.MaxPackageFileSizeBytes)
+            throw new InvalidOperationException("Plugin package is too large. Maximum allowed is 5242880 bytes.");
+
+        var contentType = file.ContentType?.Split(';', 2)[0].Trim();
+        var hasZipExtension = string.Equals(Path.GetExtension(file.FileName), ".zip", StringComparison.OrdinalIgnoreCase);
+        var isZipContentType = string.Equals(contentType, "application/zip", StringComparison.OrdinalIgnoreCase) ||
+                               string.Equals(contentType, "application/x-zip-compressed", StringComparison.OrdinalIgnoreCase);
+        if (!hasZipExtension && !isZipContentType)
+            throw new InvalidOperationException("Only ZIP plugin packages are supported.");
+
+        await using var input = file.OpenReadStream();
+        var buffer = new MemoryStream();
+        await input.CopyToAsync(buffer, cancellationToken);
+        if (buffer.Length > MiniAppStorageConfiguration.MaxPackageFileSizeBytes)
+            throw new InvalidOperationException("Plugin package is too large. Maximum allowed is 5242880 bytes.");
+
+        var manifest = ReadPackageManifest(buffer);
+        return (buffer, manifest, file.FileName);
+    }
+
+    private static MiniAppManifest ReadPackageManifest(MemoryStream buffer)
     {
         buffer.Position = 0;
         try
@@ -149,11 +164,9 @@ public class MiniAppStorageService(IConfiguration configuration)
                 throw new InvalidOperationException("Plugin package must contain only one manifest.json.");
 
             using var manifestStream = manifestEntries[0].Open();
-            using var document = JsonDocument.Parse(manifestStream);
-            if (document.RootElement.ValueKind != JsonValueKind.Object ||
-                !document.RootElement.TryGetProperty("id", out _) ||
-                !document.RootElement.TryGetProperty("name", out _))
-                throw new InvalidOperationException("manifest.json must contain id and name.");
+            var manifest = JsonSerializer.Deserialize<MiniAppManifest>(manifestStream, PackageManifestJsonOptions)
+                ?? throw new InvalidOperationException("manifest.json is not valid JSON.");
+            return manifest;
         }
         catch (InvalidDataException)
         {

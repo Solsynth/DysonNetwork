@@ -24,7 +24,10 @@ public class MiniAppPublicController(MiniAppService miniAppService, Identity.Dev
         var developers = miniApps.Select(m => m.Project.Developer).ToList();
         await developerService.LoadDeveloperPublisher(developers);
         foreach (var miniApp in miniApps)
+        {
             miniApp.Developer = miniApp.Project.Developer;
+            ApplyDeveloperAuthor(miniApp);
+        }
 
         Response.Headers.Append("X-Total", total.ToString());
         return Ok(miniApps);
@@ -37,7 +40,17 @@ public class MiniAppPublicController(MiniAppService miniAppService, Identity.Dev
         if (miniApp is null) return NotFound(new ApiError { Code = "DEV_MINI_APP_NOT_FOUND", Message = "Mini app not found", Status = 404 });
 
         miniApp.Developer = await developerService.LoadDeveloperPublisher(miniApp.Project.Developer);
+        ApplyDeveloperAuthor(miniApp);
 
         return Ok(miniApp);
+    }
+
+    /// <summary>Public responses credit the owning developer (publisher) as author instead of the manifest author.</summary>
+    private static void ApplyDeveloperAuthor(SnMiniApp miniApp)
+    {
+        if (miniApp.Developer?.Publisher is not { } publisher)
+            return;
+
+        miniApp.Author = string.IsNullOrWhiteSpace(publisher.Nick) ? publisher.Name : publisher.Nick;
     }
 }

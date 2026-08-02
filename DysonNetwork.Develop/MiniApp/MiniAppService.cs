@@ -46,9 +46,8 @@ public class MiniAppService(AppDatabase db, DyFileService.DyFileServiceClient fi
         {
             var probe = $"%{search.Trim()}%";
             query = query.Where(m =>
-                EF.Functions.ILike(m.Slug, probe) ||
-                EF.Functions.ILike(m.PluginId, probe) ||
-                EF.Functions.ILike(m.Name, probe) ||
+                m.PluginId != null && EF.Functions.ILike(m.PluginId, probe) ||
+                m.Name != null && EF.Functions.ILike(m.Name, probe) ||
                 (m.Description != null && EF.Functions.ILike(m.Description, probe)));
         }
 
@@ -76,7 +75,7 @@ public class MiniAppService(AppDatabase db, DyFileService.DyFileServiceClient fi
         Guid projectId,
         string slug,
         MiniAppStage stage,
-        MiniAppManifest manifest,
+        MiniAppManifest? manifest = null,
         string? iconId = null,
         string? backgroundId = null)
     {
@@ -91,10 +90,13 @@ public class MiniAppService(AppDatabase db, DyFileService.DyFileServiceClient fi
         if (existingMiniApp != null)
             throw new InvalidOperationException("A mini app with this slug already exists.");
 
-        var existingPlugin = await db.MiniApps
-            .FirstOrDefaultAsync(m => m.PluginId == manifest.Id);
-        if (existingPlugin != null)
-            throw new InvalidOperationException("A plugin with this manifest id already exists.");
+        if (manifest is not null)
+        {
+            var existingPlugin = await db.MiniApps
+                .FirstOrDefaultAsync(m => m.PluginId == manifest.Id);
+            if (existingPlugin != null)
+                throw new InvalidOperationException("A plugin with this manifest id already exists.");
+        }
 
         var miniApp = new SnMiniApp
         {
@@ -105,7 +107,8 @@ public class MiniAppService(AppDatabase db, DyFileService.DyFileServiceClient fi
             ProjectId = projectId,
             Project = project
         };
-        ApplyManifestMetadata(miniApp, manifest);
+        if (manifest is not null)
+            ApplyManifestMetadata(miniApp, manifest);
         await ApplyFileReferencesAsync(miniApp, iconId, backgroundId);
 
         db.MiniApps.Add(miniApp);
@@ -165,8 +168,19 @@ public class MiniAppService(AppDatabase db, DyFileService.DyFileServiceClient fi
         miniApp.Homepage = manifest.Homepage;
     }
 
-    public async Task SaveAsync(SnMiniApp miniApp, CancellationToken cancellationToken = default)
+    /// <summary>Applies the manifest carried by an uploaded package and persists the mini app.</summary>
+    public async Task ApplyPackageMetadataAsync(SnMiniApp miniApp, CancellationToken cancellationToken = default)
     {
+        var manifest = miniApp.Manifest;
+        if (manifest is null)
+            throw new InvalidOperationException("The uploaded package must contain a manifest.");
+
+        var existingPlugin = await db.MiniApps
+            .FirstOrDefaultAsync(m => m.PluginId == manifest.Id && m.Id != miniApp.Id, cancellationToken);
+        if (existingPlugin != null)
+            throw new InvalidOperationException("A plugin with this manifest id already exists.");
+
+        ApplyManifestMetadata(miniApp, manifest);
         db.Update(miniApp);
         await db.SaveChangesAsync(cancellationToken);
     }

@@ -40,7 +40,7 @@ public class MiniAppController(
 
         MiniAppStage Stage = MiniAppStage.Development,
 
-        [Required] MiniAppManifest Manifest = null!,
+        MiniAppManifest? Manifest = null,
         string? IconId = null,
         string? BackgroundId = null
     );
@@ -93,12 +93,21 @@ public class MiniAppController(
 
         try
         {
-            var result = await storageService.SavePackageAsync(miniAppId, request.File, cancellationToken);
+            var package = await MiniAppStorageService.ReadPackageAsync(request.File, cancellationToken);
+            await using var buffer = package.Buffer;
+
+            var manifestError = ValidatePluginManifest(package.Manifest);
+            if (manifestError is not null)
+                return BadRequest(new ApiError { Code = "DEV_MINI_APP_MANIFEST_INVALID", Message = manifestError, Status = 400 });
+
+            var result = await storageService.SavePackageAsync(miniAppId, buffer, package.FileName, cancellationToken);
+
+            miniApp.Manifest = package.Manifest;
             miniApp.PackageUrl = result.Url;
             miniApp.PackageStorageKey = result.Key;
             miniApp.PackageSha256 = result.Sha256;
             miniApp.PackageSize = result.Size;
-            await miniAppService.SaveAsync(miniApp, cancellationToken);
+            await miniAppService.ApplyPackageMetadataAsync(miniApp, cancellationToken);
             return Ok(result);
         }
         catch (InvalidOperationException ex)
@@ -184,7 +193,7 @@ public class MiniAppController(
         if (project is null)
             return NotFound(new ApiError { Code = "DEV_MINI_APP_PROJECT_NOT_FOUND", Message = "Project not found or you don't have access", Status = 404 });
 
-        var manifestError = ValidatePluginManifest(request.Manifest);
+        var manifestError = request.Manifest is null ? null : ValidatePluginManifest(request.Manifest);
         if (manifestError is not null)
             return BadRequest(new ApiError { Code = "DEV_MINI_APP_MANIFEST_INVALID", Message = manifestError, Status = 400 });
 

@@ -32,12 +32,12 @@ public class SnMiniApp : ModelBase
     public Guid Id { get; set; } = Guid.NewGuid();
     [MaxLength(1024)] public string Slug { get; set; } = null!;
 
-    [MaxLength(256)] public string PluginId { get; set; } = null!;
-    [MaxLength(256)] public string Name { get; set; } = null!;
+    [MaxLength(256)] public string? PluginId { get; set; }
+    [MaxLength(256)] public string? Name { get; set; }
     [MaxLength(32)] public string Version { get; set; } = "1.0.0";
     [MaxLength(256)] public string? Author { get; set; }
     [MaxLength(4096)] public string? Description { get; set; }
-    [MaxLength(2048)] public string EntryUrl { get; set; } = null!;
+    [MaxLength(2048)] public string? EntryUrl { get; set; }
     [Column(TypeName = "jsonb")] public SnCloudFileReferenceObject? Icon { get; set; }
     [Column(TypeName = "jsonb")] public SnCloudFileReferenceObject? Background { get; set; }
     [MaxLength(2048)] public string? Homepage { get; set; }
@@ -48,7 +48,7 @@ public class SnMiniApp : ModelBase
     
     public MiniAppStage Stage { get; set; } = MiniAppStage.Development;
 
-    [Column(TypeName = "jsonb")] public MiniAppManifest Manifest { get; set; } = null!;
+    [Column(TypeName = "jsonb")] public MiniAppManifest? Manifest { get; set; }
     
     public Guid ProjectId { get; set; }
     public SnDevProject Project { get; set; } = null!;
