@@ -2116,7 +2116,11 @@ public partial class ChatService(
             SenderId = message.SenderId,
             Content = message.Content,
             EncryptionMeta = message.EncryptionMeta,
-            ClientMessageId = message.ClientMessageId,
+            // Do NOT inherit the target's ClientMessageId: clients use
+            // ClientMessageId to reconcile their pending placeholder with the
+            // confirmed row, and two distinct rows sharing it collide in that
+            // reconciliation (the event would replace the message in the
+            // timeline). Event rows reference their target via Meta["message_id"].
             Attachments = message.Attachments,
             MembersMentioned = message.MembersMentioned,
             RepliedMessageId = message.RepliedMessageId,
@@ -2207,7 +2211,8 @@ public partial class ChatService(
                     SenderId = message.SenderId,
                     Content = message.Content,
                     EncryptionMeta = message.EncryptionMeta,
-                    ClientMessageId = message.ClientMessageId,
+                    // Server-initiated refresh event: same as messages.update,
+                    // it must not inherit the target's ClientMessageId.
                     Attachments = message.Attachments,
                     MembersMentioned = message.MembersMentioned,
                     RepliedMessageId = message.RepliedMessageId,
@@ -2281,7 +2286,10 @@ public partial class ChatService(
             ChatRoomId = message.ChatRoomId,
             SenderId = message.SenderId,
             EncryptionMeta = encryptionMeta ?? message.EncryptionMeta,
-            ClientMessageId = clientMessageId ?? message.ClientMessageId,
+            // clientMessageId is the delete request's own idempotency id (when
+            // supplied); never fall back to the target's ClientMessageId - see
+            // the messages.update comment above.
+            ClientMessageId = clientMessageId,
             Meta = new Dictionary<string, object> { ["message_id"] = message.Id },
             CreatedAt = message.DeletedAt.Value,
             UpdatedAt = message.DeletedAt.Value,
