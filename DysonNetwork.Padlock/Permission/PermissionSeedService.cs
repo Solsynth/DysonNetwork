@@ -184,7 +184,23 @@ public class PermissionSeedService(
         PermissionKeys.LocationPinsDelete,
         PermissionKeys.NearbyPresenceManage,
         PermissionKeys.NearbyResolve,
-        PermissionKeys.RewindCreate
+        PermissionKeys.RewindCreate,
+        // ── WattEngine: platform-admin nodes (workspaces, boards, tasks, flywheel) ──
+        PermissionKeys.WorkspacesView,
+        PermissionKeys.WorkspacesManage,
+        PermissionKeys.WorkspacesDelete,
+        PermissionKeys.WorkspacesPlansManage,
+        PermissionKeys.BoardsView,
+        PermissionKeys.BoardsManage,
+        PermissionKeys.BoardsDelete,
+        PermissionKeys.TasksView,
+        PermissionKeys.TasksManage,
+        PermissionKeys.TasksDelete,
+        PermissionKeys.TasksIntegrationsManage,
+        PermissionKeys.FlywheelView,
+        PermissionKeys.FlywheelAppsManage,
+        PermissionKeys.FlywheelBlobsDelete,
+        PermissionKeys.FlywheelAuditView
     };
 
     private static readonly IReadOnlySet<string> ModeratorPermissionKeys = new HashSet<string>
