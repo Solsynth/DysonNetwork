@@ -1,3 +1,4 @@
 [submodule "DysonNetwork.Shared"]
 	path = DysonNetwork.Shared
 	url = https://src.solsynth.dev/SoSYS/NeTo.git
+	branch = master
