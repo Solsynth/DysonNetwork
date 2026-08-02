@@ -475,7 +475,21 @@ public class PushService
         }
 
         if (!isSilent && preference == NotificationPreferenceLevel.Normal)
-            _ = _queueService.EnqueuePushNotification(notification, accountId, save);
+        {
+            try
+            {
+                await _queueService.EnqueuePushNotification(notification, accountId, save);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(
+                    ex,
+                    "Failed to enqueue push notification {NotificationId} for account {AccountId}",
+                    notification.Id,
+                    accountId
+                );
+            }
+        }
     }
 
     public async Task DeliverPushNotification(
@@ -487,8 +501,33 @@ public class PushService
     {
         await _observability.RecordNotificationSendAsync(notification, "queue");
         var connectedSopDeviceIds = GetConnectedSopWebSocketDeviceIds(notification.AccountId);
-        if (ShouldQueueSopReplay(isSavable, connectedSopDeviceIds))
-            await _sopReplayBuffer.AppendNotification(notification);
+
+        var subscriptions = await _db
+            .PushSubscriptions.Where(s => s.AccountId == notification.AccountId)
+            .Where(s => s.IsActivated)
+            .ToListAsync(cancellationToken);
+
+        // Replay is the offline safety net for SOP devices: keep every non-savable
+        // notification until the client acks it via the list endpoint, even while a
+        // stream is live, so a stream teardown race can never lose a message.
+        if (ShouldQueueSopReplay(isSavable, subscriptions))
+        {
+            try
+            {
+                await _sopReplayBuffer.AppendNotification(notification);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(
+                    ex,
+                    "Failed to append SOP replay notification {NotificationId}",
+                    notification.Id
+                );
+            }
+        }
+
+        // Live SOP streams first: delivery must not wait on push/wsgateway latency.
+        BroadcastSopStream(notification);
 
         try
         {
@@ -497,12 +536,6 @@ public class PushService
                 notification.Topic,
                 notification.Meta
             );
-
-            // Get all push subscriptions for the account
-            var subscriptions = await _db
-                .PushSubscriptions.Where(s => s.AccountId == notification.AccountId)
-                .Where(s => s.IsActivated)
-                .ToListAsync(cancellationToken);
 
             if (subscriptions.Count == 0)
             {
@@ -538,7 +571,6 @@ public class PushService
                     && !connectedWebSocketDeviceIds.Contains(NormalizeSopDeviceId(s.DeviceId))
                 )
             );
-            BroadcastSopStream(notification);
 
             var websocketExclusions = BuildWebSocketExclusions(
                 connectedSopDeviceIds,
@@ -640,12 +672,29 @@ public class PushService
 
             await _observability.RecordNotificationSendAsync(notification, "batch");
             var connectedSopDeviceIds = GetConnectedSopWebSocketDeviceIds(notification.AccountId);
-            if (ShouldQueueSopReplay(save, connectedSopDeviceIds))
-                await _sopReplayBuffer.AppendNotification(notification);
             var subscriptions = await _db
                 .PushSubscriptions.Where(s => s.AccountId == account)
                 .Where(s => s.IsActivated)
                 .ToListAsync();
+
+            if (ShouldQueueSopReplay(save, subscriptions))
+            {
+                try
+                {
+                    await _sopReplayBuffer.AppendNotification(notification);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(
+                        ex,
+                        "Failed to append SOP replay notification {NotificationId}",
+                        notification.Id
+                    );
+                }
+            }
+
+            // Live SOP streams first: delivery must not wait on push/wsgateway latency.
+            BroadcastSopStream(notification);
 
             if (subscriptions.Count == 0)
             {
@@ -677,7 +726,6 @@ public class PushService
                     && !connectedWebSocketDeviceIds.Contains(NormalizeSopDeviceId(s.DeviceId))
                 )
             );
-            BroadcastSopStream(notification);
 
             var websocketExclusions = BuildWebSocketExclusions(
                 connectedSopDeviceIds,
@@ -1169,8 +1217,8 @@ public class PushService
 
     internal static bool ShouldQueueSopReplay(
         bool isSavable,
-        IReadOnlyCollection<string> connectedSopDeviceIds
-    ) => !isSavable && connectedSopDeviceIds.Count == 0;
+        IReadOnlyCollection<SnNotificationPushSubscription> subscriptions
+    ) => !isSavable && subscriptions.Any(s => s.Provider == PushProvider.Sop);
 
     private static IReadOnlyCollection<string>? BuildWebSocketExclusions(
         IEnumerable<string> deviceIds,

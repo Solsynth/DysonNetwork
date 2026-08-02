@@ -119,6 +119,7 @@ public class SopNotificationController(
             await Response.Body.FlushAsync();
 
             var serializerOptions = jsonOptions.Value.JsonSerializerOptions;
+            var deliveredIds = new List<Guid>();
             while (await reader.WaitToReadAsync(HttpContext.RequestAborted))
             {
                 while (reader.TryRead(out var notification))
@@ -128,7 +129,15 @@ public class SopNotificationController(
                     await Response.WriteAsync($"data: {payload}\n\n");
                     await Response.Body.FlushAsync();
                     if (sopSub is not null)
-                        await nty.MarkSopDeliveryReadAsync(sopSub.Id, [notification.Id]);
+                        deliveredIds.Add(notification.Id);
+                }
+
+                // Read receipts are observability-only; batch them outside the
+                // per-message hot path instead of doing a DB write per event.
+                if (sopSub is not null && deliveredIds.Count > 0)
+                {
+                    await nty.MarkSopDeliveryReadAsync(sopSub.Id, deliveredIds);
+                    deliveredIds.Clear();
                 }
             }
         }

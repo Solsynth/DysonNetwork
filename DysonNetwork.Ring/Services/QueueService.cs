@@ -1,12 +1,37 @@
 using System.Text.Json;
 using DysonNetwork.Shared.Data;
+using DysonNetwork.Shared.EventBus;
 using DysonNetwork.Shared.Proto;
 using NATS.Client.Core;
+using NATS.Client.JetStream;
+using NATS.Net;
 
 namespace DysonNetwork.Ring.Services;
 
 public class QueueService(INatsConnection nats)
 {
+    private INatsJSContext? _js;
+    private Task? _ensureStreamTask;
+
+    private INatsJSContext Js => _js ??= nats.CreateJetStreamContext();
+
+    private async Task EnsureStreamAsync()
+    {
+        // Idempotent: the consumer ensures the same stream at startup; this just
+        // guards against a publish racing ahead of the first consumer boot.
+        _ensureStreamTask ??= Js.EnsureStreamCreated(
+            QueueBackgroundService.StreamName,
+            [QueueBackgroundService.QueueName]
+        );
+        await _ensureStreamTask;
+    }
+
+    private async Task PublishAsync(byte[] rawMessage)
+    {
+        await EnsureStreamAsync();
+        await Js.PublishAsync(QueueBackgroundService.QueueName, rawMessage);
+    }
+
     public Task EnqueuePushNotification(Shared.Models.SnNotification notification, Guid userId, bool isSavable = false)
         => EnqueuePushNotification(notification, userId, null, isSavable);
 
@@ -24,7 +49,7 @@ public class QueueService(INatsConnection nats)
             })
         };
         var rawMessage = InfraObjectCoder.ConvertObjectToByteString(message).ToByteArray();
-        await nats.PublishAsync(QueueBackgroundService.QueueName, rawMessage);
+        await PublishAsync(rawMessage);
     }
 
     public async Task EnqueuePushNotification(
@@ -46,7 +71,7 @@ public class QueueService(INatsConnection nats)
             IsSavable = isSavable
         };
         var rawMessage = InfraObjectCoder.ConvertObjectToByteString(message).ToByteArray();
-        await nats.PublishAsync(QueueBackgroundService.QueueName, rawMessage);
+        await PublishAsync(rawMessage);
     }
 }
 

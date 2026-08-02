@@ -2,9 +2,13 @@ using System.Text.Json;
 using DysonNetwork.Ring.Email;
 using DysonNetwork.Ring.Notification;
 using DysonNetwork.Shared.Data;
+using DysonNetwork.Shared.EventBus;
 using DysonNetwork.Shared.Proto;
 using Google.Protobuf;
 using NATS.Client.Core;
+using NATS.Client.JetStream;
+using NATS.Client.JetStream.Models;
+using NATS.Net;
 
 namespace DysonNetwork.Ring.Services;
 
@@ -17,7 +21,9 @@ public class QueueBackgroundService(
     : BackgroundService
 {
     public const string QueueName = "pusher_queue";
+    public const string StreamName = "pusher_queue";
     private const string QueueGroup = "pusher_workers";
+    private const string ConsumerName = "pusher_workers";
     private readonly int _consumerCount = configuration.GetValue<int?>("ConsumerCount") ?? Environment.ProcessorCount;
     private readonly List<Task> _consumerTasks = [];
 
@@ -35,13 +41,35 @@ public class QueueBackgroundService(
 
     private async Task RunConsumerAsync(CancellationToken stoppingToken)
     {
+        var js = nats.CreateJetStreamContext();
+        await js.EnsureStreamCreated(StreamName, [QueueName]);
+
+        // Durable push consumer with a deliver group: multiple workers (and
+        // instances) share the load, and messages published while Ring is down
+        // or restarting survive and are redelivered on boot (DeliverPolicy.All
+        // on first creation, ack-tracked afterwards).
+        var consumer = await js.CreateOrUpdateConsumerAsync(
+            StreamName,
+            new ConsumerConfig(ConsumerName)
+            {
+                FilterSubject = QueueName,
+                DeliverGroup = QueueGroup,
+                DeliverPolicy = ConsumerConfigDeliverPolicy.All,
+                AckPolicy = ConsumerConfigAckPolicy.Explicit,
+                MaxDeliver = 5,
+            },
+            cancellationToken: stoppingToken
+        );
+
         logger.LogInformation("Queue consumer started");
 
-        await foreach (var msg in nats.SubscribeAsync<byte[]>(QueueName, queueGroup: QueueGroup, cancellationToken: stoppingToken))
+        await foreach (var msg in consumer.ConsumeAsync<byte[]>(cancellationToken: stoppingToken))
         {
             try
             {
-                var message = InfraObjectCoder.ConvertByteStringToObject<QueueMessage>(ByteString.CopyFrom(msg.Data));
+                var message = InfraObjectCoder.ConvertByteStringToObject<QueueMessage>(
+                    ByteString.CopyFrom(msg.Data ?? [])
+                );
                 if (message is not null)
                 {
                     await ProcessMessageAsync(message, stoppingToken);
@@ -50,15 +78,24 @@ public class QueueBackgroundService(
                 {
                     logger.LogWarning($"Invalid message format for {msg.Subject}");
                 }
+                await msg.AckAsync(cancellationToken: stoppingToken);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
-                // Normal shutdown
+                // Normal shutdown; leave unacked so the message is redelivered on boot.
                 break;
             }
             catch (Exception ex)
             {
                 logger.LogError(ex, "Error in queue consumer");
+                try
+                {
+                    await msg.NakAsync(cancellationToken: stoppingToken);
+                }
+                catch (Exception nakEx)
+                {
+                    logger.LogError(nakEx, "Failed to nack queue message");
+                }
             }
         }
     }
