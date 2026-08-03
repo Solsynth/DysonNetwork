@@ -116,11 +116,16 @@ public class TicketController(
 
     private async Task<List<SnAccount>> GetTicketStaffAsync(Guid excludeId)
     {
-        var onCall = await onCallService.GetOnCallAdminsAsync();
-        if (onCall.Count > 0)
+        var roster = await onCallService.GetOnCallRosterAsync();
+        var onCallAdmins = roster
+            .Select(entry => entry.Account)
+            .Where(account => account is not null && account.Id != excludeId)
+            .Cast<SnAccount>()
+            .ToList();
+        if (onCallAdmins.Count > 0)
         {
-            logger.LogDebug("Notifying {Count} on-call ticket admins", onCall.Count);
-            return onCall.Where(a => a.Id != excludeId).ToList();
+            logger.LogDebug("Notifying {Count} on-call ticket admins", onCallAdmins.Count);
+            return onCallAdmins;
         }
 
         logger.LogDebug("No on-call ticket admins, falling back to all superusers");

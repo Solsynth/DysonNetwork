@@ -21,10 +21,10 @@ public class TicketOnCallAdminController(TicketOnCallService onCall) : Controlle
 
     [HttpGet("")]
     [AskPermission(PermissionKeys.TicketsOnCallManage)]
-    [ProducesResponseType<List<SnAccount>>(StatusCodes.Status200OK)]
-    public async Task<ActionResult<List<SnAccount>>> ListOnCallAdmins()
+    [ProducesResponseType<List<SnTicketOnCallAdmin>>(StatusCodes.Status200OK)]
+    public async Task<ActionResult<List<SnTicketOnCallAdmin>>> ListOnCallAdmins()
     {
-        return Ok(await onCall.GetOnCallAdminsAsync());
+        return Ok(await onCall.GetOnCallRosterAsync());
     }
 
     [HttpPost("")]

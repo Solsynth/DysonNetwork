@@ -11,19 +11,16 @@ public class TicketOnCallService(
     ILogger<TicketOnCallService> logger
 )
 {
-    public async Task<List<SnAccount>> GetOnCallAdminsAsync()
+    public async Task<List<SnTicketOnCallAdmin>> GetOnCallRosterAsync()
     {
         var roster = await db.TicketOnCallAdmins
             .OrderBy(x => x.CreatedAt)
             .ToListAsync();
 
-        var admins = new List<SnAccount>(roster.Count);
         foreach (var entry in roster)
-        {
-            var account = await accounts.GetAccount(entry.AccountId);
-            if (account is not null) admins.Add(account);
-        }
-        return admins;
+            entry.Account = await accounts.GetAccount(entry.AccountId);
+
+        return roster;
     }
 
     public async Task<SnTicketOnCallAdmin> AddOnCallAdminAsync(Guid accountId)
