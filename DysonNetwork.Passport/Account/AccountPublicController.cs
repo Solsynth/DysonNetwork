@@ -55,6 +55,21 @@ public class AccountPublicController(
         }
 
         if (account is null) return NotFound(ApiError.NotFound(name, traceId: HttpContext.TraceIdentifier));
+        return await EnrichPublicAccountAsync(account);
+    }
+
+    [HttpGet("id/{id:guid}")]
+    [ProducesResponseType<SnAccount>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<SnAccount?>> GetById(Guid id)
+    {
+        var account = await accountService.GetAccount(id);
+        if (account is null) return NotFound(ApiError.NotFound(id.ToString(), traceId: HttpContext.TraceIdentifier));
+        return await EnrichPublicAccountAsync(account);
+    }
+
+    private async Task<SnAccount> EnrichPublicAccountAsync(SnAccount account)
+    {
         await EnsureProfileAsync(account);
         account.Badges = await db.Badges.Where(b => b.AccountId == account.Id).ToListAsync();
         account.Contacts = (await remoteContacts.ListContactsAsync(account.Id))
