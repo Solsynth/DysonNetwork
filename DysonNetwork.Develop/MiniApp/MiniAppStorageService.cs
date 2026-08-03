@@ -192,4 +192,16 @@ public class MiniAppStorageService(IConfiguration configuration)
             : $"{_config.S3.PublicBaseUrl}/");
         return new Uri(baseUri, key).ToString();
     }
+
+    /// <summary>Reads a stored package into memory and returns it as a seekable stream.</summary>
+    public async Task<Stream> GetPackageStreamAsync(string key, CancellationToken cancellationToken = default)
+    {
+        var stream = new MemoryStream();
+        await _s3.Value.GetObjectAsync(new GetObjectArgs()
+            .WithBucket(_config.S3.Bucket)
+            .WithObject(key)
+            .WithCallbackStream(s => s.CopyTo(stream)), cancellationToken);
+        stream.Position = 0;
+        return stream;
+    }
 }

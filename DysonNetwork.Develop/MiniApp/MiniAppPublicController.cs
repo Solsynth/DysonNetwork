@@ -9,7 +9,11 @@ namespace DysonNetwork.Develop.MiniApp;
 [ApiController]
 [Route("api/miniapps")]
 [ApiFeature("developers.miniapps.public", Revision = 1)]
-public class MiniAppPublicController(MiniAppService miniAppService, Identity.DeveloperService developerService) : ControllerBase
+public class MiniAppPublicController(
+    MiniAppService miniAppService,
+    Identity.DeveloperService developerService,
+    MiniAppStorageService storageService
+) : ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<IEnumerable<SnMiniApp>>> DiscoverPlugins(
@@ -43,6 +47,23 @@ public class MiniAppPublicController(MiniAppService miniAppService, Identity.Dev
         ApplyDeveloperAuthor(miniApp);
 
         return Ok(miniApp);
+    }
+
+    [HttpGet("{slug}/package")]
+    public async Task<ActionResult> DownloadPackage([FromRoute] string slug)
+    {
+        var miniApp = await miniAppService.GetPublishedMiniAppBySlugAsync(slug);
+        if (miniApp is null) return NotFound(new ApiError { Code = "DEV_MINI_APP_NOT_FOUND", Message = "Mini app not found", Status = 404 });
+        if (string.IsNullOrWhiteSpace(miniApp.PackageStorageKey))
+            return NotFound(new ApiError { Code = "DEV_MINI_APP_NO_PACKAGE", Message = "Mini app has no published package", Status = 404 });
+
+        await miniAppService.IncrementDownloadCountAsync(miniApp.Id);
+
+        if (!string.IsNullOrWhiteSpace(miniApp.PackageUrl))
+            return Redirect(miniApp.PackageUrl);
+
+        var stream = await storageService.GetPackageStreamAsync(miniApp.PackageStorageKey);
+        return File(stream, "application/zip", $"{miniApp.Slug}.zip");
     }
 
     /// <summary>Public responses credit the owning developer (publisher) as author instead of the manifest author.</summary>

@@ -143,4 +143,16 @@ GET /api/miniapps/{slug}
 
 Discovery returns `X-Total` and searches the relational `slug`, `plugin_id`,
 `name`, and `description` columns. Publisher metadata is hydrated from the
-publisher service.
+publisher service. Each plugin record exposes a `download_count` field that
+tracks installs.
+
+### Download a plugin package
+
+```http
+GET /api/miniapps/{slug}/package
+```
+
+Downloads the production package and increments `download_count`. When
+`PluginStorage:S3:PublicBaseUrl` is configured the endpoint responds with a 302
+redirect to the CDN URL; otherwise it streams the ZIP from storage directly.
+Clients should download through this endpoint so installs are counted.

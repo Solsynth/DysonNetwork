@@ -21,17 +21,18 @@ public class DeveloperService(
     public async Task<IEnumerable<SnDeveloper>> LoadDeveloperPublisher(IEnumerable<SnDeveloper> developers)
     {
         var enumerable = developers.ToList();
-        var pubIds = enumerable.Select(d => d.PublisherId).ToList();
         var pubRequest = new DyGetPublisherBatchRequest();
-        pubIds.ForEach(x => pubRequest.Ids.Add(x.ToString()));
+        enumerable.ForEach(d => pubRequest.Ids.Add(d.PublisherId.ToString()));
         var pubResponse = await ps.GetPublisherBatchAsync(pubRequest);
         var pubs = pubResponse.Publishers.ToDictionary(p => Guid.Parse(p.Id), SnPublisher.FromProtoValue);
 
-        return enumerable.Select(d =>
+        foreach (var developer in enumerable)
         {
-            d.Publisher = pubs[d.PublisherId];
-            return d;
-        });
+            if (pubs.TryGetValue(developer.PublisherId, out var publisher))
+                developer.Publisher = publisher;
+        }
+
+        return enumerable;
     }
 
     public async Task<SnDeveloper?> GetDeveloperByName(string name)

@@ -45,6 +45,7 @@ public class SnMiniApp : ModelBase
     [MaxLength(512)] public string? PackageStorageKey { get; set; }
     [MaxLength(128)] public string? PackageSha256 { get; set; }
     public long? PackageSize { get; set; }
+    public long DownloadCount { get; set; }
     
     public MiniAppStage Stage { get; set; } = MiniAppStage.Development;
 

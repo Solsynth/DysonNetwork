@@ -185,6 +185,14 @@ public class MiniAppService(AppDatabase db, DyFileService.DyFileServiceClient fi
         await db.SaveChangesAsync(cancellationToken);
     }
 
+    /// <summary>Atomically increments the download counter of a mini app.</summary>
+    public async Task IncrementDownloadCountAsync(Guid id)
+    {
+        await db.MiniApps
+            .Where(m => m.Id == id)
+            .ExecuteUpdateAsync(s => s.SetProperty(m => m.DownloadCount, m => m.DownloadCount + 1));
+    }
+
     private async Task ApplyFileReferencesAsync(
         SnMiniApp miniApp,
         string? iconId,
