@@ -6,6 +6,7 @@ using DysonNetwork.Passport.Affiliation;
 using DysonNetwork.Passport.Models;
 using DysonNetwork.Passport.Nfc;
 using DysonNetwork.Passport.Examination;
+using DysonNetwork.Passport.Ticket;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Models;
 using Microsoft.EntityFrameworkCore;
@@ -65,6 +66,7 @@ public class AppDatabase(
 
     public DbSet<SnTicket> Tickets { get; set; } = null!;
     public DbSet<SnTicketMessage> TicketMessages { get; set; } = null!;
+    public DbSet<SnTicketOnCallAdmin> TicketOnCallAdmins { get; set; } = null!;
     public DbSet<SnMeet> Meets { get; set; } = null!;
     public DbSet<SnMeetParticipant> MeetParticipants { get; set; } = null!;
     public DbSet<SnNearbyDevice> NearbyDevices { get; set; } = null!;

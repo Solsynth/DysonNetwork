@@ -170,6 +170,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<PassRewindService>();
         services.AddScoped<AccountRewindService>();
         services.AddScoped<TicketService>();
+        services.AddScoped<TicketOnCallService>();
         services.AddScoped<MeetService>();
         services.AddScoped<NearbyService>();
         services.AddScoped<NfcService>();

@@ -22,6 +22,7 @@ public class TicketController(
     RemoteRingService ringService,
     ILocalizationService localizationService,
     AccountService accountService,
+    TicketOnCallService onCallService,
     ILogger<TicketController> logger,
     EmailService emailService,
     RemoteAccountContactService accountContactService,
@@ -113,10 +114,47 @@ public class TicketController(
         return hasScope;
     }
 
+    private async Task<List<SnAccount>> GetTicketStaffAsync(Guid excludeId)
+    {
+        var onCall = await onCallService.GetOnCallAdminsAsync();
+        if (onCall.Count > 0)
+        {
+            logger.LogDebug("Notifying {Count} on-call ticket admins", onCall.Count);
+            return onCall.Where(a => a.Id != excludeId).ToList();
+        }
+
+        logger.LogDebug("No on-call ticket admins, falling back to all superusers");
+        var superusers = await accountService.GetAllSuperusersAsync();
+        return superusers.Where(s => s.Id != excludeId).ToList();
+    }
+
+    private async Task SendTicketNotificationsAsync(
+        IReadOnlyCollection<SnAccount> users,
+        string topic,
+        string titleKey,
+        string bodyKey,
+        object bodyArgs
+    )
+    {
+        foreach (var user in users)
+        {
+            try
+            {
+                var locale = user.Language;
+                var title = localizationService.Get(titleKey, locale);
+                var body = localizationService.Get(bodyKey, locale, bodyArgs);
+                await ringService.SendPushNotificationToUser(user.Id.ToString(), topic, title, null, body);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Failed to send ticket notification {Topic} to user {UserId}", topic, user.Id);
+            }
+        }
+    }
+
     private async Task NotifyTicketStatusChangedAsync(SnTicket ticket, TicketStatus oldStatus, TicketStatus newStatus, SnAccount updater)
     {
-        var superusers = await accountService.GetAllSuperusersAsync();
-        var otherSuperusers = superusers.Where(s => s.Id != updater.Id).ToList();
+        var staff = await GetTicketStaffAsync(updater.Id);
 
         var ticketCreator = ticket.Creator;
         var ticketAssignee = ticket.Assignee;
@@ -124,59 +162,55 @@ public class TicketController(
         var interestedUsers = new List<SnAccount>();
         if (ticketCreator.Id != updater.Id) interestedUsers.Add(ticketCreator);
         if (ticketAssignee != null && ticketAssignee.Id != updater.Id) interestedUsers.Add(ticketAssignee);
-        if (!updater.IsSuperuser) interestedUsers.AddRange(otherSuperusers);
+        if (!updater.IsSuperuser) interestedUsers.AddRange(staff);
 
         var uniqueUsers = interestedUsers.DistinctBy(u => u.Id).ToList();
 
-        foreach (var user in uniqueUsers)
-        {
-            var locale = user.Language;
-            var title = localizationService.Get("ticketStatusUpdatedTitle", locale);
-            var body = localizationService.Get("ticketStatusUpdatedBody", locale, new
+        await SendTicketNotificationsAsync(
+            uniqueUsers,
+            "ticket.status",
+            "ticketStatusUpdatedTitle",
+            "ticketStatusUpdatedBody",
+            new
             {
                 ticketTitle = ticket.Title,
                 oldStatus = oldStatus.ToString(),
                 newStatus = newStatus.ToString(),
                 updaterName = updater.Nick
-            });
-
-            _ = ringService.SendPushNotificationToUser(user.Id.ToString(), "ticket.status", title, null, body);
-        }
+            }
+        );
     }
 
     private async Task NotifyTicketAssignedAsync(SnTicket ticket, SnAccount? oldAssignee, SnAccount newAssignee, SnAccount assigner)
     {
-        var superusers = await accountService.GetAllSuperusersAsync();
-        var otherSuperusers = superusers.Where(s => s.Id != assigner.Id).ToList();
+        var staff = await GetTicketStaffAsync(assigner.Id);
 
         var ticketCreator = ticket.Creator;
 
         var interestedUsers = new List<SnAccount>();
         if (ticketCreator.Id != assigner.Id) interestedUsers.Add(ticketCreator);
         if (oldAssignee != null && oldAssignee.Id != assigner.Id) interestedUsers.Add(oldAssignee);
-        if (!assigner.IsSuperuser) interestedUsers.AddRange(otherSuperusers);
+        if (!assigner.IsSuperuser) interestedUsers.AddRange(staff);
 
         var uniqueUsers = interestedUsers.DistinctBy(u => u.Id).ToList();
 
-        foreach (var user in uniqueUsers)
-        {
-            var locale = user.Language;
-            var title = localizationService.Get("ticketAssignedTitle", locale);
-            var body = localizationService.Get("ticketAssignedBody", locale, new
+        await SendTicketNotificationsAsync(
+            uniqueUsers,
+            "ticket.assign",
+            "ticketAssignedTitle",
+            "ticketAssignedBody",
+            new
             {
                 ticketTitle = ticket.Title,
                 assigneeName = newAssignee.Nick,
                 assignerName = assigner.Nick
-            });
-
-            _ = ringService.SendPushNotificationToUser(user.Id.ToString(), "ticket.assign", title, null, body);
-        }
+            }
+        );
     }
 
     private async Task NotifyTicketNewMessageAsync(SnTicket ticket, SnAccount sender)
     {
-        var superusers = await accountService.GetAllSuperusersAsync();
-        var otherSuperusers = superusers.Where(s => s.Id != sender.Id).ToList();
+        var staff = await GetTicketStaffAsync(sender.Id);
 
         var ticketCreator = ticket.Creator;
         var ticketAssignee = ticket.Assignee;
@@ -184,64 +218,44 @@ public class TicketController(
         var interestedUsers = new List<SnAccount>();
         if (ticketCreator.Id != sender.Id) interestedUsers.Add(ticketCreator);
         if (ticketAssignee != null && ticketAssignee.Id != sender.Id) interestedUsers.Add(ticketAssignee);
-        if (!sender.IsSuperuser) interestedUsers.AddRange(otherSuperusers);
+        if (!sender.IsSuperuser) interestedUsers.AddRange(staff);
 
         var uniqueUsers = interestedUsers.DistinctBy(u => u.Id).ToList();
 
-        foreach (var user in uniqueUsers)
-        {
-            var locale = user.Language;
-            var title = localizationService.Get("ticketNewMessageTitle", locale);
-            var body = localizationService.Get("ticketNewMessageBody", locale, new
+        await SendTicketNotificationsAsync(
+            uniqueUsers,
+            "ticket.message",
+            "ticketNewMessageTitle",
+            "ticketNewMessageBody",
+            new
             {
                 senderName = sender.Nick,
                 ticketTitle = ticket.Title
-            });
-
-            _ = ringService.SendPushNotificationToUser(user.Id.ToString(), "ticket.message", title, null, body);
-        }
+            }
+        );
     }
 
     private async Task NotifyTicketCreatedAsync(SnTicket ticket)
     {
         try
         {
-            var superusers = await accountService.GetAllSuperusersAsync();
+            var staff = await GetTicketStaffAsync(ticket.CreatorId);
 
-            foreach (var superuser in superusers)
-            {
-                var locale = superuser.Language;
-                var title = localizationService.Get("ticketCreatedTitle", locale);
-                var body = localizationService.Get("ticketCreatedBody", locale, new
+            await SendTicketNotificationsAsync(
+                staff,
+                "ticket.created",
+                "ticketCreatedTitle",
+                "ticketCreatedBody",
+                new
                 {
                     creatorName = ticket.Creator.Nick,
                     ticketTitle = ticket.Title
-                });
-
-                try
-                {
-                    await ringService.SendPushNotificationToUser(
-                        superuser.Id.ToString(),
-                        "ticket.created",
-                        title,
-                        null,
-                        body
-                    );
                 }
-                catch (Exception ex)
-                {
-                    logger.LogError(
-                        ex,
-                        "Failed to send new-ticket notification for ticket {TicketId} to superuser {SuperuserId}",
-                        ticket.Id,
-                        superuser.Id
-                    );
-                }
-            }
+            );
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Failed to notify superusers about new ticket {TicketId}", ticket.Id);
+            logger.LogError(ex, "Failed to notify staff about new ticket {TicketId}", ticket.Id);
         }
     }
 
