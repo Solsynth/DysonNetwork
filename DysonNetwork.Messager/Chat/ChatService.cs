@@ -93,11 +93,34 @@ public partial class ChatService(
 
     public async Task<SnChatMessage?> GetMessageByIdAsync(Guid messageId)
     {
-        return await db.ChatMessages
+        var message = await db.ChatMessages
             .Where(m => m.Id == messageId)
             .Include(m => m.Sender)
             .Include(m => m.ChatRoom)
             .FirstOrDefaultAsync();
+
+        // Messages loaded here are serialized as-is into placeholder WS
+        // broadcasts (DeliverPlaceholderUpdateAsync, placeholder.finalize
+        // confirmation). SnChatMember.Account is [NotMapped], so a raw EF
+        // load leaves it null and the client fails to parse "account": null.
+        // Enrich it like every other delivery path does.
+        if (message?.Sender is not null && message.Sender.Account is null)
+        {
+            try
+            {
+                message.Sender = await crs.LoadMemberAccount(message.Sender);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(
+                    ex,
+                    "Failed to load sender account for message {MessageId}; broadcasting without it",
+                    message.Id
+                );
+            }
+        }
+
+        return message;
     }
 
     private static bool IsUserEncryptedMessage(SnChatMessage message)
