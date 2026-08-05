@@ -63,7 +63,7 @@ public static class ServiceCollectionExtensions
             "DyProfileService");
 
         services.AddGrpcClientWithSharedChannel<DyAuthorizedAppService.DyAuthorizedAppServiceClient>(
-            "http://_grpc.stargate",
+            "https://_grpc.stargate",
             "DyAuthorizedAppService");
 
         services.AddEventBus()

@@ -155,7 +155,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IPresenceService, SteamPresenceService>();
 
         services.AddGrpcClientWithSharedChannel<DyAccountService.DyAccountServiceClient>(
-            "http://_grpc.stargate",
+            "https://_grpc.stargate",
             "DyAccountService");
         services.AddGrpcClientWithSharedChannel<DyProfileService.DyProfileServiceClient>(
             "https://_grpc.passport",
@@ -163,7 +163,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<RemoteAccountContactService>();
         services.AddScoped<RemoteAccountConnectionService>();
         services.AddGrpcClientWithSharedChannel<DyActionLogService.DyActionLogServiceClient>(
-            "http://_grpc.stargate",
+            "https://_grpc.stargate",
             "DyActionLogService");
         services.AddSingleton<RemoteActionLogService>();
 
