@@ -10,12 +10,14 @@ namespace DysonNetwork.Passport.Account;
 [ApiController]
 [Route("/api/accounts")]
 [ApiFeature("accounts", Revision = 1)]
+[ApiFeature("accounts.board", Revision = 1)]
 [ApiFeature("accounts.badges", Revision = 1)]
 [ApiFeature("accounts.credits", Revision = 1)]
 public class AccountPublicController(
     AppDatabase db,
     AccountService accountService,
-    SocialCreditService socialCreditService
+    SocialCreditService socialCreditService,
+    AccountBoardService boardService
 ) : ControllerBase
 {
     [HttpGet("{name}/badges")]
@@ -27,6 +29,19 @@ public class AccountPublicController(
         return account is null
             ? NotFound(ApiError.NotFound(name, traceId: HttpContext.TraceIdentifier))
             : await db.Badges.Where(b => b.AccountId == account.Id).ToListAsync();
+    }
+
+
+    [HttpGet("{name}/board")]
+    [ProducesResponseType<List<SnAccountBoardItem>>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<List<SnAccountBoardItem>>> GetAccountBoard(string name)
+    {
+        var account = await accountService.LookupAccount(name);
+        if (account is null)
+            return NotFound(ApiError.NotFound(name, traceId: HttpContext.TraceIdentifier));
+
+        return Ok(await boardService.GetBoardAsync(account.Id));
     }
 
     [HttpGet("{name}/credits")]

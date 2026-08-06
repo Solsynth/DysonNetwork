@@ -198,7 +198,6 @@ public class MagicSpellService(
                 if (spell.AccountId.HasValue)
                 {
                     var accountId = spell.AccountId.Value;
-                    await db.AccountProfiles.Where(p => p.AccountId == accountId).ExecuteDeleteAsync();
                     await db.AccountStatuses.Where(s => s.AccountId == accountId).ExecuteDeleteAsync();
                     await db.PresenceActivities.Where(p => p.AccountId == accountId).ExecuteDeleteAsync();
                     await db.AccountRelationships

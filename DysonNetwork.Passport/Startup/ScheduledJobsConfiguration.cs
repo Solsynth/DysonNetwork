@@ -2,7 +2,6 @@ using DysonNetwork.Passport.Account;
 using DysonNetwork.Passport.Account.Presences;
 using DysonNetwork.Passport.Credit;
 using DysonNetwork.Passport.DomainTrust;
-using DysonNetwork.Passport.Handlers;
 using DysonNetwork.Passport.Realm;
 using Quartz;
 
@@ -19,15 +18,6 @@ public static class ScheduledJobsConfiguration
                 .ForJob("AppDatabaseRecycling")
                 .WithIdentity("AppDatabaseRecyclingTrigger")
                 .WithCronSchedule("0 0 0 * * ?"));
-
-            q.AddJob<LastActiveFlushJob>(opts => opts.WithIdentity("LastActiveFlush"));
-            q.AddTrigger(opts => opts
-                .ForJob("LastActiveFlush")
-                .WithIdentity("LastActiveFlushTrigger")
-                .WithSimpleSchedule(o => o
-                    .WithIntervalInMinutes(5)
-                    .RepeatForever())
-            );
 
             q.AddJob<NightOwlReminderJob>(opts => opts.WithIdentity("NightOwlReminder"));
             q.AddTrigger(opts => opts

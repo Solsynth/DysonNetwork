@@ -9,6 +9,7 @@ using Microsoft.EntityFrameworkCore;
 using NodaTime;
 using NodaTime.Serialization.Protobuf;
 using Duration = NodaTime.Duration;
+using DysonNetwork.Shared.EventBus;
 
 namespace DysonNetwork.Passport.Account;
 
@@ -22,6 +23,7 @@ public class AccountServiceGrpc(
     AccountService accountService,
     DyAccountService.DyAccountServiceClient padlockAccounts,
     NotableDaysService notableDaysService,
+    IEventBus eventBus,
     ILogger<AccountServiceGrpc> logger
 )
     : DyProfileService.DyProfileServiceBase
@@ -65,7 +67,7 @@ public class AccountServiceGrpc(
         }
 
         var account = SnAccount.FromProtoValue(remote);
-        account.Profile = await _accountService.GetOrCreateAccountProfileAsync(account.Id);
+        account.Profile ??= await _accountService.GetOrCreateAccountProfileAsync(account.Id);
 
         await PopulatePerkSubscriptionAsync(account);
         await remoteContacts.PopulateContactsAsync(account, cancellationToken: context.CancellationToken);
@@ -256,13 +258,19 @@ public class AccountServiceGrpc(
         if (!Guid.TryParse(request.AccountId, out var accountId))
             throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid account ID format"));
 
-        var profile = await _accountService.GetOrCreateAccountProfileAsync(accountId);
         var incoming = SnAccountProfile.FromProtoValue(request.Profile);
+        var evt = new ProfileFieldUpdatedEvent { AccountId = accountId };
 
         var hasMask = request.UpdateMask is not null && request.UpdateMask.Paths.Count > 0;
         if (!hasMask)
         {
-            ApplyAllProfileFields(profile, incoming);
+            // Full replace (no caller remains after the bot flows moved to the
+            // Stargate bot receiver; kept for surface parity).
+            evt.LastSeenAt = incoming.LastSeenAt;
+            evt.Experience = incoming.Experience;
+            evt.SocialCredits = incoming.SocialCredits;
+            evt.ActiveBadge = incoming.ActiveBadge;
+            evt.Verification = incoming.Verification;
         }
         else
         {
@@ -270,67 +278,35 @@ public class AccountServiceGrpc(
             {
                 switch (path)
                 {
-                    case "first_name":
-                        profile.FirstName = incoming.FirstName;
-                        break;
-                    case "middle_name":
-                        profile.MiddleName = incoming.MiddleName;
-                        break;
-                    case "last_name":
-                        profile.LastName = incoming.LastName;
-                        break;
-                    case "bio":
-                        profile.Bio = incoming.Bio;
-                        break;
-                    case "gender":
-                        profile.Gender = incoming.Gender;
-                        break;
-                    case "pronouns":
-                        profile.Pronouns = incoming.Pronouns;
-                        break;
-                    case "time_zone":
-                        profile.TimeZone = incoming.TimeZone;
-                        break;
-                    case "location":
-                        profile.Location = incoming.Location;
-                        break;
-                    case "birthday":
-                        profile.Birthday = incoming.Birthday;
-                        break;
                     case "verification":
-                        profile.Verification = incoming.Verification;
+                        evt.Verification = incoming.Verification;
                         break;
                     case "active_badge":
-                        profile.ActiveBadge = incoming.ActiveBadge;
-                        break;
-                    case "picture":
-                        profile.Picture = incoming.Picture;
-                        break;
-                    case "background":
-                        profile.Background = incoming.Background;
-                        break;
-                    case "username_color":
-                        profile.UsernameColor = incoming.UsernameColor;
-                        break;
-                    case "links":
-                        profile.Links = incoming.Links;
+                        evt.ActiveBadge = incoming.ActiveBadge;
                         break;
                     case "experience":
-                        profile.Experience = incoming.Experience;
+                        evt.Experience = incoming.Experience;
                         break;
                     case "social_credits":
-                        profile.SocialCredits = incoming.SocialCredits;
+                        evt.SocialCredits = incoming.SocialCredits;
                         break;
                     case "last_seen_at":
-                        profile.LastSeenAt = incoming.LastSeenAt;
+                        evt.LastSeenAt = incoming.LastSeenAt;
                         break;
+                    // Scalar profile fields (first_name, bio, picture, ...) are
+                    // owned by Stargate's HTTP surface now; no gRPC callers
+                    // remain, so they are intentionally not forwarded.
                 }
             }
         }
 
-        _db.Update(profile);
-        await _db.SaveChangesAsync(context.CancellationToken);
+        if (evt.LastSeenAt is not null || evt.Experience is not null || evt.ExperienceDelta is not null ||
+            evt.SocialCredits is not null || evt.ActiveBadge is not null || evt.Verification is not null)
+        {
+            await eventBus.PublishAsync(evt, context.CancellationToken);
+        }
 
+        var profile = await _accountService.GetOrCreateAccountProfileAsync(accountId);
         return profile.ToProtoValue();
     }
 
@@ -763,35 +739,13 @@ public class AccountServiceGrpc(
         if (badge.ActivatedAt is null)
             return;
 
-        await _db.AccountProfiles
-            .Where(p => p.AccountId == accountId)
-            .ExecuteUpdateAsync(
-                setters => setters.SetProperty(p => p.ActiveBadge, badge.ToReference()),
-                cancellationToken
-            );
+        await eventBus.PublishAsync(new ProfileFieldUpdatedEvent
+        {
+            AccountId = accountId,
+            ActiveBadge = badge.ToReference()
+        }, cancellationToken);
     }
 
-    private static void ApplyAllProfileFields(SnAccountProfile profile, SnAccountProfile incoming)
-    {
-        profile.FirstName = incoming.FirstName;
-        profile.MiddleName = incoming.MiddleName;
-        profile.LastName = incoming.LastName;
-        profile.Bio = incoming.Bio;
-        profile.Gender = incoming.Gender;
-        profile.Pronouns = incoming.Pronouns;
-        profile.TimeZone = incoming.TimeZone;
-        profile.Location = incoming.Location;
-        profile.Birthday = incoming.Birthday;
-        profile.Verification = incoming.Verification;
-        profile.ActiveBadge = incoming.ActiveBadge;
-        profile.Picture = incoming.Picture;
-        profile.Background = incoming.Background;
-        profile.UsernameColor = incoming.UsernameColor;
-        profile.Links = incoming.Links;
-        profile.Experience = incoming.Experience;
-        profile.SocialCredits = incoming.SocialCredits;
-        profile.LastSeenAt = incoming.LastSeenAt;
-    }
 
     private async Task<List<SnAccount>> HydrateAccountsAsync(
         IEnumerable<DyAccount> remoteAccounts,
@@ -801,7 +755,7 @@ public class AccountServiceGrpc(
 
         foreach (var account in accounts)
         {
-            account.Profile = await _accountService.GetOrCreateAccountProfileAsync(account.Id);
+            account.Profile ??= await _accountService.GetOrCreateAccountProfileAsync(account.Id);
         }
 
         await PopulatePerkSubscriptionsAsync(accounts);

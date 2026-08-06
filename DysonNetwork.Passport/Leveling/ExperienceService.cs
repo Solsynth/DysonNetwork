@@ -1,10 +1,12 @@
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Registry;
 using Microsoft.EntityFrameworkCore;
+using DysonNetwork.Shared.EventBus;
+using DysonNetwork.Passport.Account;
 
 namespace DysonNetwork.Passport.Leveling;
 
-public class ExperienceService(AppDatabase db, RemoteSubscriptionService subscriptions)
+public class ExperienceService(AppDatabase db, RemoteSubscriptionService subscriptions, IEventBus eventBus)
 {
     public async Task<SnExperienceRecord> AddRecord(string reasonType, string reason, long delta, Guid accountId)
     {
@@ -32,10 +34,12 @@ public class ExperienceService(AppDatabase db, RemoteSubscriptionService subscri
 
         db.ExperienceRecords.Add(record);
         await db.SaveChangesAsync();
-        
-        await db.AccountProfiles
-            .Where(p => p.AccountId == accountId)
-            .ExecuteUpdateAsync(p => p.SetProperty(v => v.Experience, v => v.Experience + record.Delta));
+
+        await eventBus.PublishAsync(new ProfileFieldUpdatedEvent
+        {
+            AccountId = accountId,
+            ExperienceDelta = (int)record.Delta
+        });
         
         return record;
     }

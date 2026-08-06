@@ -675,10 +675,8 @@ public class ProgressionService(
 
     private async Task<DateTimeZone> ResolveAccountZoneAsync(Guid accountId, CancellationToken cancellationToken)
     {
-        var timeZone = await db.AccountProfiles
-            .Where(m => m.AccountId == accountId)
-            .Select(m => m.TimeZone)
-            .FirstOrDefaultAsync(cancellationToken);
+        var account = await accounts.GetAccount(accountId);
+        var timeZone = account?.Profile?.TimeZone;
 
         var fallback = seedService.GetSettings().DefaultTimeZone;
         return ResolveZone(string.IsNullOrWhiteSpace(timeZone) ? fallback : timeZone!);

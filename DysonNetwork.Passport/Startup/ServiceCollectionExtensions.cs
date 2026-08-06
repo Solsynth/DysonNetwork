@@ -9,7 +9,6 @@ using DysonNetwork.Passport.Account.Presences;
 using DysonNetwork.Passport.Affiliation;
 using DysonNetwork.Passport.Credit;
 using DysonNetwork.Passport.DomainTrust;
-using DysonNetwork.Passport.Handlers;
 using DysonNetwork.Passport.Leveling;
 using DysonNetwork.Passport.Mailer;
 using DysonNetwork.Passport.Meet;
@@ -105,7 +104,6 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddAppFlushHandlers(this IServiceCollection services)
     {
         services.AddSingleton<FlushBufferService>();
-        services.AddScoped<LastActiveFlushHandler>();
         services.AddScoped<DomainValidationMetricFlushHandler>();
 
         return services;

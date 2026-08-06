@@ -42,27 +42,8 @@ public class FriendsController(
         var statuses = await events.GetStatuses(friendIds);
         var activities = await events.GetActiveActivitiesBatch(friendIds);
 
-        var profilesTask = db.AccountProfiles
-            .Where(p => friendIds.Contains(p.AccountId))
-            .ToListAsync();
-        await profilesTask;
-        var profiles = profilesTask.Result
-            .GroupBy(profile => profile.AccountId)
-            .ToDictionary(
-                group => group.Key,
-                group => group.OrderByDescending(profile => profile.UpdatedAt)
-                    .ThenByDescending(profile => profile.CreatedAt)
-                    .First()
-            );
-
         var accountsList = accounts.Accounts
             .Select(SnAccount.FromProtoValue)
-            .Select(a =>
-            {
-                if (profiles.TryGetValue(a.Id, out var profile))
-                    a.Profile = profile;
-                return a;
-            })
             .ToList();
 
         var onlineIds = statuses.Where(s => s.Value.IsOnline).Select(s => s.Key).ToHashSet();

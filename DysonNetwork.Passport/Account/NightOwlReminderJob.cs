@@ -24,23 +24,23 @@ public class NightOwlReminderJob(
     {
         var cancellationToken = context.CancellationToken;
         var now = SystemClock.Instance.GetCurrentInstant();
-        var activeProfiles = await db.AccountProfiles
+        // Active audience = accounts with an active presence lease OR a recent
+        // last_seen (profile rows live in Stargate; paged ListAccounts carries
+        // the hydrated profile).
+        var activeProfileIds = await db.PresenceActivities
             .AsNoTracking()
-            .Where(profile =>
-                profile.LastSeenAt >= now - RecentActivityThreshold ||
-                db.PresenceActivities.Any(activity =>
-                    activity.AccountId == profile.AccountId &&
-                    activity.DeletedAt == null &&
-                    activity.LeaseExpiresAt > now
-                )
-            )
-            .Select(profile => new { profile.AccountId, profile.TimeZone })
+            .Where(a => a.DeletedAt == null && a.LeaseExpiresAt > now)
+            .Select(a => a.AccountId)
+            .Distinct()
             .ToListAsync(cancellationToken);
 
+        var activeProfiles = await accounts.GetActiveProfilesAsync(
+            activeProfileIds.ToHashSet(), now - RecentActivityThreshold);
+
         var reminded = 0;
-        foreach (var profile in activeProfiles)
+        foreach (var (profileAccountId, profileTimeZone) in activeProfiles)
         {
-            var zone = DateTimeZoneProviders.Tzdb.GetZoneOrNull(profile.TimeZone ?? string.Empty);
+            var zone = DateTimeZoneProviders.Tzdb.GetZoneOrNull(profileTimeZone ?? string.Empty);
             if (zone is null)
                 continue;
 
@@ -49,7 +49,7 @@ public class NightOwlReminderJob(
                 continue;
 
             var localDate = localNow.Date.ToString("yyyy-MM-dd", null);
-            var reminderKey = $"accounts:night-owl-reminder:{profile.AccountId}:{localDate}:{localNow.Hour}";
+            var reminderKey = $"accounts:night-owl-reminder:{profileAccountId}:{localDate}:{localNow.Hour}";
             var result = await cache.ExecuteWithLockAsync(
                 reminderKey,
                 async () =>
@@ -57,14 +57,14 @@ public class NightOwlReminderJob(
                     if (await cache.HasFlagAsync(reminderKey))
                         return false;
 
-                    var account = await accounts.GetAccount(profile.AccountId);
+                    var account = await accounts.GetAccount(profileAccountId);
                     if (account is null)
                         return false;
 
                     var variant = Random.Shared.Next(1, ReminderVariantCount + 1);
                     await pusher.SendPushNotificationToUserAsync(new DySendPushNotificationToUserRequest
                     {
-                        UserId = profile.AccountId.ToString(),
+                        UserId = profileAccountId.ToString(),
                         Notification = new DyPushNotification
                         {
                             Topic = "accounts.wellbeing.sleep",

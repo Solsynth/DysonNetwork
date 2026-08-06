@@ -14,6 +14,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 using NodaTime.Serialization.Protobuf;
+using DysonNetwork.Shared.EventBus;
 
 namespace DysonNetwork.Passport.Account;
 
@@ -35,7 +36,8 @@ public class AccountAdminController(
     DyProfileService.DyProfileServiceClient profiles,
     DyAccountService.DyAccountServiceClient accountGrpc,
     DyRingService.DyRingServiceClient pusher,
-    ILocalizationService localizer
+    ILocalizationService localizer,
+    IEventBus eventBus
 ) : ControllerBase
 {
     public class AccountAuthFactorSummary
@@ -115,42 +117,22 @@ public class AccountAdminController(
     public async Task<ActionResult<AdminAccountActivityMetricsResponse>> GetActivityMetrics()
     {
         var now = SystemClock.Instance.GetCurrentInstant();
-        var currentDayStartedAt = now.InUtc().Date.AtStartOfDayInZone(DateTimeZone.Utc).ToInstant();
-        var currentWeekStartedAt = currentDayStartedAt - Duration.FromDays(6);
-        var currentMonthStartedAt = currentDayStartedAt - Duration.FromDays(29);
-        var previousDayStartedAt = currentDayStartedAt - Duration.FromDays(1);
-        var previousWeekStartedAt = currentWeekStartedAt - Duration.FromDays(7);
-        var previousMonthStartedAt = currentMonthStartedAt - Duration.FromDays(30);
-
-        var profiles = db.AccountProfiles.AsNoTracking();
-        var dailyActiveUsers = await profiles.CountAsync(p => p.LastSeenAt >= currentDayStartedAt);
-        var weeklyActiveUsers = await profiles.CountAsync(p => p.LastSeenAt >= currentWeekStartedAt);
-        var monthlyActiveUsers = await profiles.CountAsync(p => p.LastSeenAt >= currentMonthStartedAt);
-        var previousDailyActiveUsers = await profiles.CountAsync(p =>
-            p.LastSeenAt >= previousDayStartedAt && p.LastSeenAt < currentDayStartedAt);
-        var previousWeeklyActiveUsers = await profiles.CountAsync(p =>
-            p.LastSeenAt >= previousWeekStartedAt && p.LastSeenAt < currentWeekStartedAt);
-        var previousMonthlyActiveUsers = await profiles.CountAsync(p =>
-            p.LastSeenAt >= previousMonthStartedAt && p.LastSeenAt < currentMonthStartedAt);
-        var newAccountsToday = await profiles.CountAsync(p => p.CreatedAt >= currentDayStartedAt);
-        var newAccountsThisWeek = await profiles.CountAsync(p => p.CreatedAt >= currentWeekStartedAt);
-        var newAccountsThisMonth = await profiles.CountAsync(p => p.CreatedAt >= currentMonthStartedAt);
-        var totalProfiledAccounts = await profiles.CountAsync();
+        var stats = await accountService.GetAccountActivityStatsAsync(now);
 
         return Ok(new AdminAccountActivityMetricsResponse
         {
             CalculatedAt = now,
-            CurrentDayStartedAt = currentDayStartedAt,
-            DailyActiveUsers = dailyActiveUsers,
-            WeeklyActiveUsers = weeklyActiveUsers,
-            MonthlyActiveUsers = monthlyActiveUsers,
-            PreviousDailyActiveUsers = previousDailyActiveUsers,
-            PreviousWeeklyActiveUsers = previousWeeklyActiveUsers,
-            PreviousMonthlyActiveUsers = previousMonthlyActiveUsers,
-            NewAccountsToday = newAccountsToday,
-            NewAccountsThisWeek = newAccountsThisWeek,
-            NewAccountsThisMonth = newAccountsThisMonth,
-            TotalProfiledAccounts = totalProfiledAccounts
+            CurrentDayStartedAt = stats.CurrentDayStartedAt,
+            DailyActiveUsers = stats.ActiveUsersToday,
+            WeeklyActiveUsers = stats.ActiveUsersThisWeek,
+            MonthlyActiveUsers = stats.ActiveUsersThisMonth,
+            PreviousDailyActiveUsers = stats.ActiveUsersPreviousDay,
+            PreviousWeeklyActiveUsers = stats.ActiveUsersPreviousWeek,
+            PreviousMonthlyActiveUsers = stats.ActiveUsersPreviousMonth,
+            NewAccountsToday = stats.NewAccountsToday,
+            NewAccountsThisWeek = stats.NewAccountsThisWeek,
+            NewAccountsThisMonth = stats.NewAccountsThisMonth,
+            TotalProfiledAccounts = stats.TotalAccounts
         });
     }
 
@@ -337,18 +319,19 @@ public class AccountAdminController(
         if (account is null)
             return NotFound(new ApiError { Code = "PASSPORT_ACCOUNT_NOT_FOUND", Message = "Account not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
-        var profile = await accountService.GetOrCreateAccountProfileAsync(account.Id);
-        profile.Verification = new SnVerificationMark
+        var mark = new SnVerificationMark
         {
             Type = request.Type,
             Title = request.Title,
             Description = request.Description,
             VerifiedBy = request.VerifiedBy
         };
-
-        db.AccountProfiles.Update(profile);
-        await db.SaveChangesAsync();
-        return Ok(profile.Verification);
+        await eventBus.PublishAsync(new ProfileFieldUpdatedEvent
+        {
+            AccountId = account.Id,
+            Verification = mark
+        });
+        return Ok(mark);
     }
 
     [HttpDelete("{identifier}/verification")]
@@ -359,11 +342,11 @@ public class AccountAdminController(
         if (account is null)
             return NotFound(new ApiError { Code = "PASSPORT_ACCOUNT_NOT_FOUND", Message = "Account not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
-        var profile = await accountService.GetOrCreateAccountProfileAsync(account.Id);
-        profile.Verification = null;
-
-        db.AccountProfiles.Update(profile);
-        await db.SaveChangesAsync();
+        await eventBus.PublishAsync(new ProfileFieldUpdatedEvent
+        {
+            AccountId = account.Id,
+            Verification = null
+        });
         return NoContent();
     }
 

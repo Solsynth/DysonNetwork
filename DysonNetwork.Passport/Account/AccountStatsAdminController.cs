@@ -11,7 +11,9 @@ namespace DysonNetwork.Passport.Account;
 [Route("/api/admin/stats")]
 [Authorize]
 [ApiFeature("admin.stats", Revision = 1)]
-public class AccountStatsAdminController(AppDatabase db) : ControllerBase
+public class AccountStatsAdminController(AppDatabase db,
+    AccountService accountService
+) : ControllerBase
 {
     public class AccountStatsResponse
     {
@@ -30,21 +32,18 @@ public class AccountStatsAdminController(AppDatabase db) : ControllerBase
     public async Task<ActionResult<AccountStatsResponse>> GetStats(CancellationToken cancellationToken)
     {
         var now = SystemClock.Instance.GetCurrentInstant();
-        var oneDayAgo = now - Duration.FromDays(1);
-        var sevenDaysAgo = now - Duration.FromDays(7);
-        var thirtyDaysAgo = now - Duration.FromDays(30);
-        var profiles = db.AccountProfiles.AsNoTracking();
+        var stats = await accountService.GetAccountActivityStatsAsync(now);
 
         return Ok(new AccountStatsResponse
         {
             CalculatedAt = now,
-            TotalProfiledAccounts = await profiles.LongCountAsync(cancellationToken),
-            ActiveUsersLastDay = await profiles.LongCountAsync(p => p.LastSeenAt >= oneDayAgo, cancellationToken),
-            ActiveUsersLastWeek = await profiles.LongCountAsync(p => p.LastSeenAt >= sevenDaysAgo, cancellationToken),
-            ActiveUsersLastMonth = await profiles.LongCountAsync(p => p.LastSeenAt >= thirtyDaysAgo, cancellationToken),
-            RegisteredUsersLastDay = await profiles.LongCountAsync(p => p.CreatedAt >= oneDayAgo, cancellationToken),
-            RegisteredUsersLastWeek = await profiles.LongCountAsync(p => p.CreatedAt >= sevenDaysAgo, cancellationToken),
-            RegisteredUsersLastMonth = await profiles.LongCountAsync(p => p.CreatedAt >= thirtyDaysAgo, cancellationToken)
+            TotalProfiledAccounts = stats.TotalAccounts,
+            ActiveUsersLastDay = stats.ActiveUsersLastDay,
+            ActiveUsersLastWeek = stats.ActiveUsersLastWeek,
+            ActiveUsersLastMonth = stats.ActiveUsersLastMonth,
+            RegisteredUsersLastDay = stats.NewAccountsLastDay,
+            RegisteredUsersLastWeek = stats.NewAccountsLastWeek,
+            RegisteredUsersLastMonth = stats.NewAccountsLastMonth
         });
     }
 }

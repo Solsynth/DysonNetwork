@@ -19,6 +19,7 @@ namespace DysonNetwork.Passport.Account;
 [Authorize]
 [ApiController]
 [Route("/api/accounts/me")]
+[ApiFeature("accounts.board", Revision = 1)]
 [ApiFeature("accounts.badges", Revision = 1)]
 [ApiFeature("accounts.leveling", Revision = 1)]
 [ApiFeature("accounts.credits", Revision = 1)]
@@ -26,6 +27,7 @@ namespace DysonNetwork.Passport.Account;
 public class AccountCurrentController(
     AppDatabase db,
     AccountService accounts,
+    AccountBoardService boards,
     ApplePassService applePasses,
     RemoteAccountConnectionService remoteConnections,
     Credit.SocialCreditService creditService,
@@ -51,6 +53,60 @@ public class AccountCurrentController(
         return File(bytes, "application/vnd.apple.pkpass", "solian-member.pkpass");
     }
 
+
+
+    public class BoardItemRequest
+    {
+        public Guid? Id { get; set; }
+        public int Order { get; set; }
+        public SnAccountBoardItemKind Kind { get; set; }
+        [MaxLength(256)] public string? WidgetKey { get; set; }
+        public Guid? CustomAppId { get; set; }
+        [MaxLength(256)] public string? CustomAppWidgetKey { get; set; }
+        public bool IsEnabled { get; set; } = true;
+        public Dictionary<string, object?>? Payload { get; set; }
+
+        public SnAccountBoardItem ToModel()
+        {
+            return new SnAccountBoardItem
+            {
+                Id = Id ?? Guid.NewGuid(),
+                Order = Order,
+                Kind = Kind,
+                WidgetKey = WidgetKey,
+                CustomAppId = CustomAppId,
+                CustomAppWidgetKey = CustomAppWidgetKey,
+                IsEnabled = IsEnabled,
+                Payload = Payload ?? []
+            };
+        }
+    }
+
+    [HttpGet("board")]
+    [AskPermission(PermissionKeys.AccountsProfileBoardManage)]
+    public async Task<ActionResult<List<SnAccountBoardItem>>> GetBoard()
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
+        return Ok(await boards.GetBoardAsync(currentUser.Id));
+    }
+
+    [HttpPut("board")]
+    [AskPermission(PermissionKeys.AccountsProfileBoardManage)]
+    public async Task<ActionResult<List<SnAccountBoardItem>>> ReplaceBoard([FromBody] List<BoardItemRequest> request)
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
+
+        try
+        {
+            var board = await boards.ReplaceBoardAsync(currentUser.Id, request.Select(x => x.ToModel()));
+            await accounts.PurgeAccountCache(currentUser);
+            return Ok(board);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new ApiError { Code = "PASSPORT_BOARD_REPLACE_FAILED", Message = ex.Message, Status = 400, TraceId = HttpContext.TraceIdentifier });
+        }
+    }
 
     [HttpGet("actions")]
     [ProducesResponseType<List<SnActionLog>>(StatusCodes.Status200OK)]

@@ -12,6 +12,7 @@ using DysonNetwork.Shared.Registry;
 using Grpc.Core;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
+using NodaTime.Serialization.Protobuf;
 using NodaTime.Extensions;
 
 namespace DysonNetwork.Passport.Account;
@@ -544,20 +545,18 @@ public class AccountEventService(
             await cache.AcquireLockAsync(lockKey, TimeSpan.FromMinutes(1), TimeSpan.FromSeconds(5))
             ?? throw new InvalidOperationException("Check-in was in progress.");
 
-        var accountProfile = await db
-            .AccountProfiles.Where(x => x.AccountId == account.Id)
-            .Select(x => new { x.Birthday, x.TimeZone })
-            .FirstOrDefaultAsync();
+        var accountProfile = await accountGrpc.GetAccountAsync(new DyGetAccountRequest { Id = account.Id.ToString() });
+        var profile = accountProfile.Profile;
 
-        var accountBirthday = accountProfile?.Birthday;
+        var accountBirthday = profile?.Birthday?.ToInstant();
 
         var now = SystemClock.Instance.GetCurrentInstant();
 
         var userTimeZone = DateTimeZone.Utc;
-        if (!string.IsNullOrEmpty(accountProfile?.TimeZone))
+        if (!string.IsNullOrEmpty(profile?.TimeZone))
         {
             userTimeZone =
-                DateTimeZoneProviders.Tzdb.GetZoneOrNull(accountProfile.TimeZone)
+                DateTimeZoneProviders.Tzdb.GetZoneOrNull(profile.TimeZone)
                 ?? DateTimeZone.Utc;
         }
 
@@ -1854,10 +1853,7 @@ TIP-: 忌提示标题 | 具体提醒，要写清今天不适合怎么做、容�
         if (providerSet.Count == 0)
             return [];
 
-        var accountIds = await db
-            .AccountProfiles.AsNoTracking()
-            .Select(p => p.AccountId)
-            .ToListAsync();
+        var accountIds = await GetAllAccountIdsAsync();
 
         var connected = new List<Guid>();
         foreach (var accountId in accountIds)
@@ -2390,29 +2386,10 @@ TIP-: 忌提示标题 | 具体提醒，要写清今天不适合怎么做、容�
         {
             Id = { ids.Select(id => id.ToString()) }
         }).ResponseAsync;
-        var profilesTask = db.AccountProfiles
-            .Where(profile => ids.Contains(profile.AccountId))
-            .ToListAsync();
+        var accounts = await accountsTask;
 
-        await Task.WhenAll(accountsTask, profilesTask);
-
-        var profiles = profilesTask.Result
-            .GroupBy(profile => profile.AccountId)
-            .ToDictionary(
-                group => group.Key,
-                group => group.OrderByDescending(profile => profile.UpdatedAt)
-                    .ThenByDescending(profile => profile.CreatedAt)
-                    .First()
-            );
-
-        return accountsTask.Result.Accounts
+        return accounts.Accounts
             .Select(SnAccount.FromProtoValue)
-            .Select(account =>
-            {
-                if (profiles.TryGetValue(account.Id, out var profile))
-                    account.Profile = profile;
-                return account;
-            })
             .ToDictionary(account => account.Id, account => account);
     }
 
@@ -3407,4 +3384,24 @@ TIP-: 忌提示标题 | 具体提醒，要写清今天不适合怎么做、容�
     }
 
     #endregion
+
+    private async Task<List<Guid>> GetAllAccountIdsAsync()
+    {
+        var ids = new List<Guid>();
+        string? pageToken = null;
+        do
+        {
+            var page = await accountGrpc.ListAccountsAsync(new DyListAccountsRequest
+            {
+                PageSize = 200,
+                PageToken = pageToken ?? string.Empty,
+                Filter = string.Empty,
+                OrderBy = string.Empty
+            });
+            ids.AddRange(page.Accounts.Where(a => Guid.TryParse(a.Id, out _)).Select(a => Guid.Parse(a.Id)));
+            pageToken = string.IsNullOrEmpty(page.NextPageToken) ? null : page.NextPageToken;
+        } while (pageToken is not null);
+        return ids;
+    }
+
 }

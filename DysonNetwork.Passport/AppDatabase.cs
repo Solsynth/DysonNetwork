@@ -26,7 +26,6 @@ public class AppDatabase(
     public DbSet<SnPermissionGroupMember> PermissionGroupMembers { get; set; } = null!;
 
     public DbSet<SnMagicSpell> MagicSpells { get; set; } = null!;
-    public DbSet<SnAccountProfile> AccountProfiles { get; set; } = null!;
     public DbSet<SnAccountBoardItem> AccountBoardItems { get; set; } = null!;
     public DbSet<SnApplePass> ApplePasses { get; set; } = null!;
     public DbSet<SnApplePassRegistration> ApplePassRegistrations { get; set; } = null!;
@@ -139,12 +138,6 @@ public class AppDatabase(
         modelBuilder.Entity<SnAccountRelationship>()
             .HasKey(r => new { FromAccountId = r.AccountId, ToAccountId = r.RelatedId });
 
-        modelBuilder.Entity<SnAccountProfile>()
-            .HasIndex(p => p.LastSeenAt);
-        modelBuilder.Entity<SnAccountProfile>()
-            .HasIndex(p => p.AccountId)
-            .IsUnique();
-
         modelBuilder.Entity<SnTest>().HasIndex(x => x.Key).IsUnique();
         modelBuilder.Entity<SnTestQuestionGroup>().HasIndex(x => x.Key).IsUnique();
         modelBuilder.Entity<SnTestQuestion>().HasIndex(x => new { x.QuestionGroupId, x.SortOrder });
@@ -229,11 +222,6 @@ public class AppDatabase(
             .HasForeignKey(t => t.DeviceId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        // Passport no longer owns auth/account rows; keep profile as an account-id keyed read model only.
-        modelBuilder.Entity<SnAccountProfile>()
-            .Ignore(p => p.Account);
-        modelBuilder.Entity<SnAccountProfile>()
-            .Ignore(p => p.Board);
         modelBuilder.Entity<SnAccountBoardItem>()
             .HasIndex(x => new { x.AccountId, x.Order })
             .IsUnique();

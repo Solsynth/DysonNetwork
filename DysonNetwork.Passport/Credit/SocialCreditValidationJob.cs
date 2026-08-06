@@ -3,10 +3,12 @@ using DysonNetwork.Shared.Models;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 using Quartz;
+using DysonNetwork.Shared.EventBus;
+using DysonNetwork.Passport.Account;
 
 namespace DysonNetwork.Passport.Credit;
 
-public class SocialCreditValidationJob(AppDatabase db, ICacheService cache, ILogger<SocialCreditValidationJob> logger) : IJob
+public class SocialCreditValidationJob(AppDatabase db, ICacheService cache, IEventBus eventBus, ILogger<SocialCreditValidationJob> logger) : IJob
 {
     public async Task Execute(IJobExecutionContext context)
     {
@@ -56,9 +58,11 @@ public class SocialCreditValidationJob(AppDatabase db, ICacheService cache, ILog
 
                 foreach (var (accountId, credit) in effectiveCredits)
                 {
-                    await db.AccountProfiles
-                        .Where(p => p.AccountId == accountId)
-                        .ExecuteUpdateAsync(p => p.SetProperty(x => x.SocialCredits, credit));
+                    await eventBus.PublishAsync(new ProfileFieldUpdatedEvent
+                    {
+                        AccountId = accountId,
+                        SocialCredits = credit
+                    });
                 }
 
                 processed += batchIds.Count;

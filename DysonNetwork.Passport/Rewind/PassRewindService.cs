@@ -12,16 +12,15 @@ namespace DysonNetwork.Passport.Rewind;
 /// Although the pass uses the rewind service call internally, no need for grpc.
 /// But we created a service that produce the grpc type for consistency.
 /// </summary>
-public class PassRewindService(AppDatabase db, RemoteActionLogService remoteActionLogs)
+public class PassRewindService(AppDatabase db, RemoteActionLogService remoteActionLogs, DyAccountService.DyAccountServiceClient accounts)
 {
     public async Task<DyRewindEvent> CreateRewindEvent(Guid accountId, int year)
     {
         var startDate = new LocalDate(year - 1, 12, 26).AtMidnight().InUtc().ToInstant();
         var endDate = new LocalDate(year, 12, 26).AtMidnight().InUtc().ToInstant();
 
-        var timeZone = (await db.AccountProfiles
-            .Where(p => p.AccountId == accountId)
-            .FirstOrDefaultAsync())?.TimeZone;
+        var timeZone = (await accounts.GetAccountAsync(new DyGetAccountRequest { Id = accountId.ToString() }))
+            .Profile?.TimeZone;
 
         var zone = TimeZoneInfo.Utc;
         if (!string.IsNullOrEmpty(timeZone))

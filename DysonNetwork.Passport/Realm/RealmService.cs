@@ -151,7 +151,6 @@ public class RealmService(
             var account = SnAccount.FromProtoValue(
                 await accountGrpc.GetAccountAsync(new DyGetAccountRequest { Id = member.AccountId.ToString() })
             );
-            account.Profile = await db.AccountProfiles.FirstOrDefaultAsync(p => p.AccountId == member.AccountId);
             member.Account = account;
         }
         catch
@@ -186,9 +185,6 @@ public class RealmService(
         var accountsDict = accounts.Accounts
             .Select(SnAccount.FromProtoValue)
             .ToDictionary(a => a.Id, a => a);
-        var profiles = await db.AccountProfiles
-            .Where(p => accountIds.Contains(p.AccountId))
-            .ToDictionaryAsync(p => p.AccountId, p => p);
 
         return incomingMembers.Select(m =>
         {
@@ -198,8 +194,6 @@ public class RealmService(
             }
             if (accountsDict.TryGetValue(m.AccountId, out var account))
             {
-                if (profiles.TryGetValue(m.AccountId, out var profile))
-                    account.Profile = profile;
                 m.Account = account;
             }
             return m;

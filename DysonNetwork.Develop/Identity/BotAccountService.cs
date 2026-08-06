@@ -10,8 +10,7 @@ namespace DysonNetwork.Develop.Identity;
 public class BotAccountService(
     AppDatabase db,
     DyBotAccountReceiverService.DyBotAccountReceiverServiceClient accountReceiver,
-    RemoteAccountService remoteAccounts,
-    DyProfileService.DyProfileServiceClient profiles
+    RemoteAccountService remoteAccounts
 )
 {
     public async Task<SnBotAccount?> GetBotByIdAsync(Guid id)
@@ -70,16 +69,6 @@ public class BotAccountService(
             db.BotAccounts.Add(bot);
             await db.SaveChangesAsync();
 
-            if (botAccount.Account.Profile is not null)
-            {
-                var profileUpdateRequest = new DyUpdateProfileRequest
-                {
-                    AccountId = botAccount.Account.Id,
-                    Profile = botAccount.Account.Profile
-                };
-                await profiles.UpdateProfileAsync(profileUpdateRequest);
-            }
-
             return bot;
         }
         catch (RpcException ex) when (ex.StatusCode == StatusCode.AlreadyExists)
@@ -132,15 +121,7 @@ public class BotAccountService(
             bot.IsActive = updatedBot.IsActive;
             await db.SaveChangesAsync();
 
-            if (updatedBot.Account.Profile is not null)
-            {
-                var profileUpdateRequest = new DyUpdateProfileRequest
-                {
-                    AccountId = updatedBot.Account.Id,
-                    Profile = updatedBot.Account.Profile
-                };
-                await profiles.UpdateProfileAsync(profileUpdateRequest);
-            }
+
         }
         catch (RpcException ex) when (ex.StatusCode == StatusCode.NotFound)
         {
