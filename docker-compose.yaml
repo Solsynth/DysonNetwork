@@ -32,28 +32,6 @@ services:
       - "4222"
     networks:
       - aspire
-  ring:
-    image: ${RING_IMAGE}
-    environment:
-      OTEL_DOTNET_EXPERIMENTAL_OTLP_EMIT_EXCEPTION_LOG_ATTRIBUTES: "true"
-      OTEL_DOTNET_EXPERIMENTAL_OTLP_EMIT_EVENT_LOG_ATTRIBUTES: "true"
-      OTEL_DOTNET_EXPERIMENTAL_OTLP_RETRY: in_memory
-      ASPNETCORE_FORWARDEDHEADERS_ENABLED: "true"
-      HTTP_PORTS: "8080"
-      HTTPS_PORTS: "7001"
-      ConnectionStrings__queue: nats://nats:${QUEUE_PASSWORD}@queue:4222
-      services__pass__http__0: http://pass:8080
-      services__padlock__http__0: http://padlock:8080
-      OTEL_EXPORTER_OTLP_ENDPOINT: http://docker-compose-dashboard:18889
-      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
-      OTEL_SERVICE_NAME: ring
-      services__pass__grpc__0: https://pass:5001
-      services__padlock__grpc__0: https://padlock:5001
-    expose:
-      - "8080"
-      - "7001"
-    networks:
-      - aspire
   pass:
     image: ${PASS_IMAGE}
     environment:
@@ -65,12 +43,10 @@ services:
       HTTPS_PORTS: "7001"
       ConnectionStrings__cache: cache:6379,password=${CACHE_PASSWORD}
       ConnectionStrings__queue: nats://nats:${QUEUE_PASSWORD}@queue:4222
-      services__ring__http__0: http://ring:8080
       services__padlock__http__0: http://padlock:8080
       OTEL_EXPORTER_OTLP_ENDPOINT: http://docker-compose-dashboard:18889
       OTEL_EXPORTER_OTLP_PROTOCOL: grpc
       OTEL_SERVICE_NAME: pass
-      services__ring__grpc__0: https://ring:5001
       services__padlock__grpc__0: https://padlock:5001
     expose:
       - "8080"
@@ -91,11 +67,9 @@ services:
       WebAuthn__RelatedOrigins__0: https://solian.app
       ConnectionStrings__cache: cache:6379,password=${CACHE_PASSWORD}
       ConnectionStrings__queue: nats://nats:${QUEUE_PASSWORD}@queue:4222
-      services__ring__http__0: http://ring:8080
       OTEL_EXPORTER_OTLP_ENDPOINT: http://docker-compose-dashboard:18889
       OTEL_EXPORTER_OTLP_PROTOCOL: grpc
       OTEL_SERVICE_NAME: padlock
-      services__ring__grpc__0: https://ring:5001
     expose:
       - "8080"
       - "7001"
@@ -114,13 +88,11 @@ services:
       ConnectionStrings__queue: nats://nats:${QUEUE_PASSWORD}@queue:4222
       services__pass__http__0: http://pass:8080
       services__padlock__http__0: http://padlock:8080
-      services__ring__http__0: http://ring:8080
       OTEL_EXPORTER_OTLP_ENDPOINT: http://docker-compose-dashboard:18889
       OTEL_EXPORTER_OTLP_PROTOCOL: grpc
       OTEL_SERVICE_NAME: drive
       services__pass__grpc__0: https://pass:5001
       services__padlock__grpc__0: https://padlock:5001
-      services__ring__grpc__0: https://ring:5001
     expose:
       - "8080"
       - "7001"
@@ -139,7 +111,6 @@ services:
       ConnectionStrings__queue: nats://nats:${QUEUE_PASSWORD}@queue:4222
       services__pass__http__0: http://pass:8080
       services__padlock__http__0: http://padlock:8080
-      services__ring__http__0: http://ring:8080
       services__drive__http__0: http://drive:8080
       OTEL_EXPORTER_OTLP_ENDPOINT: http://docker-compose-dashboard:18889
       OTEL_EXPORTER_OTLP_PROTOCOL: grpc
@@ -147,7 +118,6 @@ services:
       services__pass__grpc__0: https://pass:5001
       services__padlock__grpc__0: https://padlock:5001
       services__drive__grpc__0: https://drive:5001
-      services__ring__grpc__0: https://ring:5001
     expose:
       - "8080"
       - "7001"
@@ -165,13 +135,11 @@ services:
       ConnectionStrings__cache: cache:6379,password=${CACHE_PASSWORD}
       services__pass__http__0: http://pass:8080
       services__padlock__http__0: http://padlock:8080
-      services__ring__http__0: http://ring:8080
       OTEL_EXPORTER_OTLP_ENDPOINT: http://docker-compose-dashboard:18889
       OTEL_EXPORTER_OTLP_PROTOCOL: grpc
       OTEL_SERVICE_NAME: develop
       services__pass__grpc__0: https://pass:5001
       services__padlock__grpc__0: https://padlock:5001
-      services__ring__grpc__0: https://ring:5001
     expose:
       - "8080"
       - "7001"
@@ -181,8 +149,6 @@ services:
     image: ${GATEWAY_IMAGE}
     environment:
       ASPNETCORE_ENVIRONMENT: Production
-      services__ring__http__0: http://ring:8080
-      services__ring__grpc__0: https://ring:5001
       REVERSEPROXY__ROUTES__route0__MATCH__PATH: /ws
       REVERSEPROXY__ROUTES__route0__CLUSTERID: cluster_ring
       REVERSEPROXY__ROUTES__route1__MATCH__PATH: /ring/{**catch-all}
