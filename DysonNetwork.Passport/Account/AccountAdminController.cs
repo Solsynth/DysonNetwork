@@ -21,7 +21,6 @@ namespace DysonNetwork.Passport.Account;
 [Route("/api/admin/accounts")]
 [Authorize]
 [ApiFeature("admin.accounts", Revision = 1)]
-[ApiFeature("admin.accounts.spells", Revision = 1)]
 [ApiFeature("admin.accounts.badges", Revision = 1)]
 [ApiFeature("admin.accounts.board", Revision = 1)]
 [ApiFeature("admin.accounts.credits", Revision = 1)]
@@ -35,7 +34,6 @@ public class AccountAdminController(
     SteamPresenceService steamPresenceService,
     DyProfileService.DyProfileServiceClient profiles,
     DyAccountService.DyAccountServiceClient accountGrpc,
-    MagicSpellService magicSpells,
     DyRingService.DyRingServiceClient pusher,
     ILocalizationService localizer
 ) : ControllerBase
@@ -105,23 +103,6 @@ public class AccountAdminController(
         public Dictionary<string, object?>? Meta { get; set; }
         public Instant? ActivatedAt { get; set; }
         public Instant? ExpiredAt { get; set; }
-    }
-
-    public class CreateAdminMagicSpellRequest
-    {
-        [Required] public MagicSpellType? Type { get; set; }
-        public Dictionary<string, object>? Meta { get; set; }
-        public Instant? ExpiresAt { get; set; }
-        public Instant? AffectedAt { get; set; }
-        [MaxLength(1024)] public string? Code { get; set; }
-        public bool PreventRepeat { get; set; }
-        public bool SendEmail { get; set; } = true;
-        public bool BypassVerify { get; set; } = true;
-    }
-
-    public class ResendAdminMagicSpellRequest
-    {
-        public bool BypassVerify { get; set; } = true;
     }
 
     public class TestNightOwlReminderRequest
@@ -287,20 +268,7 @@ public class AccountAdminController(
         return Ok(contacts.Contacts.Select(SnAccountContact.FromProtoValue).ToList());
     }
 
-    [HttpGet("{identifier}/spells")]
-    [AskPermission(PermissionKeys.AccountsView)]
-    public async Task<ActionResult<List<SnMagicSpell>>> ListAccountMagicSpells(string identifier)
-    {
-        var account = await LookupAccountAsync(identifier);
-        if (account is null)
-            return NotFound(new ApiError { Code = "PASSPORT_ACCOUNT_NOT_FOUND", Message = "Account not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
-        return Ok(await db.MagicSpells
-            .AsNoTracking()
-            .Where(spell => spell.AccountId == account.Id)
-            .OrderByDescending(spell => spell.CreatedAt)
-            .ToListAsync());
-    }
 
     [HttpPost("{identifier}/notifications/night-owl")]
     [AskPermission(PermissionKeys.AccountsManage)]
@@ -335,76 +303,11 @@ public class AccountAdminController(
         return NoContent();
     }
 
-    [HttpPost("{identifier}/spells")]
-    [AskPermission(PermissionKeys.AccountsManage)]
-    public async Task<ActionResult<SnMagicSpell>> CreateAccountMagicSpell(
-        string identifier,
-        [FromBody] CreateAdminMagicSpellRequest request
-    )
-    {
-        var account = await LookupAccountAsync(identifier);
-        if (account is null)
-            return NotFound(new ApiError { Code = "PASSPORT_ACCOUNT_NOT_FOUND", Message = "Account not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
-        if (!request.Type.HasValue || !Enum.IsDefined(request.Type.Value))
-            return BadRequest(new ApiError { Code = "PASSPORT_SPELL_TYPE_REQUIRED", Message = "A supported magic spell type is required.", Status = 400, TraceId = HttpContext.TraceIdentifier });
-        if (request.Type == MagicSpellType.AccountDeactivation)
-            return BadRequest(new ApiError { Code = "PASSPORT_SPELL_DEACTIVATION_NO_EMAIL", Message = "Account deactivation magic spells cannot be sent by email.", Status = 400, TraceId = HttpContext.TraceIdentifier });
 
-        var spell = await magicSpells.CreateMagicSpell(
-            account,
-            request.Type.Value,
-            request.Meta ?? [],
-            request.ExpiresAt,
-            request.AffectedAt,
-            request.Code,
-            request.PreventRepeat
-        );
-        if (request.SendEmail)
-            await magicSpells.ResendMagicSpell(spell, request.BypassVerify);
 
-        return Created($"/api/admin/accounts/{account.Id}/spells/{spell.Id}", spell);
-    }
 
-    [HttpPost("{identifier}/spells/{spellId:guid}/resend")]
-    [AskPermission(PermissionKeys.AccountsManage)]
-    public async Task<IActionResult> ResendAccountMagicSpell(
-        string identifier,
-        Guid spellId,
-        [FromBody] ResendAdminMagicSpellRequest? request = null
-    )
-    {
-        var account = await LookupAccountAsync(identifier);
-        if (account is null)
-            return NotFound(new ApiError { Code = "PASSPORT_ACCOUNT_NOT_FOUND", Message = "Account not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
-        var spell = await db.MagicSpells
-            .FirstOrDefaultAsync(candidate => candidate.Id == spellId && candidate.AccountId == account.Id);
-        if (spell is null)
-            return NotFound(new ApiError { Code = "PASSPORT_SPELL_NOT_FOUND", Message = "Magic spell not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
-        if (spell.Type == MagicSpellType.AccountDeactivation)
-            return BadRequest(new ApiError { Code = "PASSPORT_SPELL_DEACTIVATION_NO_EMAIL", Message = "Account deactivation magic spells cannot be sent by email.", Status = 400, TraceId = HttpContext.TraceIdentifier });
 
-        await magicSpells.ResendMagicSpell(spell, request?.BypassVerify ?? true);
-        return NoContent();
-    }
-
-    [HttpDelete("{identifier}/spells/{spellId:guid}")]
-    [AskPermission(PermissionKeys.AccountsManage)]
-    public async Task<IActionResult> DeleteAccountMagicSpell(string identifier, Guid spellId)
-    {
-        var account = await LookupAccountAsync(identifier);
-        if (account is null)
-            return NotFound(new ApiError { Code = "PASSPORT_ACCOUNT_NOT_FOUND", Message = "Account not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
-
-        var spell = await db.MagicSpells
-            .FirstOrDefaultAsync(candidate => candidate.Id == spellId && candidate.AccountId == account.Id);
-        if (spell is null)
-            return NotFound(new ApiError { Code = "PASSPORT_SPELL_NOT_FOUND", Message = "Magic spell not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
-
-        db.MagicSpells.Remove(spell);
-        await db.SaveChangesAsync();
-        return NoContent();
-    }
 
     [HttpGet("{identifier}/factors")]
     [AskPermission(PermissionKeys.AccountsView)]

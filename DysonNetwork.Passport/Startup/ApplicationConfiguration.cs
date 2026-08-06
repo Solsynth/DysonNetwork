@@ -33,7 +33,6 @@ public static class ApplicationConfiguration
     public static WebApplication ConfigureGrpcServices(this WebApplication app)
     {
         app.MapGrpcService<AccountServiceGrpc>();
-        app.MapGrpcService<MagicSpellServiceGrpc>();
         app.MapGrpcService<SocialCreditServiceGrpc>();
         app.MapGrpcService<ExperienceServiceGrpc>();
         app.MapGrpcService<RealmServiceGrpc>();

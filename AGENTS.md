@@ -6,7 +6,6 @@ This document provides essential information for AI agents working on the DysonN
 
 ```
 DysonNetwork/           # Main repository (this repo)
-├── DysonNetwork.Padlock/     # Authentication & authorization service
 ├── DysonNetwork.Passport/    # User profiles & social features
 ├── DysonNetwork.Sphere/      # ActivityPub & federated content
 ├── DysonNetwork.Messager/    # Real-time messaging
@@ -205,7 +204,7 @@ Production Gateway:    /{service}/controller/action
 
 | Service Project       | Route Prefix    |
 | --------------------- | --------------- |
-| DysonNetwork.Padlock  | `/padlock/...`  |
+| Stargate (Go)         | `/padlock/...`, `/stargate/...` (auth & account domain) |
 | DysonNetwork.Passport | `/passport/...` |
 | DysonNetwork.Sphere   | `/sphere/...`   |
 | DysonNetwork.Messager | `/messager/...` |
@@ -218,7 +217,7 @@ Production Gateway:    /{service}/controller/action
 ### Example
 
 ```
-Local:    /api/auth/login          (Padlock)
+Local:    /api/auth/login          (Stargate)
 Production: /padlock/auth/login
 
 Local:    /api/users/me            (Passport)
@@ -230,7 +229,7 @@ Production: /passport/users/me
 Controllers use `[Route("/api/...")]` attribute. The gateway strips `/api` and prepends the service name.
 
 ```csharp
-[Route("/api/auth")]  // Becomes /padlock/auth in production
+[Route("/api/auth")]  // Becomes /padlock/auth in production (served by Stargate)
 public class AuthController : ControllerBase { }
 ```
 

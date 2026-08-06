@@ -15,7 +15,6 @@ on:
                     - all
                     - Sphere
                     - Passport
-                    - Padlock
                     - Ring
                     - Develop
                     - Messager
@@ -44,8 +43,8 @@ jobs:
             - name: Determine changed services
               id: changes
               run: |
-                  services=("Sphere" "Passport" "Padlock" "Ring" "Develop" "Messager" "Wallet")
-                  images=("sphere" "passport" "padlock" "ring" "develop" "messager" "wallet")
+                  services=("Sphere" "Passport" "Ring" "Develop" "Messager" "Wallet")
+                  images=("sphere" "passport" "ring" "develop" "messager" "wallet")
 
                   # On manual dispatch, build selected module(s)
                   if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
