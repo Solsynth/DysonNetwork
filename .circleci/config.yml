@@ -26,6 +26,21 @@ parameters:
     type: string
     default: "all"
 
+jobs:
+  determine-changes:
+    docker:
+      - image: cimg/base:current
+    steps:
+      - checkout
+      - run:
+          name: Determine changed services
+          command: |
+            export TRIGGER_SOURCE="<< pipeline.trigger_source >>"
+            export MODULE="<< pipeline.parameters.module >>"
+            bash .circleci/scripts/generate_config.sh
+      - continuation/continue:
+          configuration_path: .circleci/continue_config.yml
+
 workflows:
   setup:
     jobs:
@@ -33,15 +48,3 @@ workflows:
           filters:
             branches:
               only: master
-          docker:
-            - image: cimg/base:current
-          steps:
-            - checkout
-            - run:
-                name: Determine changed services
-                command: |
-                  export TRIGGER_SOURCE="<< pipeline.trigger_source >>"
-                  export MODULE="<< pipeline.parameters.module >>"
-                  bash .circleci/scripts/generate_config.sh
-            - continuation/continue:
-                configuration_path: .circleci/continue_config.yml
