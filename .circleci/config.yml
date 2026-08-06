@@ -1,0 +1,47 @@
+# CircleCI equivalent of .github/workflows/docker-build.yml.
+#
+# This is a setup config: it computes which services changed (or which module
+# was requested), generates a continuation config with one build job per
+# service, and continues the pipeline.
+#
+# Manual trigger (equivalent of the workflow_dispatch `module` input):
+#   curl -X POST "https://circleci.com/api/v2/project/gh/{ORG}/{REPO}/pipeline" \
+#     -H "Circle-Token: $CIRCLE_TOKEN" \
+#     -H "Content-Type: application/json" \
+#     -d '{"branch":"master","parameters":{"module":"Sphere"}}'
+#
+# Required environment variables (Project Settings -> Environment Variables):
+#   PACKAGE_OWNER  - GHCR namespace (org or user); mirrors GH var PACKAGE_OWNER
+#   GHCR_USERNAME  - GitHub account the token belongs to; mirrors github.actor
+#   GHCR_TOKEN     - GitHub PAT with write:packages; mirrors secrets.GITHUB_TOKEN
+version: 2.1
+
+setup: true
+
+orbs:
+  continuation: circleci/continuation@1.0.0
+
+parameters:
+  module:
+    type: string
+    default: "all"
+
+workflows:
+  setup:
+    jobs:
+      - determine-changes:
+          filters:
+            branches:
+              only: master
+          docker:
+            - image: cimg/base:current
+          steps:
+            - checkout
+            - run:
+                name: Determine changed services
+                command: |
+                  export TRIGGER_SOURCE="<< pipeline.trigger_source >>"
+                  export MODULE="<< pipeline.parameters.module >>"
+                  bash .circleci/scripts/generate_config.sh
+            - continuation/continue:
+                configuration_path: .circleci/continue_config.yml
