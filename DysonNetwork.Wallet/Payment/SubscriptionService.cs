@@ -260,7 +260,7 @@ public class SubscriptionService(
             throw new InvalidOperationException($"Payment method {paymentMethod} is not allowed for subscription {identifier}.");
         if (RequiresMinimumAccountLevelCheck(paymentMethod) &&
             definition.MinimumAccountLevel.HasValue &&
-            account.Profile.Level < definition.MinimumAccountLevel.Value)
+            (account.Profile?.Level ?? 0) < definition.MinimumAccountLevel.Value)
             throw new InvalidOperationException(
                 $"Account level must be at least {definition.MinimumAccountLevel.Value} to purchase {identifier}."
             );
@@ -1331,7 +1331,7 @@ public class SubscriptionService(
         var giftPolicy = await catalog.GetGiftPolicyAsync(definition);
         if (!giftPolicy.AllowPurchase)
             throw new InvalidOperationException("Gift purchase is disabled for this subscription.");
-        if (giftPolicy.MinimumAccountLevel.HasValue && gifter.Profile.Level < giftPolicy.MinimumAccountLevel.Value)
+        if (giftPolicy.MinimumAccountLevel.HasValue && (gifter.Profile?.Level ?? 0) < giftPolicy.MinimumAccountLevel.Value)
         {
             var canBypass = giftPolicy.AllowPerkSubscriptionBypass && gifter.PerkLevel > 0;
             if (!canBypass)

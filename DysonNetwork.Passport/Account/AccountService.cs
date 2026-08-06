@@ -47,6 +47,10 @@ public class AccountService(
         {
             var remote = await accounts.GetAccountAsync(new DyGetAccountRequest { Id = id.ToString() });
             var account = SnAccount.FromProtoValue(remote);
+            // Contract: every account carries a profile (the old Passport
+            // table hydration). Stargate hydrates server-side; the proxy
+            // guarantees non-null even when it does not.
+            account.Profile ??= await GetOrCreateAccountProfileAsync(id);
             await cache.SetWithGroupsAsync(cacheKey, account, [$"{AccountCachePrefix}{id}"], AccountCacheTtl);
             return account;
         }

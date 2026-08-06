@@ -242,6 +242,7 @@ public class BotAccountController(
             return NotFound(new ApiError { Code = "BOT_ACCOUNT_NOT_FOUND", Message = "Bot not found", Status = 404 });
 
         var botAccount = await remoteAccounts.GetBotAccount(bot.Id);
+        botAccount.Profile ??= new DyAccountProfile();
 
         if (request.Name is not null) botAccount.Name = request.Name;
         if (request.Nick is not null) botAccount.Nick = request.Nick;

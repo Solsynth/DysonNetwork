@@ -197,11 +197,11 @@ public class PublisherService(
             Type = PublisherType.Individual,
             Name = name ?? account.Name,
             Nick = nick ?? account.Nick,
-            Bio = bio ?? account.Profile.Bio,
-            Picture = picture ?? (account.Profile.Picture is null
+            Bio = bio ?? account.Profile?.Bio,
+            Picture = picture ?? (account.Profile?.Picture is null
                 ? null
                 : SnCloudFileReferenceObject.FromProtoValue(account.Profile.Picture)),
-            Background = background ?? (account.Profile.Background is null
+            Background = background ?? (account.Profile?.Background is null
                 ? null
                 : SnCloudFileReferenceObject.FromProtoValue(account.Profile.Background)),
             AccountId = Guid.Parse(account.Id),
@@ -238,8 +238,12 @@ public class PublisherService(
             Name = name ?? realm.Slug,
             Nick = nick ?? realm.Name,
             Bio = bio ?? realm.Description,
-            Picture = picture ?? SnCloudFileReferenceObject.FromProtoValue(account.Profile.Picture),
-            Background = background ?? SnCloudFileReferenceObject.FromProtoValue(account.Profile.Background),
+            Picture = picture ?? (account.Profile?.Picture is null
+                ? null
+                : SnCloudFileReferenceObject.FromProtoValue(account.Profile.Picture)),
+            Background = background ?? (account.Profile?.Background is null
+                ? null
+                : SnCloudFileReferenceObject.FromProtoValue(account.Profile.Background)),
             RealmId = realm.Id,
             Members = new List<SnPublisherMember>
             {
