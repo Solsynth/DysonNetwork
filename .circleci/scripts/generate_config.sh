@@ -124,8 +124,9 @@ jobs:
           name: Build and push Docker image
           command: |
             set -euo pipefail
-            base="ghcr.io/${PACKAGE_OWNER:?}/dyson-<< parameters.image >>"
-            echo "${GHCR_TOKEN:?}" | docker login ghcr.io -u "${GHCR_USERNAME:?}" --password-stdin
+            # Credentials: CircleCI Project Settings -> Environment Variables
+            base="ghcr.io/${PACKAGE_OWNER:?Set PACKAGE_OWNER (GHCR namespace) in CircleCI Project Settings > Environment Variables}/dyson-<< parameters.image >>"
+            echo "${GHCR_TOKEN:?Set GHCR_TOKEN (GitHub PAT with write:packages) in CircleCI Project Settings > Environment Variables}" | docker login ghcr.io -u "${GHCR_USERNAME:?Set GHCR_USERNAME (token owner) in CircleCI Project Settings > Environment Variables}" --password-stdin
             # Versioned tag dropped (no version.json; nbgv yielded 0.0.0) - latest only.
             docker build --platform linux/amd64 \
               -f "DysonNetwork.<< parameters.service >>/Dockerfile" \
