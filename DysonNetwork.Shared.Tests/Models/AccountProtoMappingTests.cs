@@ -1,6 +1,7 @@
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using Google.Protobuf.WellKnownTypes;
+using NodaTime;
 using Xunit;
 
 namespace DysonNetwork.Shared.Tests.Models;
@@ -60,5 +61,53 @@ public class AccountProtoMappingTests
             Guid.Parse("9297d27f-9acd-4308-bea2-d6b692389c8f"),
             account.PerkSubscription.Id
         );
+    }
+
+    // A subscription reference with a valid Id but missing timestamps and
+    // prices (the wallet can emit null BegunAt/CreatedAt/UpdatedAt for DB
+    // rows) must map without throwing: previously ToInstant(null) raised
+    // ArgumentNullException and failed auth.
+    [Fact]
+    public void FromProtoValue_SparsePerkSubscriptionDoesNotThrow()
+    {
+        var account = SnAccount.FromProtoValue(new DyAccount
+        {
+            Id = AccountId,
+            Name = "tester",
+            Nick = "tester",
+            PerkSubscription = new DySubscriptionReferenceObject
+            {
+                Id = "9297d27f-9acd-4308-bea2-d6b692389c8f",
+                Identifier = "solian.stellar",
+            }
+        });
+
+        Assert.NotNull(account.PerkSubscription);
+        Assert.Equal(0m, account.PerkSubscription.BasePrice);
+        Assert.Equal(0m, account.PerkSubscription.FinalPrice);
+        Assert.Equal(default, account.PerkSubscription.BegunAt);
+        Assert.Equal(Guid.Empty, account.PerkSubscription.AccountId);
+    }
+
+    // Malformed (non-empty, non-GUID) ids must degrade to Guid.Empty instead
+    // of throwing FormatException.
+    [Fact]
+    public void FromProtoValue_MalformedIdsDoNotThrow()
+    {
+        var account = SnAccount.FromProtoValue(new DyAccount
+        {
+            Id = "not-a-guid",
+            Name = "tester",
+            Nick = "tester",
+            PerkSubscription = new DySubscriptionReferenceObject
+            {
+                Id = "also-not-a-guid",
+                Identifier = "solian.stellar",
+            }
+        });
+
+        Assert.Equal(Guid.Empty, account.Id);
+        Assert.NotNull(account.PerkSubscription);
+        Assert.Equal(Guid.Empty, account.PerkSubscription.Id);
     }
 }
