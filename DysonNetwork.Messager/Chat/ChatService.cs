@@ -575,6 +575,7 @@ public partial class ChatService(
     )
     {
         var scopedWs = scope.ServiceProvider.GetRequiredService<RemoteWebSocketService>();
+        ChatProfileDiagnostics.LogIncompleteProfile(logger, message.Sender?.Account, "WebSocketPush");
         var payload = InfraObjectCoder.ConvertObjectToByteString(message);
         var memberAccounts = members.Select(a => a.Account).Where(a => a is not null).ToList();
         var userIds = memberAccounts.Select(a => a!.Id.ToString()).ToList();
@@ -2903,6 +2904,7 @@ public partial class ChatService(
         var scopedCrs = scope.ServiceProvider.GetRequiredService<ChatRoomService>();
         var members = await scopedCrs.ListRoomMembers(message.ChatRoomId);
 
+        ChatProfileDiagnostics.LogIncompleteProfile(logger, message.Sender?.Account, "WebSocketPushPlaceholder");
         var scopedWs = scope.ServiceProvider.GetRequiredService<RemoteWebSocketService>();
         var payload = InfraObjectCoder.ConvertObjectToByteString(message);
         var memberAccounts = members.Select(a => a.Account).Where(a => a is not null).ToList();

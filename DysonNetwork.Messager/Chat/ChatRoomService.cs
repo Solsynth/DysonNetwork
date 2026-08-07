@@ -89,6 +89,15 @@ public class ChatRoomService(
         if (member == null) return member;
 
         member = await LoadMemberAccount(member);
+
+        // Never cache a member whose account carries no profile data: the
+        // cache would serve the bare profile to every message send (and its
+        // WS push) until it turns over. Skip caching and re-fetch next time —
+        // the single-account path self-heals on the backend, so the first
+        // good read lands in the cache.
+        if (member.Account is null || member.Account.Profile is null || member.Account.Profile.IsBare)
+            return member;
+
         var chatRoomGroup = ChatRoomGroupPrefix + chatRoomId;
         await cache.SetWithGroupsAsync(cacheKey, member,
             [chatRoomGroup],
