@@ -133,6 +133,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<AccountBoardService>();
         services.AddScoped<ApplePassService>();
         services.AddScoped<AccountEventService>();
+        services.AddSingleton<CheckInFortuneScheduler>();
         services.AddScoped<PresenceArtworkService>();
         services.AddScoped<NotableDaysService>();
         services.AddScoped<NotableDaysSeedService>();

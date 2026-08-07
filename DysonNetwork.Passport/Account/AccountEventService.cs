@@ -27,6 +27,7 @@ public class AccountEventService(
     RemoteWebSocketService ws,
     RemoteAccountConnectionService accountConnections,
     RelationshipService relationships,
+    CheckInFortuneScheduler checkInFortuneScheduler,
     DyAccountService.DyAccountServiceClient accountGrpc,
     DyPersonalityService.DyPersonalityServiceClient personality,
     NotableDaysService notableDaysService,
@@ -567,25 +568,6 @@ public class AccountEventService(
             birthdayDate.HasValue
             && birthdayDate.Value.Month == todayInUserTz.Month
             && birthdayDate.Value.Day == todayInUserTz.Day;
-        List<SnUserCalendarEvent> publicEvents = [];
-        List<NotableDay> notableDays = [];
-        if (version >= FortuneReportVersion)
-        {
-            publicEvents = await GetPublicEventsForDate(account.Id, todayInUserTz, userTimeZone);
-            notableDays = await GetNotableDaysForDate(account.Region, todayInUserTz);
-        }
-
-        List<SnCheckInResult> recentFortunes = [];
-        if (version >= FortuneReportVersion)
-        {
-            recentFortunes = await db
-                .AccountCheckInResults.AsNoTracking()
-                .Where(x => x.AccountId == account.Id && x.FortuneReport != null)
-                .OrderByDescending(x => x.CreatedAt)
-                .Take(8)
-                .ToListAsync();
-        }
-
         List<CheckInFortuneTip> tips;
         CheckInResultLevel checkInLevel;
 
@@ -653,40 +635,10 @@ public class AccountEventService(
             };
         }
 
-        var finalTips = tips;
-        CheckInFortuneReport? fortuneReport = null;
-        if (version >= FortuneReportVersion)
-        {
-            var generation = await GenerateCheckInFortune(
-                account,
-                todayInUserTz,
-                isBirthday,
-                backdated.HasValue,
-                checkInLevel,
-                tips,
-                publicEvents,
-                notableDays,
-                recentFortunes
-            );
-            if (generation is null)
-            {
-                logger.LogWarning(
-                    "Check-in aborted because MiChan fortune generation failed for {AccountId} on {CheckInDate}",
-                    account.Id,
-                    todayInUserTz
-                );
-                throw new InvalidOperationException("MiChan failed to generate today's fortune. Please try again later.");
-            }
-
-            finalTips = generation.Tips;
-            fortuneReport = generation.Report;
-        }
-
         var result = new SnCheckInResult
         {
-            Tips = finalTips,
+            Tips = tips,
             Level = checkInLevel,
-            FortuneReport = fortuneReport,
             AccountId = account.Id,
             RewardExperience = 100,
             RewardPoints = backdated.HasValue ? null : 10,
@@ -721,6 +673,9 @@ public class AccountEventService(
                 account.Id
             );
 
+        if (version >= FortuneReportVersion)
+            checkInFortuneScheduler.Schedule(result.Id, account);
+
         // The lock will be automatically released by the await using statement
         return result;
     }
@@ -731,8 +686,55 @@ public class AccountEventService(
         int version = FortuneReportVersion
     )
     {
-        result.FortuneReport = CompleteFortuneReport(account, result);
+        if (version < FortuneReportVersion || result.FortuneReport is not null)
+            result.FortuneReport = CompleteFortuneReport(account, result);
         return result;
+    }
+
+    public async Task GenerateCheckInFortuneAsync(Guid checkInResultId, SnAccount account)
+    {
+        var result = await db.AccountCheckInResults.FirstOrDefaultAsync(x => x.Id == checkInResultId);
+        if (result is null || result.FortuneReport is not null)
+            return;
+
+        var accountProfile = await accountGrpc.GetAccountAsync(
+            new DyGetAccountRequest { Id = account.Id.ToString() }
+        );
+        var profile = accountProfile.Profile;
+        var userTimeZone = !string.IsNullOrEmpty(profile?.TimeZone)
+            ? DateTimeZoneProviders.Tzdb.GetZoneOrNull(profile.TimeZone) ?? DateTimeZone.Utc
+            : DateTimeZone.Utc;
+        var checkInDate = result.CreatedAt.InZone(userTimeZone).Date;
+        var accountBirthday = profile?.Birthday?.ToInstant();
+        var birthdayDate = accountBirthday?.InZone(userTimeZone).Date;
+        var isBirthday = birthdayDate.HasValue
+            && birthdayDate.Value.Month == checkInDate.Month
+            && birthdayDate.Value.Day == checkInDate.Day;
+        var publicEvents = await GetPublicEventsForDate(account.Id, checkInDate, userTimeZone);
+        var notableDays = await GetNotableDaysForDate(account.Region, checkInDate);
+        var recentFortunes = await db
+            .AccountCheckInResults.AsNoTracking()
+            .Where(x => x.AccountId == account.Id && x.Id != result.Id && x.FortuneReport != null)
+            .OrderByDescending(x => x.CreatedAt)
+            .Take(8)
+            .ToListAsync();
+        var generation = await GenerateCheckInFortune(
+            account,
+            checkInDate,
+            isBirthday,
+            result.BackdatedFrom.HasValue,
+            result.Level,
+            CloneFortuneTips(result.Tips),
+            publicEvents,
+            notableDays,
+            recentFortunes
+        );
+        if (generation is null)
+            return;
+
+        result.Tips = generation.Tips;
+        result.FortuneReport = generation.Report;
+        await db.SaveChangesAsync();
     }
 
     private static List<CheckInFortuneTip> CloneFortuneTips(List<CheckInFortuneTip> tips)
