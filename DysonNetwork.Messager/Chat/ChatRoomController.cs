@@ -35,7 +35,8 @@ public class ChatRoomController(
     DyRingService.DyRingServiceClient pusher,
     RemoteAccountService remoteAccountsHelper,
     ILocalizationService localization,
-    RemoteBotChatConfigService botChatConfigService
+    RemoteBotChatConfigService botChatConfigService,
+    ILogger<ChatRoomController> logger
 ) : ControllerBase
 {
     private const string DefaultMlsCiphersuite = "MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519";
@@ -1066,6 +1067,8 @@ public class ChatRoomController(
         response.OnlineAccounts = onlineAccounts
             .Select(SnAccount.FromProtoValue)
             .ToList();
+        foreach (var account in response.OnlineAccounts)
+            ChatProfileDiagnostics.LogIncompleteProfile(logger, account, "OnlineMembers");
         response.OnlineUserNames = response.OnlineAccounts
             .Select(a => a.Nick)
             .Where(n => !string.IsNullOrWhiteSpace(n))

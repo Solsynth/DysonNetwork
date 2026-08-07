@@ -10,7 +10,8 @@ public class ChatRoomService(
     AppDatabase db,
     ICacheService cache,
     RemoteAccountService remoteAccounts,
-    RemoteRealmService remoteRealms
+    RemoteRealmService remoteRealms,
+    ILogger<ChatRoomService> logger
 )
 {
     public sealed class DeviceSubscriptionEntry
@@ -53,6 +54,17 @@ public class ChatRoomService(
             .Where(m => m.LeaveAt == null)
             .ToListAsync();
         members = await LoadMemberAccounts(members);
+
+        // The room member list is cached for 5 minutes and served to EVERY
+        // message delivery. A bare/null account cached here would make every
+        // WS push and REST response carry a data-less profile until the cache
+        // turns over — re-load individually so the single-account path (which
+        // self-heals on the backend) repairs them before caching.
+        for (var i = 0; i < members.Count; i++)
+        {
+            if (members[i].Account is null || members[i].Account.Profile is null || members[i].Account.Profile.IsBare)
+                members[i] = await LoadMemberAccount(members[i]);
+        }
 
         var chatRoomGroup = ChatRoomGroupPrefix + roomId;
         await cache.SetWithGroupsAsync(cacheKey, members,
@@ -187,6 +199,7 @@ public class ChatRoomService(
         var account = await remoteAccounts.GetAccount(member.AccountId);
         member.Account = SnAccount.FromProtoValue(account);
         await ApplyRealmIdentity([member]);
+        ChatProfileDiagnostics.LogIncompleteProfile(logger, member.Account, "LoadMemberAccount");
         return member;
     }
 
@@ -240,6 +253,7 @@ public class ChatRoomService(
             {
                 if (accounts.TryGetValue(m.AccountId, out var account))
                     m.Account = SnAccount.FromProtoValue(account);
+                ChatProfileDiagnostics.LogIncompleteProfile(logger, m.Account, "LoadMemberAccounts");
                 return m;
             })
         ];
@@ -589,6 +603,9 @@ public class ChatRoomService(
 
         var accountIds = topMembers.Select(t => t.AccountId).ToList();
         var accounts = await remoteAccounts.GetAccountBatch(accountIds);
-        return accounts.Select(SnAccount.FromProtoValue).ToList();
+        var result = accounts.Select(SnAccount.FromProtoValue).ToList();
+        foreach (var account in result)
+            ChatProfileDiagnostics.LogIncompleteProfile(logger, account, "RoomTopMembers");
+        return result;
     }
 }
