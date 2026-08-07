@@ -44,14 +44,8 @@ ARG BUILD_CONFIGURATION=Release
 RUN mkdir -p /app/publish/zh-Hans
 RUN dotnet publish "DysonNetwork.Sphere.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
 
-# Diagnostics tools
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS diagnostics
-RUN dotnet tool install --tool-path /tools dotnet-counters
-
 # Final stage: Runtime
 FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
-COPY --from=diagnostics /tools /tools
-ENV PATH="${PATH}:/tools"
 ENTRYPOINT ["dotnet", "DysonNetwork.Sphere.dll"]
