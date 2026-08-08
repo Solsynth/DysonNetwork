@@ -3,11 +3,9 @@ using DysonNetwork.Shared.Models;
 namespace DysonNetwork.Messager.Chat;
 
 /// <summary>
-/// Diagnostics for chat responses carrying accounts whose profile data is
-/// incomplete (null profile, bare fallback shell, or missing visual identity).
-/// Every route that attaches an account to a message/member payload logs
-/// through here so a data-less profile can be traced back to the route and
-/// account that produced it.
+/// Diagnostics for chat responses whose account lookup did not resolve or
+/// whose resolved account has no profile. Profiles are optional: bare
+/// profiles and profiles without visual identity are valid and are returned.
 /// </summary>
 public static class ChatProfileDiagnostics
 {
@@ -16,48 +14,19 @@ public static class ChatProfileDiagnostics
         if (account is null)
         {
             logger.LogWarning(
-                "ChatProfileDiagnostics: attached account is NULL on route {Route}",
+                "ChatProfileDiagnostics: account lookup returned no account on route {Route}",
                 route
             );
             return;
         }
 
-        var profile = account.Profile;
-        if (profile is null)
+        if (account.Profile is null)
         {
-            logger.LogWarning(
-                "ChatProfileDiagnostics: account {AccountId} ({Nick}) has a NULL profile on route {Route}",
+            logger.LogDebug(
+                "ChatProfileDiagnostics: account {AccountId} ({Nick}) has no profile on route {Route}; " +
+                "the account remains valid",
                 account.Id,
                 account.Nick,
-                route
-            );
-            return;
-        }
-
-        if (profile.IsBare)
-        {
-            logger.LogWarning(
-                "ChatProfileDiagnostics: account {AccountId} ({Nick}) has a BARE profile " +
-                "(no name/bio/picture) on route {Route}",
-                account.Id,
-                account.Nick,
-                route
-            );
-            return;
-        }
-
-        var noVisuals = profile.Picture is null && profile.Background is null && profile.UsernameColor is null;
-        if (noVisuals)
-        {
-            logger.LogWarning(
-                "ChatProfileDiagnostics: account {AccountId} ({Nick}) profile missing visual " +
-                "identity (picture={HasPicture}, background={HasBackground}, usernameColor={HasUsernameColor}) " +
-                "on route {Route}",
-                account.Id,
-                account.Nick,
-                profile.Picture is not null,
-                profile.Background is not null,
-                profile.UsernameColor is not null,
                 route
             );
         }

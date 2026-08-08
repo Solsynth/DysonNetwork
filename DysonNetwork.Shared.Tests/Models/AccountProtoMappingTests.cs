@@ -110,4 +110,24 @@ public class AccountProtoMappingTests
         Assert.NotNull(account.PerkSubscription);
         Assert.Equal(Guid.Empty, account.PerkSubscription.Id);
     }
+
+    [Fact]
+    public void FromProtoValue_PreservesBareProfileObject()
+    {
+        var account = SnAccount.FromProtoValue(new DyAccount
+        {
+            Id = AccountId,
+            Name = "tester",
+            Nick = "tester",
+            Profile = new DyAccountProfile
+            {
+                FirstName = "",
+                LastName = "",
+                Bio = "",
+            }
+        });
+
+        Assert.NotNull(account.Profile);
+        Assert.True(account.Profile!.IsBare);
+    }
 }

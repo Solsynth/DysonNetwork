@@ -45,26 +45,29 @@ public class ChatRoomService(
     {
         var cacheKey = RoomMembersCacheKeyPrefix + roomId;
         var cachedMembers = await cache.GetAsync<List<SnChatMember>>(cacheKey);
-        if (cachedMembers != null)
-            return cachedMembers;
+        if (cachedMembers is not null)
+        {
+            // Older cache entries may contain members whose account was
+            // deleted after the entry was written. Do not serve them.
+            if (cachedMembers.All(m => m.Account is not null))
+                return cachedMembers;
+
+            await cache.RemoveAsync(cacheKey);
+        }
 
         var members = await db.ChatMembers
             .Where(m => m.ChatRoomId == roomId)
             .Where(m => m.JoinedAt != null)
             .Where(m => m.LeaveAt == null)
             .ToListAsync();
-        members = await LoadMemberAccounts(members);
+        members = (await LoadMemberAccounts(members))
+            .Where(m => m.Account is not null)
+            .ToList();
 
-        // The room member list is cached for 5 minutes and served to EVERY
-        // message delivery. A bare/null account cached here would make every
-        // WS push and REST response carry a data-less profile until the cache
-        // turns over — re-load individually so the single-account path (which
-        // self-heals on the backend) repairs them before caching.
-        for (var i = 0; i < members.Count; i++)
-        {
-            if (members[i].Account is null || members[i].Account.Profile is null || members[i].Account.Profile.IsBare)
-                members[i] = await LoadMemberAccount(members[i]);
-        }
+        // Deleted accounts can leave stale chat-member rows behind. They are
+        // not valid recipients and must not be cached or returned as members.
+        // A profile is optional, though: empty/bare profiles remain valid
+        // accounts and are returned without an extra repair read.
 
         var chatRoomGroup = ChatRoomGroupPrefix + roomId;
         await cache.SetWithGroupsAsync(cacheKey, members,
@@ -78,7 +81,9 @@ public class ChatRoomService(
     {
         var cacheKey = string.Format(ChatMemberCacheKey, accountId, chatRoomId);
         var member = await cache.GetAsync<SnChatMember?>(cacheKey);
-        if (member is not null) return member;
+        if (member?.Account is not null) return member;
+        if (member is not null)
+            await cache.RemoveAsync(cacheKey);
 
         member = await db.ChatMembers
             .Where(m => m.AccountId == accountId && m.ChatRoomId == chatRoomId && m.JoinedAt != null &&
@@ -89,14 +94,8 @@ public class ChatRoomService(
         if (member == null) return member;
 
         member = await LoadMemberAccount(member);
-
-        // Never cache a member whose account carries no profile data: the
-        // cache would serve the bare profile to every message send (and its
-        // WS push) until it turns over. Skip caching and re-fetch next time —
-        // the single-account path self-heals on the backend, so the first
-        // good read lands in the cache.
-        if (member.Account is null || member.Account.Profile is null || member.Account.Profile.IsBare)
-            return member;
+        if (member.Account is null)
+            return null;
 
         var chatRoomGroup = ChatRoomGroupPrefix + chatRoomId;
         await cache.SetWithGroupsAsync(cacheKey, member,
@@ -163,7 +162,9 @@ public class ChatRoomService(
                 .Where(m => m.AccountId != userId)
                 .ToListAsync()
             : [];
-        members = await LoadMemberAccounts(members);
+        members = (await LoadMemberAccounts(members))
+            .Where(m => m.Account is not null)
+            .ToList();
 
         Dictionary<Guid, List<SnChatMember>> directMembers = new();
         foreach (var member in members)
@@ -190,7 +191,9 @@ public class ChatRoomService(
 
         if (members.Count <= 0) return room;
 
-        members = await LoadMemberAccounts(members);
+        members = (await LoadMemberAccounts(members))
+            .Where(m => m.Account is not null)
+            .ToList();
         room.DirectMembers = members.Select(ChatMemberTransmissionObject.FromEntity).ToList();
 
         return room;
@@ -205,9 +208,10 @@ public class ChatRoomService(
 
     public async Task<SnChatMember> LoadMemberAccount(SnChatMember member)
     {
-        var account = await remoteAccounts.GetAccount(member.AccountId);
-        member.Account = SnAccount.FromProtoValue(account);
-        await ApplyRealmIdentity([member]);
+        var account = await remoteAccounts.TryGetAccount(member.AccountId);
+        member.Account = account is null ? null : SnAccount.FromProtoValue(account);
+        if (member.Account is not null)
+            await ApplyRealmIdentity([member]);
         ChatProfileDiagnostics.LogIncompleteProfile(logger, member.Account, "LoadMemberAccount");
         return member;
     }
@@ -255,19 +259,19 @@ public class ChatRoomService(
     {
         var accountIds = members.Select(m => m.AccountId).ToList();
         var accounts = (await remoteAccounts.GetAccountBatch(accountIds)).ToDictionary(a => Guid.Parse(a.Id), a => a);
-
         List<SnChatMember> loadedMembers =
         [
             .. members.Select(m =>
             {
-                if (accounts.TryGetValue(m.AccountId, out var account))
-                    m.Account = SnAccount.FromProtoValue(account);
+                m.Account = accounts.TryGetValue(m.AccountId, out var account)
+                    ? SnAccount.FromProtoValue(account)
+                    : null;
                 ChatProfileDiagnostics.LogIncompleteProfile(logger, m.Account, "LoadMemberAccounts");
                 return m;
             })
         ];
 
-        await ApplyRealmIdentity(loadedMembers);
+        await ApplyRealmIdentity(loadedMembers.Where(m => m.Account is not null).ToList());
         return loadedMembers;
     }
 
