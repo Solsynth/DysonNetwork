@@ -606,7 +606,9 @@ public partial class ChatService(
         bool notify = true
     )
     {
-        _ = Task.Run(() => DeliverMessageInBackgroundAsync(message, sender, room, type, notify));
+        // Start the async operation immediately. Task.Run adds an unnecessary
+        // thread-pool hop and can delay delivery when the server is busy.
+        _ = DeliverMessageInBackgroundAsync(message, sender, room, type, notify);
     }
 
     private async Task DeliverMessageInBackgroundAsync(
