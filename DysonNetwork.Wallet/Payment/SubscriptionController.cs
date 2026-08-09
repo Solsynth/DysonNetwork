@@ -541,7 +541,14 @@ public class SubscriptionController(
         var order = await afdian.GetOrderAsync(request.OrderId);
         if (order is null) return NotFound(new ApiError { Code = "WALLET_ORDER_NOT_FOUND", Message = $"Order with ID {request.OrderId} was not found.", Status = 404 });
 
-        return Ok(await ApplyRestoredProviderOrderAsync(order));
+        try
+        {
+            return Ok(await ApplyRestoredProviderOrderAsync(order));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new ApiError { Code = "WALLET_SUBSCRIPTION_RESTORE_FAILED", Message = ex.Message, Status = 400 });
+        }
     }
 
     [HttpPost("order/restore/paddle")]
@@ -551,7 +558,14 @@ public class SubscriptionController(
         var order = await paddle.GetTransactionAsync(request.OrderId, HttpContext.RequestAborted);
         if (order is null) return NotFound(new ApiError { Code = "WALLET_TRANSACTION_NOT_FOUND", Message = $"Transaction with ID {request.OrderId} was not found.", Status = 404 });
 
-        return Ok(await ApplyRestoredProviderOrderAsync(order));
+        try
+        {
+            return Ok(await ApplyRestoredProviderOrderAsync(order));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new ApiError { Code = "WALLET_SUBSCRIPTION_RESTORE_FAILED", Message = ex.Message, Status = 400 });
+        }
     }
 
     [HttpPost("order/restore/apple")]
@@ -574,7 +588,14 @@ public class SubscriptionController(
         if (!string.Equals(transaction.AccountId, currentUser.Id, StringComparison.OrdinalIgnoreCase))
             return BadRequest(new ApiError { Code = "WALLET_APPLE_TRANSACTION_ACCOUNT_MISMATCH", Message = "Apple transaction account token does not match the current user.", Status = 400 });
 
-        return Ok(await ApplyRestoredProviderOrderAsync(transaction));
+        try
+        {
+            return Ok(await ApplyRestoredProviderOrderAsync(transaction));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new ApiError { Code = "WALLET_SUBSCRIPTION_RESTORE_FAILED", Message = ex.Message, Status = 400 });
+        }
     }
 
     [HttpPost("{identifier}/checkout/paddle")]
