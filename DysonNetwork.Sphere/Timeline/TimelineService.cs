@@ -50,6 +50,7 @@ public class TimelineService(
     private const double AutomatedPostPenalty = 2.5d;
     private const double SubscriptionBoostBonus = 1.5d;
     private static readonly TimeSpan PublicRealmsCacheTtl = TimeSpan.FromMinutes(1);
+    private static readonly TimeSpan RealmCacheTtl = TimeSpan.FromMinutes(5);
     private static readonly TimeSpan AutomatedStatusCacheTtl = TimeSpan.FromMinutes(5);
     private static readonly TimeSpan DiscoveryProfileCacheTtl = TimeSpan.FromMinutes(3);
     private static readonly TimeSpan FriendIdsCacheTtl = TimeSpan.FromMinutes(2);
