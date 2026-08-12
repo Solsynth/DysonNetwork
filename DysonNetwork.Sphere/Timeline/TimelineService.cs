@@ -47,7 +47,6 @@ public class TimelineService(
     private const double PersonalizedLowRankThresholdRatio = 0.18d;
     private const int DiscoveryCandidatePostTake = 48;
     private const int TimelineCandidateMultiplier = 2;
-    private const int RecentServedPostLimit = 100;
     private const double AutomatedPostPenalty = 2.5d;
     private const double SubscriptionBoostBonus = 1.5d;
     private static readonly TimeSpan DiscoveryProfileCacheTtl = TimeSpan.FromMinutes(3);
@@ -57,7 +56,6 @@ public class TimelineService(
     private static readonly TimeSpan FriendPresenceCacheTtl = TimeSpan.FromSeconds(30);
     private static readonly TimeSpan FriendStatusCacheTtl = TimeSpan.FromSeconds(30);
     private static readonly TimeSpan UserRealmsCacheTtl = TimeSpan.FromMinutes(2);
-    private static readonly TimeSpan RecentServedPostsCacheTtl = TimeSpan.FromHours(24);
     private static readonly TimeSpan SoftCursorCacheTtl = TimeSpan.FromMinutes(5);
     private static readonly Duration DiscoveryLookback = Duration.FromDays(45);
 
@@ -246,7 +244,6 @@ public class TimelineService(
         await LoadPostsRealmsAsync(posts, rs);
 
         posts = await RankPosts(posts, take, currentUser, mode, aggressive);
-        await RememberServedPostsAsync(posts, accountId);
         await ps.IncreaseViewCounts(posts.Select(post => post.Id), currentUser.Id);
         await subscriptions.UpdateLastReadAtForPostsAsync(accountId, posts);
 
@@ -475,9 +472,6 @@ public class TimelineService(
             return SortLatestPosts(posts, take);
 
         var now = SystemClock.Instance.GetCurrentInstant();
-        var recentServedPenalty = currentUser is null
-            ? new Dictionary<Guid, double>()
-            : await GetRecentServedPenaltyMap(Guid.Parse(currentUser.Id), posts, now);
         var personalizationBonus = mode != SnTimelineMode.Personalized || currentUser is null
             ? new Dictionary<Guid, double>()
             : await GetPersonalizationBonusMap(posts, Guid.Parse(currentUser.Id), now);
@@ -503,7 +497,6 @@ public class TimelineService(
                 var (isShadowbanned, isShadowbannedForListing) = shadowbanStatus.GetValueOrDefault(p.Id, (false, false));
                 var persoBonus = personalizationBonus.GetValueOrDefault(p.Id, 0d) * PersonalizationBoostMultiplier;
                 var baseRank = CalculateBaseRank(p, now)
-                    - recentServedPenalty.GetValueOrDefault(p.Id, 0d)
                     + persoBonus
                     + publisherRatingBonus.GetValueOrDefault(p.Id, 0d)
                     - automatedPenalty.GetValueOrDefault(p.Id, 0d)
@@ -1008,10 +1001,8 @@ public class TimelineService(
             "reset",
             now
         );
-
         // Invalidate discovery profile cache
         await cache.RemoveAsync($"timeline:discovery-profile:{accountId}");
-
         return adjustments.Count;
     }
 
@@ -1910,11 +1901,6 @@ public class TimelineService(
         public List<SnDiscoverySuggestion> Suppressed { get; init; } = [];
     }
 
-    private sealed class RecentServedPostEntry
-    {
-        public Guid PostId { get; init; }
-        public Instant ServedAt { get; init; }
-    }
 
     private async Task<List<SnPublisher>> GetPopularPublishers(int take)
     {
@@ -1994,87 +1980,6 @@ public class TimelineService(
     {
         var posts = await baseQuery.ToListAsync();
         return await ps.LoadPostInfo(posts, currentUser, true, trackViews);
-    }
-
-    private async Task<Dictionary<Guid, double>> GetRecentServedPenaltyMap(
-        Guid accountId,
-        IReadOnlyList<SnPost> posts,
-        Instant now
-    )
-    {
-        var recentEntries = await GetRecentServedPostsAsync(accountId);
-        if (recentEntries.Count == 0 || posts.Count == 0)
-            return [];
-
-        var entriesByPostId = recentEntries
-            .GroupBy(x => x.PostId)
-            .ToDictionary(x => x.Key, x => x.OrderByDescending(y => y.ServedAt).ToList());
-
-        return posts.ToDictionary(
-            post => post.Id,
-            post =>
-            {
-                if (!entriesByPostId.TryGetValue(post.Id, out var entries))
-                    return 0d;
-
-                var penalty = 0d;
-                var ageMinutes = Math.Max(0d, (now - entries[0].ServedAt).TotalMinutes);
-                if (ageMinutes <= 15d)
-                    penalty += 6d;
-                else if (ageMinutes <= 120d)
-                    penalty += 3d;
-                else if (ageMinutes <= 1440d)
-                    penalty += 1d;
-
-                penalty += Math.Min(2d, Math.Max(0, entries.Count - 1) * 0.6d);
-                return penalty;
-            }
-        );
-    }
-
-    private async Task<List<RecentServedPostEntry>> GetRecentServedPostsAsync(Guid accountId)
-    {
-        var cacheKey = GetRecentServedPostsCacheKey(accountId);
-        var entries = await cache.GetAsync<List<RecentServedPostEntry>>(cacheKey);
-        if (entries is null)
-            return [];
-
-        var now = SystemClock.Instance.GetCurrentInstant();
-        var validEntries = entries
-            .Where(x => (now - x.ServedAt).TotalHours <= RecentServedPostsCacheTtl.TotalHours)
-            .OrderByDescending(x => x.ServedAt)
-            .Take(RecentServedPostLimit)
-            .ToList();
-
-        if (validEntries.Count != entries.Count)
-            await cache.SetAsync(cacheKey, validEntries, RecentServedPostsCacheTtl);
-
-        return validEntries;
-    }
-
-    private async Task RememberServedPostsAsync(IEnumerable<SnPost> posts, Guid accountId)
-    {
-        var cacheKey = GetRecentServedPostsCacheKey(accountId);
-        var existingEntries = await GetRecentServedPostsAsync(accountId);
-        var now = SystemClock.Instance.GetCurrentInstant();
-
-        var updatedEntries = posts
-            .Select(post => new RecentServedPostEntry
-            {
-                PostId = post.Id,
-                ServedAt = now,
-            })
-            .Concat(existingEntries)
-            .OrderByDescending(x => x.ServedAt)
-            .Take(RecentServedPostLimit)
-            .ToList();
-
-        await cache.SetAsync(cacheKey, updatedEntries, RecentServedPostsCacheTtl);
-    }
-
-    private static string GetRecentServedPostsCacheKey(Guid accountId)
-    {
-        return $"timeline:recent-served:{accountId}";
     }
 
     private async Task<List<Guid>> GetCachedFriendIds(Guid accountId, string accountIdString)
