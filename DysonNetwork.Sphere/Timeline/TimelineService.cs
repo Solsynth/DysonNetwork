@@ -49,6 +49,8 @@ public class TimelineService(
     private const int TimelineCandidateMultiplier = 2;
     private const double AutomatedPostPenalty = 2.5d;
     private const double SubscriptionBoostBonus = 1.5d;
+    private static readonly TimeSpan PublicRealmsCacheTtl = TimeSpan.FromMinutes(1);
+    private static readonly TimeSpan AutomatedStatusCacheTtl = TimeSpan.FromMinutes(5);
     private static readonly TimeSpan DiscoveryProfileCacheTtl = TimeSpan.FromMinutes(3);
     private static readonly TimeSpan FriendIdsCacheTtl = TimeSpan.FromMinutes(2);
     private static readonly TimeSpan BlockedIdsCacheTtl = TimeSpan.FromMinutes(2);
@@ -86,7 +88,7 @@ public class TimelineService(
         var activities = new List<SnTimelineEvent>();
         scope ??= new TimelineFeedScope(null, null, null, null);
 
-        var publicRealms = await rs.GetPublicRealms();
+        var publicRealms = await GetCachedPublicRealmsAsync();
         var publicRealmIds = publicRealms.Select(r => r.Id).ToList();
 
         var gatekeptPublisherIds = await GetGatekeptPublisherIds(publicRealmIds);
@@ -96,7 +98,7 @@ public class TimelineService(
             .Take(take * TimelineCandidateMultiplier);
 
         var posts = await GetAndProcessPosts(postsQuery);
-        await LoadPostsRealmsAsync(posts, rs);
+        await LoadPostsRealmsAsync(posts);
         posts = await RankPosts(posts, take, null, mode);
 
         if (scope.HasExplicitScope)
@@ -241,7 +243,7 @@ public class TimelineService(
             logger.LogInformation("ListEvents: added {BoostedCount} boosted posts to timeline", boostedPosts.Count);
         }
 
-        await LoadPostsRealmsAsync(posts, rs);
+        await LoadPostsRealmsAsync(posts);
 
         posts = await RankPosts(posts, take, currentUser, mode, aggressive);
         await ps.IncreaseViewCounts(posts.Select(post => post.Id), currentUser.Id);
@@ -682,11 +684,7 @@ public class TimelineService(
         if (publisherAccounts.Count == 0)
             return [];
 
-        var statuses = await remoteAccounts.GetAccountStatusBatch(publisherAccounts);
-        var automatedAccountIds = statuses
-            .Where(kvp => kvp.Value.IsAutomated)
-            .Select(kvp => kvp.Key)
-            .ToHashSet();
+        var automatedAccountIds = await GetCachedAutomatedAccountIdsAsync(publisherAccounts);
 
         return posts.ToDictionary(
             p => p.Id,
@@ -821,7 +819,7 @@ public class TimelineService(
             .Where(x => x.Kind == PostInterestKind.Collection)
             .ToDictionary(x => x.ReferenceId, x => GetDecayedInterestScore(x, now));
 
-        var publicRealms = await rs.GetPublicRealms("date", 40);
+        var publicRealms = await GetCachedPublicRealmsAsync("date", 40);
         var visibleRealmIds = publicRealms.Select(x => x.Id).Concat(userRealms).Distinct().ToList();
         var candidatePosts = await GetDiscoveryCandidatePosts(now, visibleRealmIds);
         var postCollectionMap = await GetPostCollectionMapAsync(candidatePosts.Select(x => x.Id));
@@ -1929,7 +1927,7 @@ public class TimelineService(
 
     private async Task<SnTimelineEvent?> GetRealmDiscoveryActivity(int count = 5)
     {
-        var realms = await rs.GetPublicRealms("random", count);
+        var realms = await GetCachedPublicRealmsAsync("random", count);
         return realms.Count > 0
             ? new TimelineDiscoveryEvent(
                 realms.Select(x => new DiscoveryItem("realm", x)).ToList()
@@ -1949,7 +1947,7 @@ public class TimelineService(
 
     private async Task<SnTimelineEvent?> GetShuffledPostsActivity(int count = 5)
     {
-        var publicRealms = await rs.GetPublicRealms();
+        var publicRealms = await GetCachedPublicRealmsAsync();
         var publicRealmIds = publicRealms.Select(r => r.Id).ToList();
 
         var postsQuery = db
@@ -1963,7 +1961,7 @@ public class TimelineService(
             .Take(count);
 
         var posts = await GetAndProcessPosts(postsQuery);
-        await LoadPostsRealmsAsync(posts, rs);
+        await LoadPostsRealmsAsync(posts);
 
         return posts.Count == 0
             ? null
@@ -1980,6 +1978,49 @@ public class TimelineService(
     {
         var posts = await baseQuery.ToListAsync();
         return await ps.LoadPostInfo(posts, currentUser, true, trackViews);
+    }
+
+
+    private async Task<HashSet<Guid>> GetCachedAutomatedAccountIdsAsync(
+        IEnumerable<Guid> accountIds
+    )
+    {
+        var ids = accountIds.Distinct().ToList();
+        if (ids.Count == 0)
+            return [];
+
+        var automatedAccountIds = new HashSet<Guid>();
+        var cachedStatuses = await Task.WhenAll(
+            ids.Select(async id => (Id: id, IsAutomated: await cache.GetAsync<bool?>($"timeline:automated:{id}")))
+        );
+        var missingIds = new List<Guid>();
+        foreach (var (id, isAutomated) in cachedStatuses)
+        {
+            if (!isAutomated.HasValue)
+                missingIds.Add(id);
+            else if (isAutomated.Value)
+                automatedAccountIds.Add(id);
+        }
+
+        if (missingIds.Count > 0)
+        {
+            var statuses = await remoteAccounts.GetAccountStatusBatch(missingIds);
+            foreach (var id in missingIds)
+            {
+                if (statuses.GetValueOrDefault(id).IsAutomated)
+                    automatedAccountIds.Add(id);
+            }
+
+            await Task.WhenAll(
+                missingIds.Select(id =>
+                {
+                    var isAutomated = statuses.GetValueOrDefault(id).IsAutomated;
+                    return cache.SetAsync($"timeline:automated:{id}", isAutomated, AutomatedStatusCacheTtl);
+                })
+            );
+        }
+
+        return automatedAccountIds;
     }
 
     private async Task<List<Guid>> GetCachedFriendIds(Guid accountId, string accountIdString)
@@ -2092,11 +2133,11 @@ public class TimelineService(
         var accountIds = activities.Select(a => a.AccountId).Distinct().ToList();
         if (accountIds.Count > 0)
         {
-            var accounts = (await remoteAccounts.GetAccountBatch(accountIds))
-                .ToDictionary(a => Guid.Parse(a.Id), a => a);
+            var accountMap = (await remoteAccounts.GetAccountBatch(accountIds))
+                .ToDictionary(x => Guid.Parse(x.Id), SnAccount.FromProtoValue);
             foreach (var activity in activities)
-                if (accounts.TryGetValue(activity.AccountId, out var account))
-                    activity.Account = SnAccount.FromProtoValue(account);
+                if (accountMap.TryGetValue(activity.AccountId, out var account))
+                    activity.Account = account;
         }
 
         var events = activities
@@ -2125,11 +2166,11 @@ public class TimelineService(
         var accountIds = statuses.Values.Select(s => s.AccountId).Distinct().ToList();
         if (accountIds.Count > 0)
         {
-            var accounts = (await remoteAccounts.GetAccountBatch(accountIds))
-                .ToDictionary(a => Guid.Parse(a.Id), a => a);
+            var accountMap = (await remoteAccounts.GetAccountBatch(accountIds))
+                .ToDictionary(x => Guid.Parse(x.Id), SnAccount.FromProtoValue);
             foreach (var status in statuses.Values)
-                if (accounts.TryGetValue(status.AccountId, out var account))
-                    status.Account = SnAccount.FromProtoValue(account);
+                if (accountMap.TryGetValue(status.AccountId, out var account))
+                    status.Account = account;
         }
 
         var events = statuses.Values
@@ -2258,7 +2299,64 @@ public class TimelineService(
         return string.IsNullOrWhiteSpace(normalized) ? null : normalized;
     }
 
-    private static async Task LoadPostsRealmsAsync(List<SnPost> posts, RemoteRealmService rs)
+    private async Task<List<SnRealm>> GetCachedPublicRealmsAsync(string order = "", int? take = null)
+    {
+        if (order == "random")
+            return take.HasValue
+                ? await rs.GetPublicRealms(order, take.Value)
+                : await rs.GetPublicRealms();
+
+        var cacheKey = $"timeline:public-realms:{order}:{take?.ToString() ?? "all"}";
+        var cached = await cache.GetAsync<List<SnRealm>>(cacheKey);
+        if (cached is not null)
+            return cached;
+
+        var realms = take.HasValue
+            ? await rs.GetPublicRealms(order, take.Value)
+            : await rs.GetPublicRealms();
+        await cache.SetAsync(cacheKey, realms, PublicRealmsCacheTtl);
+        return realms;
+    }
+
+    private async Task<List<SnRealm>> GetCachedRealmBatchAsync(IEnumerable<Guid> realmIds)
+    {
+        var ids = realmIds.Distinct().ToList();
+        if (ids.Count == 0)
+            return [];
+
+        var realms = new Dictionary<Guid, SnRealm>();
+        var cachedRealms = await Task.WhenAll(
+            ids.Select(async id => (Id: id, Realm: await cache.GetAsync<SnRealm>($"timeline:realm:{id}")))
+        );
+        var missingIds = new List<Guid>();
+        foreach (var (id, realm) in cachedRealms)
+        {
+            if (realm is not null)
+                realms[id] = realm;
+            else
+                missingIds.Add(id);
+        }
+
+        if (missingIds.Count > 0)
+        {
+            var fetched = await rs.GetRealmBatch(missingIds.Select(id => id.ToString()).ToList());
+            foreach (var realm in fetched)
+                realms[realm.Id] = realm;
+
+            await Task.WhenAll(
+                realms
+                    .Where(x => missingIds.Contains(x.Key))
+                    .Select(x => cache.SetAsync($"timeline:realm:{x.Key}", x.Value, RealmCacheTtl))
+            );
+        }
+
+        return ids
+            .Where(realms.ContainsKey)
+            .Select(id => realms[id])
+            .ToList();
+    }
+
+    private async Task LoadPostsRealmsAsync(List<SnPost> posts)
     {
         var postRealmIds = posts
             .Where(p => p.RealmId != null)
@@ -2268,7 +2366,7 @@ public class TimelineService(
         if (postRealmIds.Count == 0)
             return;
 
-        var realms = await rs.GetRealmBatch(postRealmIds.Select(id => id.ToString()).ToList());
+        var realms = await GetCachedRealmBatchAsync(postRealmIds);
         var realmDict = realms.ToDictionary(r => r.Id, r => r);
 
         foreach (var post in posts.Where(p => p.RealmId != null))
