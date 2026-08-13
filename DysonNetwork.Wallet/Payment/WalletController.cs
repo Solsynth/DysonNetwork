@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.Globalization;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Capabilities;
@@ -20,6 +21,7 @@ namespace DysonNetwork.Wallet.Payment;
 [ApiFeature("wallets.transactions", Revision = 1)]
 [ApiFeature("wallets.transfers", Revision = 1)]
 [ApiFeature("wallets.funds", Revision = 1)]
+[ApiFeature("wallets.exchange", Revision = 1)]
 public class WalletController(
     AppDatabase db,
     WalletService ws,
@@ -28,7 +30,8 @@ public class WalletController(
     RemotePublisherService publishers,
     RemoteActionLogService als,
     ICacheService cache,
-    ILogger<WalletController> logger
+    ILogger<WalletController> logger,
+    IConfiguration configuration
 ) : ControllerBase
 {
     private const string NoPinProvided = "NO_PIN_PROVEDED";
@@ -521,6 +524,206 @@ public class WalletController(
         /// When force operation is enabled, the wallet will ignore insufficent balance
         /// </summary>
         public bool ForceOperation { get; set; } = false;
+    }
+
+    public class WalletExchangeRequest
+    {
+        [Required] public decimal Amount { get; set; }
+        [Required] public string Currency { get; set; } = null!;
+        public Guid? WalletId { get; set; }
+        public string? Remark { get; set; }
+    }
+
+    public class WalletExchangeResponse
+    {
+        public Guid WalletId { get; set; }
+        public string SourceCurrency { get; set; } = null!;
+        public decimal SourceAmount { get; set; }
+        public string TargetCurrency { get; set; } = null!;
+        public decimal TargetAmount { get; set; }
+        public SnWalletTransaction DebitTransaction { get; set; } = null!;
+        public SnWalletTransaction CreditTransaction { get; set; } = null!;
+    }
+
+    private sealed record CurrencyExchangeRate(
+        string SourceCurrency,
+        decimal SourceAmount,
+        string TargetCurrency,
+        decimal TargetAmount
+    );
+
+    private bool TryGetCurrencyExchangeRate(string currency, out CurrencyExchangeRate? rate)
+    {
+        var requestedCurrency = currency.Trim();
+        var configuredExchanges = configuration.GetSection("Payment:CurrencyExchange").GetChildren();
+
+        foreach (var exchange in configuredExchanges)
+        {
+            if (!TryParseCurrencyAmount(exchange.Key, out var sourceAmount, out var sourceCurrency) ||
+                !string.Equals(sourceCurrency, requestedCurrency, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            if (!TryParseCurrencyAmount(exchange.Value, out var targetAmount, out var targetCurrency) ||
+                targetAmount <= 0 ||
+                string.Equals(sourceCurrency, targetCurrency, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException($"Invalid currency exchange configuration for '{exchange.Key}'.");
+
+            rate = new CurrencyExchangeRate(sourceCurrency, sourceAmount, targetCurrency, targetAmount);
+            return true;
+        }
+
+        rate = null;
+        return false;
+    }
+
+    private static bool TryParseCurrencyAmount(
+        string? value,
+        out decimal amount,
+        out string currency
+    )
+    {
+        amount = 0;
+        currency = string.Empty;
+        if (string.IsNullOrWhiteSpace(value))
+            return false;
+
+        var trimmed = value.Trim();
+        var separator = 0;
+        while (separator < trimmed.Length &&
+               (char.IsDigit(trimmed[separator]) || trimmed[separator] == '.'))
+            separator++;
+
+        if (separator == 0 || separator == trimmed.Length)
+            return false;
+
+        if (!decimal.TryParse(
+                trimmed[..separator],
+                NumberStyles.AllowDecimalPoint,
+                CultureInfo.InvariantCulture,
+                out amount) ||
+            amount <= 0)
+            return false;
+
+        currency = trimmed[separator..].Trim();
+        return currency.Length > 0;
+    }
+
+    private static decimal TruncateCurrencyAmount(decimal amount)
+    {
+        return Math.Round(amount, 3, MidpointRounding.ToZero);
+    }
+
+    [HttpPost("exchange")]
+    [Authorize]
+    [AskPermission(PermissionKeys.WalletsTransactionsManage)]
+    public async Task<ActionResult<WalletExchangeResponse>> ExchangeCurrency(
+        [FromBody] WalletExchangeRequest request
+    )
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
+
+        if (request.Amount <= 0 || string.IsNullOrWhiteSpace(request.Currency))
+            return BadRequest(new ApiError { Code = "WALLET_EXCHANGE_INVALID_REQUEST", Message = "Amount must be greater than zero and currency is required.", Status = 400 });
+
+        CurrencyExchangeRate? exchangeRate;
+        try
+        {
+            if (!TryGetCurrencyExchangeRate(request.Currency, out exchangeRate) || exchangeRate is null)
+                return BadRequest(new ApiError { Code = "WALLET_EXCHANGE_NOT_SUPPORTED", Message = "This currency exchange is not configured.", Status = 400 });
+        }
+        catch (InvalidOperationException err)
+        {
+            logger.LogError(err, "Invalid wallet currency exchange configuration.");
+            return StatusCode(500, new ApiError { Code = "WALLET_EXCHANGE_CONFIGURATION_INVALID", Message = "Currency exchange configuration is invalid.", Status = 500 });
+        }
+
+        if (exchangeRate is null)
+            return BadRequest(new ApiError { Code = "WALLET_EXCHANGE_NOT_SUPPORTED", Message = "This currency exchange is not configured.", Status = 400 });
+
+        var currentAccountId = Guid.Parse(currentUser.Id);
+        SnWallet? wallet;
+        if (request.WalletId.HasValue)
+        {
+            wallet = await ws.GetWalletAsync(request.WalletId.Value);
+            if (wallet is null)
+                return NotFound(new ApiError { Code = "WALLET_NOT_FOUND", Message = "Wallet was not found.", Status = 404 });
+
+            if (wallet.AccountId != currentAccountId)
+            {
+                if (!wallet.RealmId.HasValue)
+                    return StatusCode(403, ApiError.Unauthorized("You do not have permission to exchange from this wallet.", forbidden: true));
+
+                var publisher = (await publishers.ListPublishers(realmId: wallet.RealmId.Value.ToString())).FirstOrDefault();
+                if (publisher is null)
+                    return NotFound(new ApiError { Code = "WALLET_REALM_PUBLISHER_NOT_FOUND", Message = "Realm publisher was not found.", Status = 404 });
+                if (!await publishers.IsMemberWithRole(publisher.Id, currentAccountId, PublisherMemberRole.Editor))
+                    return StatusCode(403, ApiError.Unauthorized("You must be an editor of the realm publisher to exchange from this wallet.", forbidden: true));
+            }
+        }
+        else
+        {
+            wallet = await ws.GetAccountWalletAsync(currentAccountId);
+            if (wallet is null)
+                return NotFound(new ApiError { Code = "WALLET_NOT_FOUND", Message = "Wallet was not found.", Status = 404 });
+        }
+
+        try
+        {
+            var sourceAmount = TruncateCurrencyAmount(request.Amount);
+            if (sourceAmount <= 0)
+                return BadRequest(new ApiError { Code = "WALLET_EXCHANGE_INVALID_AMOUNT", Message = "Amount must be at least 0.001.", Status = 400 });
+
+            await using var transaction = await db.Database.BeginTransactionAsync();
+            var remarks = request.Remark ?? $"Currency exchange: {exchangeRate.SourceCurrency} to {exchangeRate.TargetCurrency}";
+
+            var debitTransaction = await payment.CreateTransactionAsync(
+                payerWalletId: wallet.Id,
+                payeeWalletId: null,
+                currency: exchangeRate.SourceCurrency,
+                amount: sourceAmount,
+                remarks: remarks,
+                type: Shared.Models.TransactionType.System,
+                silent: true,
+                autoSave: false
+            );
+
+            var targetAmount = TruncateCurrencyAmount(
+                debitTransaction.Amount * exchangeRate.TargetAmount / exchangeRate.SourceAmount
+            );
+            if (targetAmount <= 0)
+                throw new InvalidOperationException("The configured exchange rate produces an amount below 0.001.");
+
+            var creditTransaction = await payment.CreateTransactionAsync(
+                payerWalletId: null,
+                payeeWalletId: wallet.Id,
+                currency: exchangeRate.TargetCurrency,
+                amount: targetAmount,
+                remarks: remarks,
+                type: Shared.Models.TransactionType.System,
+                silent: true,
+                autoSave: false
+            );
+
+            await db.SaveChangesAsync();
+            await transaction.CommitAsync();
+
+            return Ok(new WalletExchangeResponse
+            {
+                WalletId = wallet.Id,
+                SourceCurrency = exchangeRate.SourceCurrency,
+                SourceAmount = debitTransaction.Amount,
+                TargetCurrency = exchangeRate.TargetCurrency,
+                TargetAmount = creditTransaction.Amount,
+                DebitTransaction = debitTransaction,
+                CreditTransaction = creditTransaction
+            });
+        }
+        catch (Exception err)
+        {
+            logger.LogError(err, "Failed to exchange wallet currency.");
+            return BadRequest(new ApiError { Code = "WALLET_EXCHANGE_FAILED", Message = err.Message, Status = 400 });
+        }
     }
 
     public class WalletTransferRequest
