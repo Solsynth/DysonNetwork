@@ -534,6 +534,14 @@ public class WalletController(
         public string? Remark { get; set; }
     }
 
+    public class WalletExchangeOption
+    {
+        public string SourceCurrency { get; set; } = null!;
+        public decimal SourceAmount { get; set; }
+        public string TargetCurrency { get; set; } = null!;
+        public decimal TargetAmount { get; set; }
+    }
+
     public class WalletExchangeResponse
     {
         public Guid WalletId { get; set; }
@@ -552,15 +560,13 @@ public class WalletController(
         decimal TargetAmount
     );
 
-    private bool TryGetCurrencyExchangeRate(string currency, out CurrencyExchangeRate? rate)
+    private IEnumerable<CurrencyExchangeRate> GetCurrencyExchangeRates()
     {
-        var requestedCurrency = currency.Trim();
         var configuredExchanges = configuration.GetSection("Payment:CurrencyExchange").GetChildren();
 
         foreach (var exchange in configuredExchanges)
         {
-            if (!TryParseCurrencyAmount(exchange.Key, out var sourceAmount, out var sourceCurrency) ||
-                !string.Equals(sourceCurrency, requestedCurrency, StringComparison.OrdinalIgnoreCase))
+            if (!TryParseCurrencyAmount(exchange.Key, out var sourceAmount, out var sourceCurrency))
                 continue;
 
             if (!TryParseCurrencyAmount(exchange.Value, out var targetAmount, out var targetCurrency) ||
@@ -568,12 +574,17 @@ public class WalletController(
                 string.Equals(sourceCurrency, targetCurrency, StringComparison.OrdinalIgnoreCase))
                 throw new InvalidOperationException($"Invalid currency exchange configuration for '{exchange.Key}'.");
 
-            rate = new CurrencyExchangeRate(sourceCurrency, sourceAmount, targetCurrency, targetAmount);
-            return true;
+            yield return new CurrencyExchangeRate(sourceCurrency, sourceAmount, targetCurrency, targetAmount);
         }
+    }
 
-        rate = null;
-        return false;
+    private bool TryGetCurrencyExchangeRate(string currency, out CurrencyExchangeRate? rate)
+    {
+        var requestedCurrency = currency.Trim();
+        rate = GetCurrencyExchangeRates().FirstOrDefault(exchange =>
+            string.Equals(exchange.SourceCurrency, requestedCurrency, StringComparison.OrdinalIgnoreCase)
+        );
+        return rate is not null;
     }
 
     private static bool TryParseCurrencyAmount(
@@ -611,6 +622,35 @@ public class WalletController(
     private static decimal TruncateCurrencyAmount(decimal amount)
     {
         return Math.Round(amount, 3, MidpointRounding.ToZero);
+    }
+
+    [HttpGet("exchange")]
+    [AllowAnonymous]
+    public ActionResult<List<WalletExchangeOption>> GetCurrencyExchanges()
+    {
+        try
+        {
+            var exchanges = GetCurrencyExchangeRates()
+                .Select(exchange => new WalletExchangeOption
+                {
+                    SourceCurrency = exchange.SourceCurrency,
+                    SourceAmount = exchange.SourceAmount,
+                    TargetCurrency = exchange.TargetCurrency,
+                    TargetAmount = exchange.TargetAmount
+                })
+                .ToList();
+            return Ok(exchanges);
+        }
+        catch (InvalidOperationException err)
+        {
+            logger.LogError(err, "Invalid wallet currency exchange configuration.");
+            return StatusCode(500, new ApiError
+            {
+                Code = "WALLET_EXCHANGE_CONFIGURATION_INVALID",
+                Message = "Currency exchange configuration is invalid.",
+                Status = 500
+            });
+        }
     }
 
     [HttpPost("exchange")]
@@ -725,6 +765,7 @@ public class WalletController(
             return BadRequest(new ApiError { Code = "WALLET_EXCHANGE_FAILED", Message = err.Message, Status = 400 });
         }
     }
+
 
     public class WalletTransferRequest
     {
