@@ -6,6 +6,7 @@ using DysonNetwork.Shared.Proto;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using NodaTime;
 
 namespace DysonNetwork.Sphere.Post;
 
@@ -23,6 +24,8 @@ public class PostCategoryController(AppDatabase db) : ControllerBase
         [FromQuery] string? order = null
     )
     {
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var recentPostsSince = now - Duration.FromDays(7);
         var categoriesQuery = db.PostCategories
             .OrderBy(e => e.Name)
             .AsQueryable();
@@ -35,6 +38,11 @@ public class PostCategoryController(AppDatabase db) : ControllerBase
             categoriesQuery = order switch
             {
                 "usage" => categoriesQuery.OrderByDescending(e => e.Posts.Count),
+                "popularity" => categoriesQuery.OrderByDescending(e => e.Posts.Count(p =>
+                    p.DraftedAt == null
+                    && p.Visibility == PostVisibility.Public
+                    && p.CreatedAt >= recentPostsSince
+                    && p.CreatedAt <= now)),
                 _ => categoriesQuery.OrderByDescending(e => e.CreatedAt)
             };
         }
@@ -71,6 +79,8 @@ public class PostCategoryController(AppDatabase db) : ControllerBase
         [FromQuery] string? order = null
     )
     {
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var recentPostsSince = now - Duration.FromDays(7);
         var tagsQuery = db.PostTags
             .OrderBy(e => e.Name)
             .AsQueryable();
@@ -83,6 +93,11 @@ public class PostCategoryController(AppDatabase db) : ControllerBase
             tagsQuery = order switch
             {
                 "usage" => tagsQuery.OrderByDescending(e => e.Posts.Count),
+                "popularity" => tagsQuery.OrderByDescending(e => e.Posts.Count(p =>
+                    p.DraftedAt == null
+                    && p.Visibility == PostVisibility.Public
+                    && p.CreatedAt >= recentPostsSince
+                    && p.CreatedAt <= now)),
                 _ => tagsQuery.OrderByDescending(e => e.CreatedAt)
             };
         }
