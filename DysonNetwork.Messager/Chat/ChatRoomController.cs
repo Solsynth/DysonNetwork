@@ -419,6 +419,7 @@ public class ChatRoomController(
 
         // Create new DM chat room
         var encryptionMode = requestedMode;
+        var creationInstant = SystemClock.Instance.GetCurrentInstant();
         var dmRoom = new SnChatRoom
         {
             Type = ChatRoomType.DirectMessage,
@@ -431,16 +432,17 @@ public class ChatRoomController(
                 {
                     AccountId = accountId,
                     Username = currentUser.Name,
-                    JoinedAt = SystemClock.Instance.GetCurrentInstant()
+                    JoinedAt = creationInstant,
+                    LeaveAt = null,
+                    ConfirmedAt = creationInstant
                 },
                 new()
                 {
                     AccountId = request.RelatedUserId,
                     Username = relatedUser.Name,
-                    // Auto-approve DM for bots with AutoApproveDm=true
-                    JoinedAt = isBotAccount && botConfig?.AutoApproveDm != false 
-                        ? SystemClock.Instance.GetCurrentInstant() 
-                        : null,
+                    JoinedAt = creationInstant,
+                    LeaveAt = null,
+                    ConfirmedAt = null
                 }
             }
         };
@@ -456,21 +458,169 @@ public class ChatRoomController(
             ipAddress: Request.GetClientIpAddress()
         );
 
-        var invitedMember = dmRoom.Members.First(m => m.AccountId == request.RelatedUserId);
-        invitedMember.ChatRoom = dmRoom;
-        
-        // Only send invite notification if not auto-approved
-        if (invitedMember.JoinedAt == null)
-        {
-            await SendInviteNotify(invitedMember, currentUser);
-        }
-        else if (isBotAccount)
+        if (isBotAccount)
         {
             // Bot auto-joined - invalidate bot commands cache
             _ = cs.InvalidateBotCommandsCacheAsync(dmRoom.Id);
         }
 
         return Ok(dmRoom);
+    }
+
+    [HttpPost("{roomId:guid}/confirm")]
+    [Authorize]
+    public async Task<ActionResult<SnChatRoom>> ConfirmDirectMessage(Guid roomId)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
+
+        var chatRoom = await db.ChatRooms
+            .Include(r => r.Members)
+            .FirstOrDefaultAsync(r => r.Id == roomId);
+        if (chatRoom is null) return NotFound();
+        if (chatRoom.Type != ChatRoomType.DirectMessage || chatRoom.Members.Count != 2)
+            return BadRequest(new ApiError
+            {
+                Code = "CHAT_DM_CONFIRM_NOT_ALLOWED",
+                Message = "Only one-to-one direct messages can be confirmed.",
+                Status = 400
+            });
+
+        var member = chatRoom.Members.FirstOrDefault(m => m.AccountId == accountId);
+        if (member is null || chatRoom.AccountId == accountId || member.JoinedAt is null || member.LeaveAt is not null)
+            return StatusCode(403, ApiError.Unauthorized("Only the active recipient can confirm this direct message.", forbidden: true));
+        if (member.ConfirmedAt is not null)
+            return BadRequest(new ApiError
+            {
+                Code = "CHAT_DM_ALREADY_CONFIRMED",
+                Message = "This direct message has already been confirmed.",
+                Status = 400
+            });
+
+        member.ConfirmedAt = SystemClock.Instance.GetCurrentInstant();
+        await db.SaveChangesAsync();
+        await crs.PurgeRoomMembersCache(roomId);
+
+        als.CreateActionLog(
+            accountId,
+            "chatrooms.dm.confirm",
+            new Dictionary<string, object> { { "chatroom_id", roomId.ToString() } },
+            userAgent: Request.Headers.UserAgent,
+            ipAddress: Request.GetClientIpAddress()
+        );
+
+        return Ok(chatRoom);
+    }
+
+    [HttpPost("{roomId:guid}/block")]
+    [Authorize]
+    public async Task<ActionResult> BlockDirectMessage(Guid roomId)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
+
+        var chatRoom = await db.ChatRooms
+            .Include(r => r.Members)
+            .FirstOrDefaultAsync(r => r.Id == roomId);
+        if (chatRoom is null) return NotFound();
+
+        if (chatRoom.Type != ChatRoomType.DirectMessage || chatRoom.Members.Count != 2)
+            return StatusCode(403, new ApiError
+            {
+                Code = "CHAT_DM_BLOCK_NOT_ALLOWED",
+                Message = "Only an unconfirmed one-to-one direct message can be blocked.",
+                Status = 403
+            });
+
+        var member = chatRoom.Members.FirstOrDefault(m => m.AccountId == accountId);
+        if (member is null) return NotFound();
+        if (chatRoom.AccountId == accountId || member.ConfirmedAt is not null || member.JoinedAt is null)
+            return StatusCode(403, new ApiError
+            {
+                Code = "CHAT_DM_BLOCK_NOT_ALLOWED",
+                Message = "Only the active recipient can block this direct message.",
+                Status = 403
+            });
+        if (member.LeaveAt is not null)
+            return BadRequest(new ApiError
+            {
+                Code = "CHAT_DM_ALREADY_BLOCKED",
+                Message = "This direct message is already blocked.",
+                Status = 400
+            });
+
+        member.LeaveAt = SystemClock.Instance.GetCurrentInstant();
+        await db.SaveChangesAsync();
+        await crs.PurgeRoomMembersCache(roomId);
+
+        await cs.SendMemberLeftSystemMessageAsync(chatRoom, member);
+        await EmitEncryptionMembershipChangedEventAsync(chatRoom, member, member.AccountId, "member_left");
+
+        als.CreateActionLog(
+            accountId,
+            "chatrooms.dm.block",
+            new Dictionary<string, object> { { "chatroom_id", roomId.ToString() } },
+            userAgent: Request.Headers.UserAgent,
+            ipAddress: Request.GetClientIpAddress()
+        );
+
+        return NoContent();
+    }
+
+    [HttpDelete("{roomId:guid}/block")]
+    [Authorize]
+    public async Task<ActionResult<SnChatMember>> UnblockDirectMessage(Guid roomId)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
+
+        var chatRoom = await db.ChatRooms
+            .Include(r => r.Members)
+            .FirstOrDefaultAsync(r => r.Id == roomId);
+        if (chatRoom is null) return NotFound();
+
+        if (chatRoom.Type != ChatRoomType.DirectMessage || chatRoom.Members.Count != 2)
+            return StatusCode(403, new ApiError
+            {
+                Code = "CHAT_DM_BLOCK_NOT_ALLOWED",
+                Message = "Only a one-to-one direct message can be unblocked.",
+                Status = 403
+            });
+
+        var member = chatRoom.Members.FirstOrDefault(m => m.AccountId == accountId);
+        if (member is null) return NotFound();
+        if (chatRoom.AccountId == accountId || member.ConfirmedAt is not null)
+            return StatusCode(403, new ApiError
+            {
+                Code = "CHAT_DM_BLOCK_NOT_ALLOWED",
+                Message = "Only the recipient can unblock this direct message.",
+                Status = 403
+            });
+        if (member.LeaveAt is null)
+            return BadRequest(new ApiError
+            {
+                Code = "CHAT_DM_NOT_BLOCKED",
+                Message = "This direct message is not blocked.",
+                Status = 400
+            });
+
+        member.LeaveAt = null;
+        member.JoinedAt = SystemClock.Instance.GetCurrentInstant();
+        await db.SaveChangesAsync();
+        await crs.PurgeRoomMembersCache(roomId);
+
+        await cs.SendMemberJoinedSystemMessageAsync(chatRoom, member);
+        await EmitEncryptionMembershipChangedEventAsync(chatRoom, member, member.AccountId, "member_joined");
+
+        als.CreateActionLog(
+            accountId,
+            "chatrooms.dm.unblock",
+            new Dictionary<string, object> { { "chatroom_id", roomId.ToString() } },
+            userAgent: Request.Headers.UserAgent,
+            ipAddress: Request.GetClientIpAddress()
+        );
+
+        return Ok(member);
     }
 
     [HttpGet("direct/{accountId:guid}")]

@@ -291,6 +291,9 @@ namespace DysonNetwork.Messager.Migrations
                     b.Property<Guid>("ChatRoomId")
                         .HasColumnType("uuid")
                         .HasColumnName("chat_room_id");
+                    b.Property<Instant?>("ConfirmedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("confirmed_at");
 
                     b.Property<Instant>("CreatedAt")
                         .HasColumnType("timestamp with time zone")

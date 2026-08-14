@@ -653,12 +653,12 @@ public partial class ChatService(
             var otherMember = await db.ChatMembers
                 .Where(m => m.ChatRoomId == room.Id && m.Id != sender.Id && m.JoinedAt != null && m.LeaveAt == null)
                 .FirstOrDefaultAsync();
-            if (otherMember is not null)
-            {
-                var isBlocked = await remoteAccounts.IsBlockedEitherDirection(sender.AccountId, otherMember.AccountId);
-                if (isBlocked)
-                    throw new InvalidOperationException("You cannot send messages to a blocked user.");
-            }
+            if (otherMember is null)
+                throw new InvalidOperationException("You cannot send messages without an active direct-message recipient.");
+
+            var isBlocked = await remoteAccounts.IsBlockedEitherDirection(sender.AccountId, otherMember.AccountId);
+            if (isBlocked)
+                throw new InvalidOperationException("You cannot send messages to a blocked user.");
         }
 
         await NormalizeStickerPlaceholderMessageAsync(message);
