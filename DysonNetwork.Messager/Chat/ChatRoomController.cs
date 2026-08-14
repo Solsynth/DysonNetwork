@@ -487,7 +487,7 @@ public class ChatRoomController(
             });
 
         var member = chatRoom.Members.FirstOrDefault(m => m.AccountId == accountId);
-        if (member is null || chatRoom.AccountId == accountId || member.JoinedAt is null || member.LeaveAt is not null)
+        if (member is null || chatRoom.AccountId == accountId)
             return StatusCode(403, ApiError.Unauthorized("Only the active recipient can confirm this direct message.", forbidden: true));
         if (member.ConfirmedAt is not null)
             return BadRequest(new ApiError
@@ -496,6 +496,8 @@ public class ChatRoomController(
                 Message = "This direct message has already been confirmed.",
                 Status = 400
             });
+        if (member.JoinedAt is null || member.LeaveAt is not null)
+            return StatusCode(403, ApiError.Unauthorized("Only the active recipient can confirm this direct message.", forbidden: true));
 
         member.ConfirmedAt = SystemClock.Instance.GetCurrentInstant();
         await db.SaveChangesAsync();
