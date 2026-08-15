@@ -3401,7 +3401,7 @@ TIP-: 忌提示标题 | 具体提醒，要写清今天不适合怎么做、容�
                 OrderBy = string.Empty
             });
             ids.AddRange(page.Accounts.Where(a => Guid.TryParse(a.Id, out _)).Select(a => Guid.Parse(a.Id)));
-            pageToken = string.IsNullOrEmpty(page.NextPageToken) ? null : page.NextPageToken;
+            pageToken = string.IsNullOrEmpty(page.NextCursor) ? null : page.NextCursor;
         } while (pageToken is not null);
         return ids;
     }

@@ -623,8 +623,6 @@ public class PublisherController(
                 ApiError.Unauthorized("You need at least be the manager to update the publisher profile.", forbidden: true)
             );
 
-        if (request.Name is not null)
-            publisher.Name = request.Name;
         if (request.Nick is not null)
             publisher.Nick = request.Nick;
         if (request.Bio is not null)

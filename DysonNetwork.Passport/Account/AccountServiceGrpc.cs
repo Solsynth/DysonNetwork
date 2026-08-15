@@ -150,7 +150,7 @@ public class AccountServiceGrpc(
         var response = new DyListAccountsResponse
         {
             TotalSize = remote.TotalSize,
-            NextPageToken = remote.NextPageToken
+            NextCursor = remote.NextCursor
         };
 
         response.Accounts.AddRange(accounts.Select(x => x.ToProtoValue()));

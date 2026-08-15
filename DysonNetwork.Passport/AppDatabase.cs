@@ -4,6 +4,7 @@ using System.Text.Json.Serialization;
 using DysonNetwork.Passport.Account;
 using DysonNetwork.Passport.Affiliation;
 using DysonNetwork.Passport.Models;
+using DysonNetwork.Passport.NameChangeCard;
 using DysonNetwork.Passport.Nfc;
 using DysonNetwork.Passport.Examination;
 using DysonNetwork.Passport.Ticket;
@@ -60,6 +61,7 @@ public class AppDatabase(
     public DbSet<SnAffiliationSpell> AffiliationSpells { get; set; } = null!;
     public DbSet<SnAffiliationResult> AffiliationResults { get; set; } = null!;
     public DbSet<SnAffiliationSpellPurchase> AffiliationSpellPurchases { get; set; } = null!;
+    public DbSet<SnNameChangeCardPurchase> NameChangeCardPurchases { get; set; } = null!;
     
     public DbSet<SnRewindPoint> RewindPoints { get; set; }
 
@@ -157,6 +159,8 @@ public class AppDatabase(
         modelBuilder.Entity<SnTestAnswer>().HasOne(x => x.Attempt).WithMany(x => x.Answers).HasForeignKey(x => x.AttemptId).OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<SnAffiliationSpellPurchase>().HasIndex(x => x.OrderId).IsUnique();
         modelBuilder.Entity<SnAffiliationSpellPurchase>().HasIndex(x => new { x.AccountId, x.CreatedAt });
+        modelBuilder.Entity<SnNameChangeCardPurchase>().HasIndex(x => x.OrderId).IsUnique();
+        modelBuilder.Entity<SnNameChangeCardPurchase>().HasIndex(x => new { x.AccountId, x.CreatedAt });
 
         modelBuilder.Entity<SnPresenceActivity>()
             .HasIndex(e => new { e.AccountId, e.Provider, e.DeletedAt });

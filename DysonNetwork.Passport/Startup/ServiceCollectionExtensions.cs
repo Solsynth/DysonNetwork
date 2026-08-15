@@ -14,6 +14,7 @@ using DysonNetwork.Passport.Mailer;
 using DysonNetwork.Passport.Meet;
 using DysonNetwork.Passport.Nearby;
 using DysonNetwork.Passport.Nfc;
+using DysonNetwork.Passport.NameChangeCard;
 using DysonNetwork.Passport.Progression;
 using DysonNetwork.Passport.Realm;
 using DysonNetwork.Passport.Rewind;
@@ -43,6 +44,7 @@ public static class ServiceCollectionExtensions
         services.Configure<BadgesOptions>(configuration.GetSection("Badges"));
         services.Configure<AccountActivationOptions>(configuration.GetSection("AccountActivation"));
         services.Configure<AffiliationPurchaseOptions>(configuration.GetSection("AffiliationPurchase"));
+        services.Configure<NameChangeCardOptions>(configuration.GetSection("NameChangeCard"));
 
         services.AddDbContext<AppDatabase>();
         services.AddHttpContextAccessor();
@@ -146,6 +148,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<RealmQuotaService>();
         services.AddScoped<RealmExperienceService>();
         services.AddScoped<AffiliationSpellService>();
+        services.AddScoped<NameChangeCardService>();
         services.AddScoped<ProgressionSeedService>();
         services.AddScoped<ProgressionService>();
         services.AddScoped<TestService>();
@@ -156,6 +159,9 @@ public static class ServiceCollectionExtensions
         services.AddGrpcClientWithSharedChannel<DyAccountService.DyAccountServiceClient>(
             "https://_grpc.stargate",
             "DyAccountService");
+        services.AddGrpcClientWithSharedChannel<DyPublisherService.DyPublisherServiceClient>(
+            "https://_grpc.sphere",
+            "DyPublisherService");
         services.AddGrpcClientWithSharedChannel<DyProfileService.DyProfileServiceClient>(
             "https://_grpc.passport",
             "DyProfileService");
@@ -265,6 +271,15 @@ public static class ServiceCollectionExtensions
                             JsonSerializer.Serialize(evt, InfraObjectCoder.SerializerOptions), InfraObjectCoder.SerializerOptions);
                         if (purchaseEvt?.Meta is not null)
                             await affiliationSpells.FulfillRegistrationInvitePurchase(purchaseEvt.Meta.PurchaseId, purchaseEvt.OrderId, ctx.CancellationToken);
+                        return;
+                    }
+                    if (evt.ProductIdentifier == "passport.name-change-card")
+                    {
+                        var cardService = ctx.ServiceProvider.GetRequiredService<NameChangeCardService>();
+                        var purchaseEvt = JsonSerializer.Deserialize<PaymentOrderNameChangeCardEvent>(
+                            JsonSerializer.Serialize(evt, InfraObjectCoder.SerializerOptions), InfraObjectCoder.SerializerOptions);
+                        if (purchaseEvt?.Meta is not null)
+                            await cardService.Fulfill(purchaseEvt.Meta.PurchaseId, purchaseEvt.OrderId, ctx.CancellationToken);
                         return;
                     }
                     if (evt.ProductIdentifier != "realms.boost") return;

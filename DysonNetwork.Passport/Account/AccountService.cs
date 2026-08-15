@@ -142,7 +142,7 @@ public class AccountService(
                     result.Add((id, account.Profile?.TimeZone));
                 }
             }
-            pageToken = string.IsNullOrEmpty(page.NextPageToken) ? null : page.NextPageToken;
+            pageToken = string.IsNullOrEmpty(page.NextCursor) ? null : page.NextCursor;
         } while (pageToken is not null);
         return result;
     }
@@ -194,7 +194,7 @@ public class AccountService(
                 if (lastSeenAt >= rollingWeekAgo) stats.ActiveUsersLastWeek++;
                 if (lastSeenAt >= rollingMonthAgo) stats.ActiveUsersLastMonth++;
             }
-            pageToken = string.IsNullOrEmpty(page.NextPageToken) ? null : page.NextPageToken;
+            pageToken = string.IsNullOrEmpty(page.NextCursor) ? null : page.NextCursor;
         } while (pageToken is not null);
 
         stats.CurrentDayStartedAt = currentDayStartedAt;

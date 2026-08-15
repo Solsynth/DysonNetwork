@@ -114,4 +114,33 @@ public class PublisherServiceGrpc(PublisherService service, AppDatabase db)
         var valid = await service.IsMemberWithRole(pid, aid, requiredRole);
         return new DyIsPublisherMemberResponse { Valid = valid };
     }
+
+    public override async Task<DyRenamePublisherResponse> RenamePublisher(DyRenamePublisherRequest request,
+        ServerCallContext context)
+    {
+        if (!Guid.TryParse(request.PublisherId, out var publisherId) || !Guid.TryParse(request.AccountId, out var accountId))
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "invalid publisher or account id"));
+
+        var publisher = await db.Publishers.FirstOrDefaultAsync(x => x.Id == publisherId);
+        if (publisher is null)
+            throw new RpcException(new Status(StatusCode.NotFound, "Publisher not found"));
+
+        var member = await db
+            .PublisherMembers.Where(m => m.AccountId == accountId && m.PublisherId == publisher.Id)
+            .FirstOrDefaultAsync();
+        if (member is null || member.Role < PublisherMemberRole.Manager)
+            throw new RpcException(new Status(StatusCode.PermissionDenied, "You need at least be the manager to rename the publisher."));
+
+        var newName = request.NewName.Trim();
+        if (string.IsNullOrEmpty(newName) || newName.Length > 256)
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid publisher name."));
+
+        if (!string.Equals(newName, publisher.Name, StringComparison.OrdinalIgnoreCase) &&
+            await db.Publishers.AnyAsync(p => p.Name.ToLower() == newName.ToLowerInvariant()))
+            throw new RpcException(new Status(StatusCode.AlreadyExists, "The name you requested has already been taken."));
+
+        publisher.Name = newName;
+        await db.SaveChangesAsync();
+        return new DyRenamePublisherResponse { Publisher = publisher.ToProtoValue() };
+    }
 }
