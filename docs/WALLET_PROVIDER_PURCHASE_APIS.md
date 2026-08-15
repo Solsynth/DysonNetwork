@@ -141,7 +141,7 @@ The `GoldCurrency` product is configured under:
           "sku_golds_resupply_pack": 120
         },
         "AppleStore": {
-          "golds.resupply.pack": 120
+          "golds.resupply.pack": 10
         },
         "Paddle": {
           "pri_golds_resupply_pack": 120
@@ -158,6 +158,11 @@ During restore or webhook handling:
 2. if matched, Wallet creates or reuses an internal order
 3. Wallet applies the order by depositing `golds` into the user wallet
 4. Wallet sends a notification to the user with the deposited amount and current balance
+
+Apple-specific behavior:
+
+- `ONE_TIME_CHARGE` notifications are treated as successful one-time purchases.
+- Apple consumable quantity is multiplied by the configured per-unit amount; the default Apple mapping grants 10 Golden Points per unit.
 
 ## GoldCurrency checkout routes
 

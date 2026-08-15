@@ -32,7 +32,8 @@ public class AppleStorePaymentHandler(
         "DID_RECOVER",
         "OFFER_REDEEMED",
         "RENEWAL_EXTENDED",
-        "RENEWAL_EXTENSION"
+        "RENEWAL_EXTENSION",
+        "ONE_TIME_CHARGE"
     ];
 
     private static readonly HashSet<string> KnownAppleRootFingerprints =
@@ -129,12 +130,13 @@ public class AppleStorePaymentHandler(
                 );
                 return AppleStoreWebhookResponse.Success;
             }
-
             var transaction = ParseSignedTransaction(signedTransactionInfo);
+
             _logger.LogInformation(
-                "Apple webhook transaction resolved: transactionId={TransactionId} productId={ProductId} isTesting={IsTesting}",
+                "Apple webhook transaction resolved: transactionId={TransactionId} productId={ProductId} quantity={Quantity} isTesting={IsTesting}",
                 transaction.Id,
                 transaction.SubscriptionId,
+                transaction.Quantity,
                 transaction.IsTesting
             );
             if (processTransactionAction is not null)
@@ -405,6 +407,20 @@ public sealed class AppleAppStoreTransaction : ISubscriptionOrder
 
     [JsonIgnore] public string SubscriptionId => Payload.ProductId ?? string.Empty;
 
+    [JsonIgnore]
+    public int Quantity
+    {
+        get
+        {
+            if (!Payload.Quantity.HasValue)
+                return 1;
+            if (Payload.Quantity.Value <= 0)
+                throw new InvalidOperationException("Apple transaction quantity must be greater than zero.");
+
+            return Payload.Quantity.Value;
+        }
+    }
+
     [JsonIgnore] public Instant BegunAt => Instant.FromUnixTimeMilliseconds(Payload.PurchaseDate ?? Payload.ExpiresDate ?? 0);
 
     [JsonIgnore]
@@ -484,6 +500,8 @@ public class AppleSignedTransactionPayload
     [JsonPropertyName("bundleId")] public string? BundleId { get; set; }
 
     [JsonPropertyName("productId")] public string? ProductId { get; set; }
+
+    [JsonPropertyName("quantity")] public int? Quantity { get; set; }
 
     [JsonPropertyName("subscriptionGroupIdentifier")] public string? SubscriptionGroupIdentifier { get; set; }
 

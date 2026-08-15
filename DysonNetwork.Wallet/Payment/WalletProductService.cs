@@ -64,7 +64,8 @@ public class WalletProductService(
         CancellationToken cancellationToken = default
     )
     {
-        var (product, providerReference, amount) = ResolveProductReference(providerOrder.Provider, providerOrder.SubscriptionId);
+        var (product, providerReference, baseAmount) = ResolveProductReference(providerOrder.Provider, providerOrder.SubscriptionId);
+        var amount = ResolvePurchaseAmount(providerOrder, baseAmount);
         var accountId = await ResolveAccountIdForOrderAsync(providerOrder, cancellationToken);
         var wallet = await wallets.GetAccountWalletAsync(accountId) ?? await wallets.CreateWalletAsync(accountId: accountId);
         var orderRemark = BuildExternalOrderRemark(product.Identifier, providerOrder.Provider, providerOrder.Id);
@@ -96,7 +97,8 @@ public class WalletProductService(
                 ["provider_order_id"] = providerOrder.Id,
                 ["provider_reference_id"] = providerReference,
                 ["account_id"] = accountId.ToString(),
-                ["display_name"] = product.DisplayName
+                ["display_name"] = product.DisplayName,
+                ["quantity"] = providerOrder is AppleAppStoreTransaction appleOrder ? appleOrder.Quantity : 1
             },
             reuseable: false
         );
@@ -182,6 +184,13 @@ public class WalletProductService(
 
         var defaultMapping = mappings.First();
         return (product, defaultMapping.Key, defaultMapping.Value);
+    }
+
+    private static decimal ResolvePurchaseAmount(ISubscriptionOrder providerOrder, decimal baseAmount)
+    {
+        return providerOrder is AppleAppStoreTransaction appleOrder
+            ? baseAmount * appleOrder.Quantity
+            : baseAmount;
     }
 
     private Dictionary<string, decimal> GetProviderMappings(WalletProductDefinitionOptions product, string provider)
