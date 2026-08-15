@@ -259,8 +259,14 @@ public class OrderController(
 
         public SnCustomApp? App { get; set; }
         public AppDeveloperResponse? Developer { get; set; }
+        public bool IsSystemApp { get; set; }
 
-        public static PaymentOrderResponse FromOrder(SnWalletOrder order, SnCustomApp? app, AppDeveloperResponse? developer)
+        public static PaymentOrderResponse FromOrder(
+            SnWalletOrder order,
+            SnCustomApp? app,
+            AppDeveloperResponse? developer,
+            bool isSystemApp
+        )
         {
             return new PaymentOrderResponse
             {
@@ -279,7 +285,8 @@ public class OrderController(
                 TransactionId = order.TransactionId,
                 Items = order.Items,
                 App = app,
-                Developer = developer
+                Developer = developer,
+                IsSystemApp = isSystemApp
             };
         }
 
@@ -314,7 +321,22 @@ public class OrderController(
 
         SnCustomApp? app = null;
         AppDeveloperResponse? developer = null;
-        if (!string.IsNullOrWhiteSpace(order.AppIdentifier) && Guid.TryParse(order.AppIdentifier.Replace("developer.app:", ""), out var appId))
+        var isSystemApp = false;
+        if (string.Equals(order.AppIdentifier, SnWalletOrder.InternalAppIdentifier, StringComparison.Ordinal))
+        {
+            app = new SnCustomApp
+            {
+                Id = Guid.Empty,
+                Slug = SnWalletOrder.InternalAppIdentifier,
+                Name = "Solar Network",
+                Description = "Built-in platform services",
+                Status = CustomAppStatus.Production,
+                CreatedAt = order.CreatedAt,
+                UpdatedAt = order.UpdatedAt
+            };
+            isSystemApp = true;
+        }
+        else if (!string.IsNullOrWhiteSpace(order.AppIdentifier) && Guid.TryParse(order.AppIdentifier.Replace("developer.app:", ""), out var appId))
         {
             try
             {
@@ -330,7 +352,7 @@ public class OrderController(
             }
         }
 
-        return Ok(PaymentOrderResponse.FromOrder(order, app, developer));
+        return Ok(PaymentOrderResponse.FromOrder(order, app, developer, isSystemApp));
     }
 
     public class PayOrderRequest
