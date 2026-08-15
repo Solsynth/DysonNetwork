@@ -13,7 +13,6 @@
     "walletProductAppliedTitle": "Purchase Applied",
     "walletProductAppliedBody": "{product} added {amount} {currency} to your wallet. New balance: {balance} {currency}",
     "transferRemark": "Transfer from {payer} to {payee}",
-    "transferFeeRemark": "Transfer fee of #{id}",
     "stellarProgramPerkGoldenPoints": "Stellar Program Golden Points",
     "currencyPoints": "Bits",
     "currencyGolds": "Golds"

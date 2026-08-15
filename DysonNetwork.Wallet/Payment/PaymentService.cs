@@ -745,16 +745,13 @@ public class PaymentService(
             throw new InvalidOperationException($"Payee wallet not found for account {payeeAccountId}");
         }
 
-        // Calculate transfer fee (5%)
         var truncatedAmount = TruncateToThreeDecimals(amount);
-        decimal fee = TruncateToThreeDecimals(truncatedAmount * 0.05m);
-        decimal finalCost = truncatedAmount + fee;
 
-        // Make sure the account has sufficient balanace for both fee and the transfer
+        // Make sure the account has sufficient balance for the transfer
         var (payerPocket, isNewlyCreated) =
             await wat.GetOrCreateWalletPocketAsync(payerWallet.Id, currency, amount);
 
-        if (isNewlyCreated || payerPocket.Amount < finalCost)
+        if (isNewlyCreated || payerPocket.Amount < truncatedAmount)
             throw new InvalidOperationException("Insufficient funds");
 
         var payeeAccount = await remoteAccounts.GetAccount(payeeAccountId);
@@ -773,15 +770,6 @@ public class PaymentService(
             Shared.Models.TransactionType.Transfer
         );
 
-        // Create fee transaction (to system)
-        await CreateTransactionAsync(
-            payerWallet.Id,
-            null,
-            currency,
-            fee,
-            localizer.Get("transferFeeRemark", payerAccount.Language, new { id = transaction.Id.ToString()[..8] })
-        );
-
         return transaction;
     }
 
@@ -797,13 +785,11 @@ public class PaymentService(
             throw new InvalidOperationException($"Payee wallet not found: {payeeWalletId}");
 
         var truncatedAmount = TruncateToThreeDecimals(amount);
-        decimal fee = TruncateToThreeDecimals(truncatedAmount * 0.05m);
-        decimal finalCost = truncatedAmount + fee;
 
         var (payerPocket, isNewlyCreated) =
             await wat.GetOrCreateWalletPocketAsync(payerWallet.Id, currency, amount);
 
-        if (isNewlyCreated || payerPocket.Amount < finalCost)
+        if (isNewlyCreated || payerPocket.Amount < truncatedAmount)
             throw new InvalidOperationException("Insufficient funds");
 
         var transaction = await CreateTransactionAsync(
@@ -815,15 +801,6 @@ public class PaymentService(
             Shared.Models.TransactionType.Transfer,
             freeze: freeze,
             requireConfirmation: requireConfirmation
-        );
-
-        // Fee is always instant (not frozen/confirm-required)
-        await CreateTransactionAsync(
-            payerWallet.Id,
-            null,
-            currency,
-            fee,
-            localizer.Get("transferFeeRemark", args: new { id = transaction.Id.ToString()[..8] })
         );
 
         return transaction;
