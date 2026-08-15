@@ -164,6 +164,38 @@ Apple-specific behavior:
 - `ONE_TIME_CHARGE` notifications are treated as successful one-time purchases.
 - Apple consumable quantity is multiplied by the configured per-unit amount; the default Apple mapping grants 10 Golden Points per unit.
 
+## GoldCurrency catalog
+
+Public endpoint that lists the wallet products and the amount of currency granted per purchase method:
+
+- `GET /api/wallet-products/catalog`
+
+No authentication is required.
+
+Response:
+
+```json
+{
+  "key": "golds_resupply_pack",
+  "identifier": "wallet.golds_resupply_pack",
+  "display_name": "Golds Resupply Pack",
+  "currency": "golds",
+  "provider_mappings": {
+    "Afdian": {
+      "sku_golds_resupply_pack": 120
+    },
+    "AppleStore": {
+      "GDP": 10
+    },
+    "Paddle": {
+      "pri_golds_resupply_pack": 120
+    }
+  }
+}
+```
+
+For `AppleStore` the mapped amount is the currency granted per App Store unit; the granted total is the amount multiplied by the transaction `quantity`.
+
 ## GoldCurrency checkout routes
 
 The gold currency product still has dedicated checkout routes:

@@ -38,6 +38,34 @@ public class WalletProductController(
         public decimal GoldAmount { get; set; }
     }
 
+    public class WalletProductCatalogItem
+    {
+        public string Key { get; set; } = null!;
+        public string Identifier { get; set; } = null!;
+        public string DisplayName { get; set; } = null!;
+        public string Currency { get; set; } = null!;
+        public Dictionary<string, Dictionary<string, decimal>> ProviderMappings { get; set; } = [];
+    }
+
+    [HttpGet("catalog")]
+    public ActionResult<WalletProductCatalogItem> GetCatalog()
+    {
+        var definition = walletProducts.GetGoldsResupplyPackDefinition();
+        return Ok(new WalletProductCatalogItem
+        {
+            Key = WalletProductService.GoldsResupplyPackKey,
+            Identifier = definition.Identifier,
+            DisplayName = definition.DisplayName,
+            Currency = definition.Currency,
+            ProviderMappings = definition.ProviderMappings
+                .ToDictionary(
+                    kv => kv.Key,
+                    kv => kv.Value.ToDictionary(inner => inner.Key, inner => inner.Value, StringComparer.OrdinalIgnoreCase),
+                    StringComparer.OrdinalIgnoreCase
+                )
+        });
+    }
+
     [HttpPost("golds-resupply-pack/checkout/paddle")]
     [Authorize]
     [AskPermission(PermissionKeys.OrdersCreate)]
