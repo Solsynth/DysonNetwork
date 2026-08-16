@@ -144,4 +144,7 @@ public class SubscriptionCatalogSeedDefinition
     public SubscriptionPaymentPolicy PaymentPolicy { get; set; } = new();
     public SubscriptionGiftPolicy? GiftPolicy { get; set; }
     public Dictionary<string, List<string>> ProviderMappings { get; set; } = new();
+
+    /// <summary>Set = app-owned product (webhook purchases route to the app-product branch); null = platform subscription.</summary>
+    public string? AppIdentifier { get; set; }
 }

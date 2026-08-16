@@ -28,6 +28,7 @@ public class SubscriptionController(
     AppleStorePaymentHandler appleStore,
     PaddlePaymentHandler paddle,
     AppDatabase db,
+    AppProductService appProducts,
     RemoteActionLogService als
 )
     : ControllerBase
@@ -513,11 +514,17 @@ public class SubscriptionController(
     public class RestoreApplePurchaseRequest
     {
         [Required] public string SignedTransactionInfo { get; set; } = null!;
+
+        /// <summary>Target workspace for app-owned products (workspace plans / quota addons).</summary>
+        public Guid? WorkspaceId { get; set; }
     }
 
     public class CreatePaddleCheckoutRequest
     {
         public string? ProviderReferenceId { get; set; }
+
+        /// <summary>Target workspace for app-owned products (workspace plans / quota addons).</summary>
+        public Guid? WorkspaceId { get; set; }
     }
 
     public class PaddleCheckoutResponse
@@ -590,7 +597,11 @@ public class SubscriptionController(
 
         try
         {
-            return Ok(await ApplyRestoredProviderOrderAsync(transaction));
+            var extraMeta = request.WorkspaceId is { } wid
+                ? new Dictionary<string, object> { ["workspace_id"] = wid.ToString() }
+                : null;
+
+            return Ok(await ApplyRestoredProviderOrderAsync(transaction, extraMeta));
         }
         catch (InvalidOperationException ex)
         {
@@ -618,15 +629,19 @@ public class SubscriptionController(
                 HttpContext.RequestAborted
             );
 
+            var customData = new Dictionary<string, object>
+            {
+                ["account_id"] = currentUser.Id,
+                ["subscription_identifier"] = definition.Identifier,
+                ["price_id"] = providerReference,
+                ["group_identifier"] = definition.GroupIdentifier ?? string.Empty
+            };
+            if (request?.WorkspaceId is { } workspaceId)
+                customData["workspace_id"] = workspaceId.ToString();
+
             var session = await paddle.CreateCheckoutAsync(
                 providerReference,
-                new Dictionary<string, object>
-                {
-                    ["account_id"] = currentUser.Id,
-                    ["subscription_identifier"] = definition.Identifier,
-                    ["price_id"] = providerReference,
-                    ["group_identifier"] = definition.GroupIdentifier ?? string.Empty
-                },
+                customData,
                 HttpContext.RequestAborted
             );
 
@@ -720,10 +735,16 @@ public class SubscriptionController(
         return response.IsSuccess ? Ok() : Unauthorized();
     }
 
-    private async Task<object> ApplyRestoredProviderOrderAsync(ISubscriptionOrder order)
+    private async Task<object> ApplyRestoredProviderOrderAsync(
+        ISubscriptionOrder order,
+        Dictionary<string, object>? extraMeta = null
+    )
     {
         if (walletProducts.IsGoldCurrencyPurchase(order))
             return await walletProducts.CreateOrApplyGoldsResupplyPackPurchaseAsync(order, HttpContext.RequestAborted);
+
+        if (await appProducts.IsAppProductOrderAsync(order, HttpContext.RequestAborted))
+            return await appProducts.ApplyAppProductOrderAsync(order, extraMeta, HttpContext.RequestAborted);
 
         return await subscriptions.CreateSubscriptionFromOrder(order);
     }

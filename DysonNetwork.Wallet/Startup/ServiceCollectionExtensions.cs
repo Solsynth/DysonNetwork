@@ -106,6 +106,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<SubscriptionCatalogService>();
         services.AddScoped<SubscriptionService>();
         services.AddScoped<WalletProductService>();
+        services.AddScoped<AppProductService>();
         services.AddScoped<AfdianPaymentHandler>();
         services.AddScoped<AppleStorePaymentHandler>();
         services.AddScoped<PaddlePaymentHandler>();

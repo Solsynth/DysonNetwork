@@ -131,7 +131,8 @@ public class SubscriptionCatalogService(
             DisplayConfig = definition.DisplayConfig?.Clone(),
             PaymentPolicy = ClonePaymentPolicy(definition.PaymentPolicy),
             GiftPolicy = definition.GiftPolicy is null ? null : definition.GiftPolicy.Clone(),
-            ProviderMappings = CloneProviderMappings(definition.ProviderMappings)
+            ProviderMappings = CloneProviderMappings(definition.ProviderMappings),
+            AppIdentifier = string.IsNullOrWhiteSpace(definition.AppIdentifier) ? null : definition.AppIdentifier
         };
     }
 
@@ -174,6 +175,9 @@ public class SubscriptionCatalogService(
             existingDefinition.ProviderMappings = CloneProviderMappings(definition.ProviderMappings);
             changed = true;
         }
+
+        var appIdentifier = string.IsNullOrWhiteSpace(definition.AppIdentifier) ? null : definition.AppIdentifier;
+        changed |= SetIfDifferent(existingDefinition.AppIdentifier, appIdentifier, value => existingDefinition.AppIdentifier = value);
 
         return changed;
     }
