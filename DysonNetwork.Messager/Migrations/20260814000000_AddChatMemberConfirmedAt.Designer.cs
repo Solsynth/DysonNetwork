@@ -5,6 +5,7 @@ using DysonNetwork.Messager;
 using DysonNetwork.Shared.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using NodaTime;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -14,9 +15,10 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace DysonNetwork.Messager.Migrations
 {
     [DbContext(typeof(AppDatabase))]
-    partial class AppDatabaseModelSnapshot : ModelSnapshot
+    [Migration("20260814000000_AddChatMemberConfirmedAt")]
+    partial class AddChatMemberConfirmedAt
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -587,10 +589,6 @@ namespace DysonNetwork.Messager.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("realm_id");
 
-                    b.Property<string>("Slug")
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)")
-                        .HasColumnName("slug");
 
                     b.Property<int>("Type")
                         .HasColumnType("integer")
@@ -603,15 +601,7 @@ namespace DysonNetwork.Messager.Migrations
                     b.HasKey("Id")
                         .HasName("pk_chat_rooms");
 
-                    b.HasIndex("AccountId", "Slug")
-                        .IsUnique()
-                        .HasDatabaseName("ix_chat_rooms_account_id_slug")
-                        .HasFilter("realm_id IS NULL AND slug IS NOT NULL");
 
-                    b.HasIndex("RealmId", "Slug")
-                        .IsUnique()
-                        .HasDatabaseName("ix_chat_rooms_realm_id_slug")
-                        .HasFilter("realm_id IS NOT NULL AND slug IS NOT NULL");
 
                     b.ToTable("chat_rooms", (string)null);
                 });

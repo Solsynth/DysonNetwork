@@ -5,7 +5,6 @@ using NodaTime;
 
 namespace DysonNetwork.Messager.Migrations;
 
-[Migration("20260814000000_AddChatMemberConfirmedAt")]
 public partial class AddChatMemberConfirmedAt : Migration
 {
     protected override void Up(MigrationBuilder migrationBuilder)

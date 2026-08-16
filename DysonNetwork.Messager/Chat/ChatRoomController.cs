@@ -12,6 +12,7 @@ using DysonNetwork.Shared.Registry;
 using Grpc.Core;
 using Microsoft.AspNetCore.Authorization;
 using NodaTime;
+using System.Text.RegularExpressions;
 using DysonNetwork.Shared.Models;
 
 namespace DysonNetwork.Messager.Chat;
@@ -123,6 +124,18 @@ public class ChatRoomController(
 
         if (HttpContext.Items["CurrentUser"] is DyAccount currentUser)
             chatRoom = await crs.LoadDirectMessageMembers(chatRoom, Guid.Parse(currentUser.Id));
+
+        return Ok(chatRoom);
+    }
+
+    [HttpGet("by-slug/{scope}/{chatSlug}")]
+    public async Task<ActionResult<SnChatRoom>> GetChatRoomBySlug(string scope, string chatSlug)
+    {
+        var chatRoom = await crs.FindChatRoomBySlug(scope, chatSlug);
+        if (chatRoom is null) return NotFound();
+
+        if (chatRoom.RealmId != null)
+            chatRoom.Realm = await rs.GetRealm(chatRoom.RealmId.Value.ToString());
 
         return Ok(chatRoom);
     }
@@ -648,6 +661,7 @@ public class ChatRoomController(
     {
         [Required][MaxLength(1024)] public string? Name { get; set; }
         [MaxLength(4096)] public string? Description { get; set; }
+        [MaxLength(128)] public string? Slug { get; set; }
         [MaxLength(32)] public string? PictureId { get; set; }
         [MaxLength(32)] public string? BackgroundId { get; set; }
         public Guid? RealmId { get; set; }
@@ -656,6 +670,13 @@ public class ChatRoomController(
         public ChatRoomEncryptionMode? EncryptionMode { get; set; }
         public Dictionary<string, object>? E2eePolicy { get; set; }
     }
+
+    private static readonly Regex ChatRoomSlugRegex = new(
+        @"^[a-z0-9](?:[a-z0-9\-_\.]*[a-z0-9])?$",
+        RegexOptions.Compiled);
+
+    private static string? NormalizeChatRoomSlug(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim().ToLowerInvariant();
 
     private static bool IsEncryptionModeValidForRoomType(ChatRoomType roomType, ChatRoomEncryptionMode mode)
     {
@@ -726,6 +747,16 @@ public class ChatRoomController(
                     [RealmMemberRole.Moderator]))
                 return StatusCode(403, ApiError.Unauthorized("You need at least be a moderator to create chat linked to the realm.", forbidden: true));
             chatRoom.RealmId = request.RealmId;
+        }
+
+        var normalizedSlug = NormalizeChatRoomSlug(request.Slug);
+        if (normalizedSlug is not null)
+        {
+            if (!ChatRoomSlugRegex.IsMatch(normalizedSlug))
+                return BadRequest(new ApiError { Code = "CHAT_ROOM_SLUG_INVALID", Message = "Slug must be URL-safe (lowercase alphanumeric, hyphens, underscores, or periods) and cannot start or end with special characters.", Status = 400 });
+            if (!await crs.IsChatRoomSlugAvailable(normalizedSlug, accountId, chatRoom.RealmId))
+                return Conflict(ApiError.Conflict("A chat room with this slug already exists in this scope.", code: "CHAT_ROOM_SLUG_EXISTS"));
+            chatRoom.Slug = normalizedSlug;
         }
 
         if (request.PictureId is not null)
@@ -810,6 +841,7 @@ public class ChatRoomController(
         var previousIsCommunity = chatRoom.IsCommunity;
         var previousIsPublic = chatRoom.IsPublic;
         var previousRealmId = chatRoom.RealmId;
+        var previousSlug = chatRoom.Slug;
         var previousPictureId = chatRoom.Picture?.Id;
         var previousBackgroundId = chatRoom.Background?.Id;
 
@@ -864,6 +896,20 @@ public class ChatRoomController(
         if (request.E2eePolicy is not null)
             chatRoom.E2eePolicy = request.E2eePolicy;
 
+        var normalizedSlug = NormalizeChatRoomSlug(request.Slug);
+        if (request.Slug is not null)
+        {
+            if (chatRoom.Type != ChatRoomType.Group)
+                return BadRequest(new ApiError { Code = "CHAT_ROOM_SLUG_INVALID", Message = "Only group chat rooms can have a shareable slug.", Status = 400 });
+            if (normalizedSlug is null)
+                return BadRequest(new ApiError { Code = "CHAT_ROOM_SLUG_INVALID", Message = "Chat room slug cannot be empty.", Status = 400 });
+            if (!ChatRoomSlugRegex.IsMatch(normalizedSlug))
+                return BadRequest(new ApiError { Code = "CHAT_ROOM_SLUG_INVALID", Message = "Slug must be URL-safe (lowercase alphanumeric, hyphens, underscores, or periods) and cannot start or end with special characters.", Status = 400 });
+            if (!await crs.IsChatRoomSlugAvailable(normalizedSlug, accountId, chatRoom.RealmId, excludeRoomId: chatRoom.Id))
+                return Conflict(ApiError.Conflict("A chat room with this slug already exists in this scope.", code: "CHAT_ROOM_SLUG_EXISTS"));
+            chatRoom.Slug = normalizedSlug;
+        }
+
         if (!IsEncryptionModeValidForRoomType(chatRoom.Type, chatRoom.EncryptionMode))
             return Conflict(ApiError.Conflict("Invalid encryption mode for this room type.", code: "CHAT_E2EE_MODE_INVALID_FOR_ROOM"));
 
@@ -900,6 +946,12 @@ public class ChatRoomController(
             {
                 ["old"] = previousRealmId?.ToString(),
                 ["new"] = chatRoom.RealmId?.ToString()
+            };
+        if (previousSlug != chatRoom.Slug)
+            changes["slug"] = new Dictionary<string, object?>
+            {
+                ["old"] = previousSlug,
+                ["new"] = chatRoom.Slug
             };
         if (previousPictureId != chatRoom.Picture?.Id)
             changes["picture_id"] = new Dictionary<string, object?>

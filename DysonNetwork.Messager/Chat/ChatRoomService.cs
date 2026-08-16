@@ -1,6 +1,7 @@
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Registry;
+using Grpc.Core;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 
@@ -204,6 +205,55 @@ public class ChatRoomService(
         return await db.ChatMembers
             .Where(m => m.ChatRoomId == roomId && m.AccountId == accountId && m.JoinedAt != null && m.LeaveAt == null)
             .AnyAsync();
+    }
+
+    /// <summary>
+    /// A slug is unique per realm for realm rooms, per owner account for non-realm rooms.
+    /// </summary>
+    public async Task<bool> IsChatRoomSlugAvailable(string slug, Guid ownerAccountId, Guid? realmId, Guid? excludeRoomId = null)
+    {
+        var query = db.ChatRooms.Where(r => r.Slug == slug);
+        if (realmId.HasValue)
+            query = query.Where(r => r.RealmId == realmId.Value);
+        else
+            query = query.Where(r => r.AccountId == ownerAccountId && r.RealmId == null);
+        if (excludeRoomId.HasValue)
+            query = query.Where(r => r.Id != excludeRoomId.Value);
+        return !await query.AnyAsync();
+    }
+
+    /// <summary>
+    /// Resolves "&lt;account name|realm slug&gt;/&lt;chat slug&gt;". Account scope is tried first,
+    /// then realm scope.
+    /// </summary>
+    public async Task<SnChatRoom?> FindChatRoomBySlug(string scope, string chatSlug)
+    {
+        var normalizedChatSlug = chatSlug.Trim().ToLowerInvariant();
+
+        var account = await remoteAccounts.TryGetAccountByName(scope);
+        if (account is not null)
+        {
+            var accountRoom = await db.ChatRooms
+                .Where(r => r.AccountId == Guid.Parse(account.Id) && r.RealmId == null && r.Slug == normalizedChatSlug)
+                .FirstOrDefaultAsync();
+            if (accountRoom is not null)
+                return accountRoom;
+        }
+
+        try
+        {
+            var realm = await remoteRealms.GetRealmBySlug(scope);
+            var realmRoom = await db.ChatRooms
+                .Where(r => r.RealmId == realm.Id && r.Slug == normalizedChatSlug)
+                .FirstOrDefaultAsync();
+            if (realmRoom is not null)
+                return realmRoom;
+        }
+        catch (RpcException ex) when (ex.StatusCode == StatusCode.NotFound)
+        {
+        }
+
+        return null;
     }
 
     public async Task<SnChatMember> LoadMemberAccount(SnChatMember member)

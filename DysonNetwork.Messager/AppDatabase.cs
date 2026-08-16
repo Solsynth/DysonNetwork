@@ -131,6 +131,16 @@ public class AppDatabase(
             .HasForeignKey(m => m.ChatGroupId)
             .OnDelete(DeleteBehavior.SetNull);
 
+        // Chat room slugs are unique per realm for realm rooms, per owner account otherwise
+        modelBuilder.Entity<SnChatRoom>()
+            .HasIndex(r => new { r.RealmId, r.Slug })
+            .IsUnique()
+            .HasFilter("realm_id IS NOT NULL AND slug IS NOT NULL");
+        modelBuilder.Entity<SnChatRoom>()
+            .HasIndex(r => new { r.AccountId, r.Slug })
+            .IsUnique()
+            .HasFilter("realm_id IS NULL AND slug IS NOT NULL");
+
         modelBuilder.ApplySoftDeleteFilters();
     }
 
