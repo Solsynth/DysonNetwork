@@ -373,8 +373,77 @@ public class SubscriptionService(
         );
     }
 
+    public async Task NotifyProviderOrderProcessedAsync(
+        ISubscriptionOrder order,
+        SnWalletInboundOrder inboundOrder,
+        CancellationToken cancellationToken = default
+    )
+    {
+        if (inboundOrder.NotificationSentAt.HasValue)
+            return;
+
+        var account = await ResolveAccountForOrderAsync(order);
+        if (account is null)
+        {
+            logger.LogWarning(
+                "Cannot notify provider order {Provider}/{ExternalId}: account {AccountId} could not be resolved.",
+                inboundOrder.Provider,
+                inboundOrder.ExternalId,
+                order.AccountId
+            );
+            return;
+        }
+
+        var product = string.IsNullOrWhiteSpace(order.SubscriptionId)
+            ? inboundOrder.ProductIdentifier ?? inboundOrder.Provider
+            : order.SubscriptionId;
+        var locale = account.Language;
+        var titleKey = order.IsTesting
+            ? "providerOrderSandboxTitle"
+            : "providerOrderProcessedTitle";
+        var bodyKey = order.IsTesting
+            ? "providerOrderSandboxBody"
+            : "providerOrderProcessedBody";
+
+        await pusher.SendPushNotificationToUserAsync(
+            new DySendPushNotificationToUserRequest
+            {
+                UserId = account.Id.ToString(),
+                Notification = new DyPushNotification
+                {
+                    Topic = "subscriptions.orders",
+                    Title = localizer.Get(titleKey, locale: locale),
+                    Body = localizer.Get(
+                        bodyKey,
+                        locale: locale,
+                        args: new { product }
+                    ),
+                    IsSavable = true
+                }
+            }
+        );
+
+        inboundOrder.NotificationSentAt = SystemClock.Instance.GetCurrentInstant();
+        await db.SaveChangesAsync(cancellationToken);
+    }
+
     private async Task<SnAccount?> ResolveAccountForOrderAsync(ISubscriptionOrder order)
     {
+        if (order is AfdianWebhookAfdianOrderDetails afdianOrder &&
+            Guid.TryParse(afdianOrder.CustomOrderId, out var customAccountId))
+        {
+            try
+            {
+                var accountProto = await accountGrpc.GetAccountAsync(
+                    new DyGetAccountRequest { Id = customAccountId.ToString() }
+                );
+                return accountProto is null ? null : SnAccount.FromProtoValue(accountProto);
+            }
+            catch (RpcException ex) when (ex.StatusCode is StatusCode.NotFound or StatusCode.InvalidArgument)
+            {
+                return null;
+            }
+        }
         if (!string.IsNullOrWhiteSpace(order.Provider))
         {
             try

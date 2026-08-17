@@ -542,6 +542,10 @@ namespace DysonNetwork.Wallet.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("is_testing");
 
+                    b.Property<Instant?>("NotificationSentAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("notification_sent_at");
+
                     b.Property<string>("ProductIdentifier")
                         .HasMaxLength(4096)
                         .HasColumnType("character varying(4096)")

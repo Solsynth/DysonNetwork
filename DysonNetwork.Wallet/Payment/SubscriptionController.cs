@@ -785,22 +785,35 @@ public class SubscriptionController(
     {
         var inboundOrder = await payment.CreateInboundOrderAsync(order, HttpContext.RequestAborted);
 
+        object result;
         if (walletProducts.IsGoldCurrencyPurchase(order))
-            return await walletProducts.CreateOrApplyGoldsResupplyPackPurchaseAsync(
+        {
+            result = await walletProducts.CreateOrApplyGoldsResupplyPackPurchaseAsync(
                 order,
                 inboundOrder,
                 HttpContext.RequestAborted
             );
-
-        if (await appProducts.IsAppProductOrderAsync(order, HttpContext.RequestAborted))
-            return await appProducts.ApplyAppProductOrderAsync(
+        }
+        else if (await appProducts.IsAppProductOrderAsync(order, HttpContext.RequestAborted))
+        {
+            result = await appProducts.ApplyAppProductOrderAsync(
                 order,
                 inboundOrder,
                 extraMeta,
                 HttpContext.RequestAborted
             );
+        }
+        else
+        {
+            result = await subscriptions.CreateSubscriptionFromOrder(order, inboundOrder);
+        }
 
-        return await subscriptions.CreateSubscriptionFromOrder(order, inboundOrder);
+        await subscriptions.NotifyProviderOrderProcessedAsync(
+            order,
+            inboundOrder,
+            HttpContext.RequestAborted
+        );
+        return result;
     }
 
     private async Task ApplyProviderOrderAsync(ISubscriptionOrder order)
