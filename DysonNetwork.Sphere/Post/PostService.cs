@@ -85,6 +85,8 @@ public partial class PostService(
             "cry" => "😭",
             "hello" => "👋",
             "shock" => "😱",
+            "speechless" => "😶",
+            "salute" => "🫡",
             "confuse" => "😕",
             "angry" => "😡",
             _ => null,

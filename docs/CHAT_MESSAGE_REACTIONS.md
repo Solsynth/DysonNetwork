@@ -20,6 +20,8 @@ The following reaction symbols are available by default:
 | `confuse` | Confused face |
 | `hello` | Waving hand |
 | `shock` | Shocked face |
+| `speechless` | Speechless face |
+| `salute` | Saluting face |
 | `clap` | Clapping hands |
 | `laugh` | Laughing face |
 | `angry` | Angry face |

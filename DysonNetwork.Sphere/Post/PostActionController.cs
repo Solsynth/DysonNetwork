@@ -761,6 +761,8 @@ public class PostActionController(
         "confuse",
         "hello",
         "shock",
+        "speechless",
+        "salute",
         "ridicule",
         "clap",
         "laugh",

@@ -1292,6 +1292,8 @@ public partial class ChatController(
         "confuse",
         "hello",
         "shock",
+        "speechless",
+        "salute",
         "ridicule",
         "clap",
         "laugh",

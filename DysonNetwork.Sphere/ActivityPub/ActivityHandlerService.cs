@@ -912,6 +912,8 @@ public class ActivityHandlerService(
             "🙏" or "🤗" => ("pray", PostReactionAttitude.Positive),
             "👋" => ("hello", PostReactionAttitude.Neutral),
             "😱" => ("shock", PostReactionAttitude.Neutral),
+            "😶" => ("speechless", PostReactionAttitude.Neutral),
+            "🫡" => ("salute", PostReactionAttitude.Positive),
             "😕" => ("confuse", PostReactionAttitude.Neutral),
             "😡" => ("angry", PostReactionAttitude.Negative),
             _ => ("heart", PostReactionAttitude.Positive)
