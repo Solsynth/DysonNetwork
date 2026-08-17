@@ -19,6 +19,12 @@ using NodaTime;
 
 namespace DysonNetwork.Messager.Chat;
 
+public sealed class ChatUnreadSummary
+{
+    public int UnreadCount { get; init; }
+    public bool HasUnread { get; init; }
+}
+
 public partial class ChatService(
     AppDatabase db,
     ChatRoomService crs,
@@ -1853,9 +1859,9 @@ public partial class ChatService(
                 && m.JoinedAt != null
                 && m.LeaveAt == null
             )
-            .Select(m => new { m.Id, m.LastReadAt })
+            .Select(m => new { m.Id, m.LastReadAt, m.Notify })
             .FirstOrDefaultAsync();
-        if (member is null)
+        if (member is null || member.Notify == ChatMemberNotify.None)
             return 0;
 
         var query = db
@@ -1864,41 +1870,69 @@ public partial class ChatService(
 
         if (member.LastReadAt is not null)
             query = query.Where(m => m.CreatedAt > member.LastReadAt.Value);
+        if (member.Notify == ChatMemberNotify.Mentions)
+            query = query.Where(m => m.MembersMentioned != null && m.MembersMentioned.Contains(userId));
 
         return await query.CountAsync();
     }
 
-    public async Task<Dictionary<Guid, int>> CountUnreadMessageForUser(Guid userId)
+    public async Task<Dictionary<Guid, ChatUnreadSummary>> CountUnreadMessageForUser(
+        Guid userId,
+        IReadOnlyCollection<Guid>? roomIds = null)
     {
-        var members = await db
-            .ChatMembers.Where(m => m.LeaveAt == null && m.JoinedAt != null)
-            .Where(m => m.AccountId == userId)
-            .Select(m => new
-            {
-                m.Id,
-                m.ChatRoomId,
-                m.LastReadAt,
-            })
+        var memberQuery = db.ChatMembers
+            .Where(m =>
+                m.AccountId == userId
+                && m.LeaveAt == null
+                && m.JoinedAt != null
+            );
+        if (roomIds is not null)
+        {
+            var selectedRoomIds = roomIds.ToList();
+            memberQuery = memberQuery.Where(m => selectedRoomIds.Contains(m.ChatRoomId));
+        }
+
+        var members = await memberQuery
+            .Select(m => new { m.ChatRoomId })
             .ToListAsync();
         if (members.Count == 0)
-            return new Dictionary<Guid, int>();
+            return new Dictionary<Guid, ChatUnreadSummary>();
 
-        var counts = await (
-            from member in db.ChatMembers
+        var unreadMessagesQuery =
+            from member in memberQuery
             join msg in db.ChatMessages on member.ChatRoomId equals msg.ChatRoomId
             where
-                member.AccountId == userId
-                && member.LeaveAt == null
-                && member.JoinedAt != null
-                && msg.SenderId != member.Id
+                msg.SenderId != member.Id
                 && (member.LastReadAt == null || msg.CreatedAt > member.LastReadAt)
-            group msg by member.ChatRoomId into grouped
-            select new { grouped.Key, Count = grouped.Count() }
-        ).ToDictionaryAsync(x => x.Key, x => x.Count);
+            select new { member.ChatRoomId, member.Notify, Message = msg };
 
-        var result = new Dictionary<Guid, int>(members.Count);
+        var hasUnread = await unreadMessagesQuery
+            .GroupBy(m => m.ChatRoomId)
+            .Select(group => new { RoomId = group.Key, Count = group.Count() })
+            .ToDictionaryAsync(x => x.RoomId, x => x.Count > 0);
+
+        var unreadCounts = await unreadMessagesQuery
+            .Where(m =>
+                m.Notify == ChatMemberNotify.All
+                || (
+                    m.Notify == ChatMemberNotify.Mentions
+                    && m.Message.MembersMentioned != null
+                    && m.Message.MembersMentioned.Contains(userId)
+                )
+            )
+            .GroupBy(m => m.ChatRoomId)
+            .Select(group => new { RoomId = group.Key, Count = group.Count() })
+            .ToDictionaryAsync(x => x.RoomId, x => x.Count);
+
+        var result = new Dictionary<Guid, ChatUnreadSummary>(members.Count);
         foreach (var member in members)
-            result[member.ChatRoomId] = counts.GetValueOrDefault(member.ChatRoomId, 0);
+        {
+            result[member.ChatRoomId] = new ChatUnreadSummary
+            {
+                UnreadCount = unreadCounts.GetValueOrDefault(member.ChatRoomId, 0),
+                HasUnread = hasUnread.GetValueOrDefault(member.ChatRoomId)
+            };
+        }
 
         return result;
     }

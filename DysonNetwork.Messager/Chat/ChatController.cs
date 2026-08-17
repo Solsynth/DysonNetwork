@@ -197,6 +197,7 @@ public partial class ChatController(
     public class ChatSummaryResponse
     {
         public int UnreadCount { get; set; }
+        public bool HasUnread { get; set; }
         public SnChatMessage? LastMessage { get; set; }
     }
 
@@ -242,7 +243,8 @@ public partial class ChatController(
                 roomId => roomId,
                 roomId => new ChatSummaryResponse
                 {
-                    UnreadCount = unreadMessages.GetValueOrDefault(roomId),
+                    UnreadCount = unreadMessages.GetValueOrDefault(roomId)?.UnreadCount ?? 0,
+                    HasUnread = unreadMessages.GetValueOrDefault(roomId)?.HasUnread ?? false,
                     LastMessage = lastMessages.GetValueOrDefault(roomId)
                 }
             );
@@ -259,7 +261,7 @@ public partial class ChatController(
         var accountId = Guid.Parse(currentUser.Id);
         var unreadMessages = await cs.CountUnreadMessageForUser(accountId);
 
-        var totalUnreadCount = unreadMessages.Values.Sum();
+        var totalUnreadCount = unreadMessages.Values.Sum(summary => summary.UnreadCount);
 
         return Ok(totalUnreadCount);
     }

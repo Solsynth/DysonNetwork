@@ -71,6 +71,7 @@ public class ChatRoomController(
     {
         public Guid RoomId { get; set; }
         public int UnreadCount { get; set; }
+        public bool HasUnread { get; set; }
         public SnChatMessage? LastMessage { get; set; }
         public Instant ChangedAt { get; set; }
     }
@@ -288,23 +289,10 @@ public class ChatRoomController(
         var summaryMembers = await db.ChatMembers
             .Where(m => summaryRoomIds.Contains(m.ChatRoomId))
             .Where(m => m.AccountId == accountId && m.JoinedAt != null && m.LeaveAt == null)
-            .Select(m => new { m.Id, m.ChatRoomId, m.LastReadAt })
+            .Select(m => new { m.ChatRoomId })
             .ToListAsync();
         var summaryMemberRoomIds = summaryMembers.Select(m => m.ChatRoomId).ToList();
-
-        var unreadCounts = await (
-            from member in db.ChatMembers
-            join msg in db.ChatMessages on member.ChatRoomId equals msg.ChatRoomId
-            where
-                summaryMemberRoomIds.Contains(member.ChatRoomId)
-                && member.AccountId == accountId
-                && member.LeaveAt == null
-                && member.JoinedAt != null
-                && msg.SenderId != member.Id
-                && (member.LastReadAt == null || msg.CreatedAt > member.LastReadAt)
-            group msg by member.ChatRoomId into grouped
-            select new { RoomId = grouped.Key, Count = grouped.Count() }
-        ).ToDictionaryAsync(x => x.RoomId, x => x.Count);
+        var unreadSummaries = await cs.CountUnreadMessageForUser(accountId, summaryMemberRoomIds);
 
         var lastMessages = await db.ChatMessages
             .IgnoreQueryFilters()
@@ -330,7 +318,8 @@ public class ChatRoomController(
             .Select(m => new ChatRoomSummarySyncChange
             {
                 RoomId = m.ChatRoomId,
-                UnreadCount = unreadCounts.GetValueOrDefault(m.ChatRoomId),
+                UnreadCount = unreadSummaries.GetValueOrDefault(m.ChatRoomId)?.UnreadCount ?? 0,
+                HasUnread = unreadSummaries.GetValueOrDefault(m.ChatRoomId)?.HasUnread ?? false,
                 LastMessage = lastMessageMap.GetValueOrDefault(m.ChatRoomId),
                 ChangedAt = summaryChangedAt[m.ChatRoomId]
             })
