@@ -85,7 +85,6 @@ public partial class PostService(
             "cry" => "😭",
             "confuse" => "😕",
             "angry" => "😡",
-            "just_okay" => "😐",
             _ => null,
         };
 

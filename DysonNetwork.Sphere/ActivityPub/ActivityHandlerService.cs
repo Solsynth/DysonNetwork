@@ -912,7 +912,6 @@ public class ActivityHandlerService(
             "🙏" or "🤗" => ("pray", PostReactionAttitude.Positive),
             "😕" => ("confuse", PostReactionAttitude.Neutral),
             "😡" => ("angry", PostReactionAttitude.Negative),
-            "😐" => ("just_okay", PostReactionAttitude.Neutral),
             _ => ("heart", PostReactionAttitude.Positive)
         };
     }

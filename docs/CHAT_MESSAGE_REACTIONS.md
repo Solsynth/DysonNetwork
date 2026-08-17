@@ -16,7 +16,6 @@ The following reaction symbols are available by default:
 |--------|-------------|
 | `thumb_up` | Thumbs up |
 | `thumb_down` | Thumbs down |
-| `just_okay` | Just okay |
 | `cry` | Crying face |
 | `confuse` | Confused face |
 | `clap` | Clapping hands |
@@ -24,6 +23,7 @@ The following reaction symbols are available by default:
 | `angry` | Angry face |
 | `party` | Party/celebration |
 | `pray` | Praying hands |
+| `ridicule` | Ridicule |
 | `heart` | Heart/like |
 
 Custom reaction symbols require an active subscription.

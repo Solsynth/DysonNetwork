@@ -1288,9 +1288,9 @@ public partial class ChatController(
     [
         "thumb_up",
         "thumb_down",
-        "just_okay",
         "cry",
         "confuse",
+        "ridicule",
         "clap",
         "laugh",
         "angry",
