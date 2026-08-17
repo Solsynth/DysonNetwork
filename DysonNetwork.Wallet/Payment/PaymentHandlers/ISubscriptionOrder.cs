@@ -16,5 +16,7 @@ public interface ISubscriptionOrder
 
     public string AccountId { get; }
 
+    public string? CorrelationId { get; }
+
     public bool IsTesting { get; }
 }

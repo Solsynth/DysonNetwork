@@ -41,6 +41,7 @@ public class AppProductService(
     /// </summary>
     public async Task<SnWalletOrder> ApplyAppProductOrderAsync(
         ISubscriptionOrder order,
+        SnWalletInboundOrder inboundOrder,
         Dictionary<string, object>? extraMeta = null,
         CancellationToken ct = default
     )
@@ -57,7 +58,7 @@ public class AppProductService(
             );
 
         var accountId = await ResolveAccountIdForOrderAsync(order, ct);
-        var workspaceId = await ResolveWorkspaceIdAsync(order, definition, extraMeta, ct);
+        var workspaceId = await ResolveWorkspaceIdAsync(order, inboundOrder, definition, extraMeta, ct);
         if (workspaceId is null)
             throw new InvalidOperationException("App product order is missing a workspace_id; cannot apply.");
 
@@ -66,14 +67,13 @@ public class AppProductService(
 
         var quantity = order is AppleAppStoreTransaction appleOrder ? appleOrder.Quantity : 1;
         var amount = definition.BasePrice * quantity;
-        var remarks = $"app-product:{definition.Identifier}:{order.Provider}:{order.Id}";
+        var remarks = $"app-product:{definition.Identifier}";
 
-        // Idempotency: this provider order was already applied.
         var existing = await db.PaymentOrders
             .FirstOrDefaultAsync(
-                o => o.AppIdentifier == definition.AppIdentifier &&
-                     o.ProductIdentifier == definition.Identifier &&
-                     o.Remarks == remarks,
+                o => o.InboundOrderId == inboundOrder.Id &&
+                     o.AppIdentifier == definition.AppIdentifier &&
+                     o.ProductIdentifier == definition.Identifier,
                 ct);
         if (existing is not null)
             return existing;
@@ -82,17 +82,11 @@ public class AppProductService(
         var meta = new Dictionary<string, object>
         {
             ["app_product"] = definition.Identifier,
-            ["provider"] = order.Provider,
-            ["provider_order_id"] = order.Id,
-            ["provider_reference_id"] = order.SubscriptionId,
             ["account_id"] = accountId.ToString(),
-            ["workspace_id"] = workspaceId.ToString(),
+            ["workspace_id"] = workspaceId.Value.ToString(),
             ["quantity"] = quantity,
-            ["duration_days"] = durationDays
+            ["duration_days"] = durationDays ?? 0
         };
-
-        if (order is AppleAppStoreTransaction apple && !string.IsNullOrWhiteSpace(apple.Payload.OriginalTransactionId))
-            meta["original_transaction_id"] = apple.Payload.OriginalTransactionId;
 
         var created = await payment.CreateOrderAsync(
             wallet.Id,
@@ -102,7 +96,8 @@ public class AppProductService(
             productIdentifier: definition.Identifier,
             remarks: remarks,
             meta: meta,
-            reuseable: false
+            reuseable: false,
+            inboundOrderId: inboundOrder.Id
         );
 
         created.Status = OrderStatus.Paid;
@@ -175,6 +170,7 @@ public class AppProductService(
     /// </summary>
     private async Task<Guid?> ResolveWorkspaceIdAsync(
         ISubscriptionOrder order,
+        SnWalletInboundOrder inboundOrder,
         SnWalletSubscriptionDefinition definition,
         Dictionary<string, object>? extraMeta,
         CancellationToken ct
@@ -191,24 +187,39 @@ public class AppProductService(
             Guid.TryParse(paddleWs.ToString(), out var paddleWorkspaceId))
             return paddleWorkspaceId;
 
-        if (order is AppleAppStoreTransaction apple && !string.IsNullOrWhiteSpace(apple.Payload.OriginalTransactionId))
+        if (!string.IsNullOrWhiteSpace(inboundOrder.CorrelationId))
         {
-            var candidates = await db.PaymentOrders
+            var inboundCandidates = await db.InboundOrders
                 .AsNoTracking()
-                .Where(o => o.AppIdentifier == definition.AppIdentifier &&
-                            o.ProductIdentifier == definition.Identifier &&
-                            o.Meta != null)
+                .Where(i => i.Provider == inboundOrder.Provider && i.CorrelationId != null)
                 .ToListAsync(ct);
 
-            var prior = candidates.FirstOrDefault(o =>
-                o.Meta!.TryGetValue("original_transaction_id", out var v) &&
-                string.Equals(v?.ToString(), apple.Payload.OriginalTransactionId, StringComparison.OrdinalIgnoreCase));
+            var correlationIds = inboundCandidates
+                .Where(i => string.Equals(i.CorrelationId, inboundOrder.CorrelationId, StringComparison.OrdinalIgnoreCase))
+                .Select(i => i.Id)
+                .ToList();
 
-            if (prior?.Meta is not null &&
-                prior.Meta.TryGetValue("workspace_id", out var priorWs) &&
-                priorWs is not null &&
-                Guid.TryParse(priorWs.ToString(), out var inheritedWorkspaceId))
-                return inheritedWorkspaceId;
+            if (correlationIds.Count > 0)
+            {
+                var candidates = await db.PaymentOrders
+                    .AsNoTracking()
+                    .Where(o => o.InboundOrderId.HasValue && correlationIds.Contains(o.InboundOrderId.Value))
+                    .Where(o => o.AppIdentifier == definition.AppIdentifier &&
+                                o.ProductIdentifier == definition.Identifier &&
+                                o.Meta != null)
+                    .ToListAsync(ct);
+
+                var prior = candidates.FirstOrDefault(o =>
+                    o.Meta!.TryGetValue("workspace_id", out var priorWs) &&
+                    priorWs is not null &&
+                    Guid.TryParse(priorWs.ToString(), out _));
+
+                if (prior?.Meta is not null &&
+                    prior.Meta.TryGetValue("workspace_id", out var inheritedWorkspace) &&
+                    inheritedWorkspace is not null &&
+                    Guid.TryParse(inheritedWorkspace.ToString(), out var inheritedWorkspaceId))
+                    return inheritedWorkspaceId;
+            }
         }
 
         return null;

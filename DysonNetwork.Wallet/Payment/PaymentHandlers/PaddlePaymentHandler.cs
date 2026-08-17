@@ -351,6 +351,9 @@ public class PaddleTransaction : ISubscriptionOrder
         ?? string.Empty;
 
     [JsonIgnore]
+    public string? CorrelationId => PaddleSubscriptionId;
+
+    [JsonIgnore]
     public bool IsTesting => false;
 
     private string? GetCustomDataString(string key)

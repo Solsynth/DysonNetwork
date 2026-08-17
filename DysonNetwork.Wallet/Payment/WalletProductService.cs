@@ -61,6 +61,7 @@ public class WalletProductService(
 
     public async Task<SnWalletOrder> CreateOrApplyGoldsResupplyPackPurchaseAsync(
         ISubscriptionOrder providerOrder,
+        SnWalletInboundOrder inboundOrder,
         CancellationToken cancellationToken = default
     )
     {
@@ -68,14 +69,13 @@ public class WalletProductService(
         var amount = ResolvePurchaseAmount(providerOrder, baseAmount);
         var accountId = await ResolveAccountIdForOrderAsync(providerOrder, cancellationToken);
         var wallet = await wallets.GetAccountWalletAsync(accountId) ?? await wallets.CreateWalletAsync(accountId: accountId);
-        var orderRemark = BuildExternalOrderRemark(product.Identifier, providerOrder.Provider, providerOrder.Id);
 
         var existingOrder = await db.PaymentOrders
             .Include(o => o.Transaction)
             .FirstOrDefaultAsync(
-                o => o.AppIdentifier == SnWalletOrder.InternalAppIdentifier &&
-                     o.ProductIdentifier == product.Identifier &&
-                     o.Remarks == orderRemark,
+                o => o.InboundOrderId == inboundOrder.Id &&
+                     o.AppIdentifier == SnWalletOrder.InternalAppIdentifier &&
+                     o.ProductIdentifier == product.Identifier,
                 cancellationToken
             );
 
@@ -88,19 +88,17 @@ public class WalletProductService(
             amount,
             appIdentifier: SnWalletOrder.InternalAppIdentifier,
             productIdentifier: product.Identifier,
-            remarks: orderRemark,
+            remarks: $"wallet-product:{product.Identifier}",
             meta: new Dictionary<string, object>
             {
                 ["wallet_product"] = product.Identifier,
                 ["wallet_product_key"] = GoldsResupplyPackKey,
-                ["provider"] = providerOrder.Provider,
-                ["provider_order_id"] = providerOrder.Id,
-                ["provider_reference_id"] = providerReference,
                 ["account_id"] = accountId.ToString(),
                 ["display_name"] = product.DisplayName,
                 ["quantity"] = providerOrder is AppleAppStoreTransaction appleOrder ? appleOrder.Quantity : 1
             },
-            reuseable: false
+            reuseable: false,
+            inboundOrderId: inboundOrder.Id
         );
 
         order.Status = OrderStatus.Paid;

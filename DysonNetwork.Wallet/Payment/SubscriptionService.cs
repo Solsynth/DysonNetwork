@@ -324,7 +324,10 @@ public class SubscriptionService(
         return subscription;
     }
 
-    public async Task<SnWalletSubscription> CreateSubscriptionFromOrder(ISubscriptionOrder order)
+    public async Task<SnWalletSubscription> CreateSubscriptionFromOrder(
+        ISubscriptionOrder order,
+        SnWalletInboundOrder inboundOrder
+    )
     {
         var provider = order.Provider;
         if (string.IsNullOrWhiteSpace(order.SubscriptionId))
@@ -342,7 +345,7 @@ public class SubscriptionService(
 
         logger.LogInformation(
             "Applying provider subscription order {OrderId} from {Provider} for account {AccountId}. SubscriptionId={SubscriptionId} IsTesting={IsTesting}",
-            order.Id,
+            inboundOrder.Id,
             provider,
             account.Id,
             order.SubscriptionId,
@@ -361,12 +364,12 @@ public class SubscriptionService(
             provider,
             new SnPaymentDetails
             {
-                Currency = definition.Currency,
-                OrderId = order.Id,
+                Currency = definition.Currency
             },
             effectiveFrom,
             cycleDuration,
-            isTesting: order.IsTesting
+            isTesting: order.IsTesting,
+            inboundOrderId: inboundOrder.Id
         );
     }
 
@@ -711,11 +714,19 @@ public class SubscriptionService(
         bool isTesting = false,
         SnWalletSubscription? placeholderSubscription = null,
         Guid? couponId = null,
-        SnWalletCoupon? coupon = null
+        SnWalletCoupon? coupon = null,
+        Guid? inboundOrderId = null
     )
     {
         var groupIdentifiers = await catalog.GetGroupIdentifiersAsync(definition.GroupIdentifier, definition.Identifier);
-        if (!string.IsNullOrWhiteSpace(paymentDetails.OrderId))
+        SnWalletSubscription? matchedByOrder = null;
+
+        if (inboundOrderId.HasValue)
+        {
+            matchedByOrder = await db.WalletSubscriptions
+                .FirstOrDefaultAsync(s => s.InboundOrderId == inboundOrderId.Value);
+        }
+        else if (!string.IsNullOrWhiteSpace(paymentDetails.OrderId))
         {
             var existingByOrder = await db.WalletSubscriptions
                 .Where(s => s.AccountId == accountId)
@@ -724,18 +735,19 @@ public class SubscriptionService(
                 .OrderByDescending(s => s.BegunAt)
                 .ToListAsync();
 
-            var matchedByOrder = existingByOrder.FirstOrDefault(s =>
+            matchedByOrder = existingByOrder.FirstOrDefault(s =>
                 string.Equals(s.PaymentDetails.OrderId, paymentDetails.OrderId, StringComparison.OrdinalIgnoreCase));
-            if (matchedByOrder is not null)
-            {
-                logger.LogInformation(
-                    "Skipping duplicate subscription application for order {OrderId} because subscription {SubscriptionId} already exists with status {Status}",
-                    paymentDetails.OrderId,
-                    matchedByOrder.Id,
-                    matchedByOrder.Status
-                );
-                return matchedByOrder;
-            }
+        }
+
+        if (matchedByOrder is not null)
+        {
+            logger.LogInformation(
+                "Skipping duplicate subscription application for inbound order {InboundOrderId} because subscription {SubscriptionId} already exists with status {Status}",
+                inboundOrderId,
+                matchedByOrder.Id,
+                matchedByOrder.Status
+            );
+            return matchedByOrder;
         }
 
         var activeOrQueued = await db.WalletSubscriptions
@@ -778,6 +790,7 @@ public class SubscriptionService(
         subscription.Status = SubscriptionStatus.Active;
         subscription.PaymentMethod = paymentMethod;
         subscription.PaymentDetails = paymentDetails;
+        subscription.InboundOrderId = inboundOrderId;
         subscription.BasePrice = definition.BasePrice;
         subscription.CouponId = couponId;
         subscription.Coupon = coupon;
@@ -839,12 +852,13 @@ public class SubscriptionService(
                 {
                     ["subscription_id"] = subscription.Id.ToString(),
                     ["subscription_identifier"] = definition.Identifier,
-                    ["subscription_group_identifier"] = definition.GroupIdentifier ?? string.Empty,
                     ["payment_method"] = paymentMethod,
                     ["perk_level"] = definition.PerkLevel,
                     ["credited_months"] = creditedMonths,
                     ["credited_month_index"] = monthIndex,
-                    ["order_id"] = subscription.PaymentDetails.OrderId ?? string.Empty
+                    ["order_id"] = subscription.InboundOrderId?.ToString() ??
+                                   subscription.PaymentDetails.OrderId ??
+                                   string.Empty
                 }
             );
         }

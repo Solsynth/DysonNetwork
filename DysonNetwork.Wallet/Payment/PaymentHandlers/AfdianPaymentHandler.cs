@@ -410,6 +410,9 @@ public class AfdianOrderItem : ISubscriptionOrder
     public string Id => TradeNumber;
 
     [JsonIgnore]
+    public string? CorrelationId => null;
+
+    [JsonIgnore]
     public string? PrimarySkuId => SkuDetail.FirstOrDefault(x => !string.IsNullOrWhiteSpace(x.SkuId))?.SkuId;
 
     public string SubscriptionId => PrimarySkuId ?? PlanId;

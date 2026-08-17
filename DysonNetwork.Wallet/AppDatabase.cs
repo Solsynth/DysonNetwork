@@ -19,6 +19,7 @@ public class AppDatabase(
     public DbSet<SnWallet> Wallets { get; set; } = null!;
     public DbSet<SnWalletPocket> WalletPockets { get; set; } = null!;
     public DbSet<SnWalletOrder> PaymentOrders { get; set; } = null!;
+    public DbSet<SnWalletInboundOrder> InboundOrders { get; set; } = null!;
     public DbSet<SnWalletTransaction> PaymentTransactions { get; set; } = null!;
     public DbSet<SnWalletTransferRequest> WalletTransferRequests { get; set; } = null!;
     public DbSet<SnWalletFund> WalletFunds { get; set; } = null!;
@@ -54,13 +55,33 @@ public class AppDatabase(
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+        modelBuilder.Ignore<SnAccount>();
+        modelBuilder.Ignore<SnAccountProfile>();
+        modelBuilder.Ignore<SnAccountContact>();
+        modelBuilder.Ignore<SnAccountBadge>();
+        modelBuilder.Ignore<SnAccountAuthFactor>();
+        modelBuilder.Ignore<SnAccountConnection>();
+        modelBuilder.Ignore<SnAuthSession>();
+        modelBuilder.Ignore<SnAuthChallenge>();
+        modelBuilder.Ignore<SnAuthClient>();
+        modelBuilder.Ignore<SnAccountRelationship>();
+        modelBuilder.Entity<SnWalletInboundOrder>()
+            .HasMany(i => i.WalletOrders)
+            .WithOne(o => o.InboundOrder)
+            .HasForeignKey(o => o.InboundOrderId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        modelBuilder.Entity<SnWalletInboundOrder>()
+            .HasMany(i => i.WalletSubscriptions)
+            .WithOne(s => s.InboundOrder)
+            .HasForeignKey(s => s.InboundOrderId)
+            .OnDelete(DeleteBehavior.SetNull);
 
         modelBuilder.Entity<SnMerchantSettlement>()
             .HasOne(s => s.Merchant)
             .WithMany(m => m.Settlements)
             .HasForeignKey(s => s.MerchantId)
             .OnDelete(DeleteBehavior.Cascade);
-
         modelBuilder.ApplySoftDeleteFilters();
     }
 

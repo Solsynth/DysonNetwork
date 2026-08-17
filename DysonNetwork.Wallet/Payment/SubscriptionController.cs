@@ -22,6 +22,7 @@ namespace DysonNetwork.Wallet.Payment;
 [ApiFeature("subscriptions", Revision = 1)]
 public class SubscriptionController(
     SubscriptionService subscriptions,
+    PaymentService payment,
     WalletProductService walletProducts,
     SubscriptionCatalogService catalog,
     AfdianPaymentHandler afdian,
@@ -740,13 +741,24 @@ public class SubscriptionController(
         Dictionary<string, object>? extraMeta = null
     )
     {
+        var inboundOrder = await payment.CreateInboundOrderAsync(order, HttpContext.RequestAborted);
+
         if (walletProducts.IsGoldCurrencyPurchase(order))
-            return await walletProducts.CreateOrApplyGoldsResupplyPackPurchaseAsync(order, HttpContext.RequestAborted);
+            return await walletProducts.CreateOrApplyGoldsResupplyPackPurchaseAsync(
+                order,
+                inboundOrder,
+                HttpContext.RequestAborted
+            );
 
         if (await appProducts.IsAppProductOrderAsync(order, HttpContext.RequestAborted))
-            return await appProducts.ApplyAppProductOrderAsync(order, extraMeta, HttpContext.RequestAborted);
+            return await appProducts.ApplyAppProductOrderAsync(
+                order,
+                inboundOrder,
+                extraMeta,
+                HttpContext.RequestAborted
+            );
 
-        return await subscriptions.CreateSubscriptionFromOrder(order);
+        return await subscriptions.CreateSubscriptionFromOrder(order, inboundOrder);
     }
 
     private async Task ApplyProviderOrderAsync(ISubscriptionOrder order)

@@ -6,7 +6,9 @@ using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Queue;
 using DysonNetwork.Shared.Registry;
+using DysonNetwork.Wallet.Payment.PaymentHandlers;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using DysonNetwork.Shared.Localization;
 using NATS.Client.Core;
 using NATS.Net;
@@ -53,7 +55,8 @@ public class PaymentService(
         string? remarks = null,
         Dictionary<string, object>? meta = null,
         bool reuseable = true,
-        List<SnWalletOrderItem>? items = null
+        List<SnWalletOrderItem>? items = null,
+        Guid? inboundOrderId = null
     )
     {
         // ponytail: skip reuse check when items are present — line-item orders are never reused
@@ -88,7 +91,8 @@ public class PaymentService(
             AppIdentifier = appIdentifier,
             ProductIdentifier = productIdentifier,
             Remarks = remarks,
-            Meta = meta
+            Meta = meta,
+            InboundOrderId = inboundOrderId
         };
 
         db.PaymentOrders.Add(order);
@@ -106,6 +110,67 @@ public class PaymentService(
         await db.SaveChangesAsync();
         return order;
     }
+    public async Task<SnWalletInboundOrder> CreateInboundOrderAsync(
+        ISubscriptionOrder providerOrder,
+        CancellationToken cancellationToken = default
+    )
+    {
+        if (providerOrder is null)
+            throw new ArgumentNullException(nameof(providerOrder));
+
+        var provider = providerOrder.Provider?.Trim().ToLowerInvariant();
+        var externalId = providerOrder.Id?.Trim();
+        if (string.IsNullOrWhiteSpace(provider))
+            throw new InvalidOperationException("Provider order provider is missing.");
+        if (string.IsNullOrWhiteSpace(externalId))
+            throw new InvalidOperationException("Provider order identifier is missing.");
+
+        var existing = await db.InboundOrders.FirstOrDefaultAsync(
+            x => x.Provider == provider && x.ExternalId == externalId,
+            cancellationToken
+        );
+        if (existing is not null)
+            return existing;
+
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var inboundOrder = new SnWalletInboundOrder
+        {
+            Provider = provider,
+            ExternalId = externalId,
+            CorrelationId = string.IsNullOrWhiteSpace(providerOrder.CorrelationId)
+                ? null
+                : providerOrder.CorrelationId.Trim(),
+            ProviderReferenceId = string.IsNullOrWhiteSpace(providerOrder.SubscriptionId)
+                ? null
+                : providerOrder.SubscriptionId.Trim(),
+            ProductIdentifier = string.IsNullOrWhiteSpace(providerOrder.SubscriptionId)
+                ? null
+                : providerOrder.SubscriptionId.Trim(),
+            AccountIdentifier = string.IsNullOrWhiteSpace(providerOrder.AccountId)
+                ? null
+                : providerOrder.AccountId.Trim(),
+            BegunAt = providerOrder.BegunAt == default ? now : providerOrder.BegunAt,
+            Duration = providerOrder.Duration > Duration.Zero ? providerOrder.Duration : Duration.Zero,
+            IsTesting = providerOrder.IsTesting
+        };
+
+        db.InboundOrders.Add(inboundOrder);
+        try
+        {
+            await db.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException ex) when (
+            ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation })
+        {
+            db.Entry(inboundOrder).State = EntityState.Detached;
+            return await db.InboundOrders.FirstAsync(
+                x => x.Provider == provider && x.ExternalId == externalId,
+                cancellationToken
+            );
+        }
+        return inboundOrder;
+    }
+
 
     public async Task<SnWalletTransaction> CreateTransactionWithAccountAsync(
         Guid? payerAccountId,

@@ -439,6 +439,8 @@ public sealed class AppleAppStoreTransaction : ISubscriptionOrder
 
     [JsonIgnore] public string AccountId => Payload.AppAccountToken ?? string.Empty;
 
+    [JsonIgnore] public string? CorrelationId => Payload.OriginalTransactionId;
+
     [JsonIgnore]
     public bool IsTesting =>
         string.Equals(Payload.Environment, "Sandbox", StringComparison.OrdinalIgnoreCase);
