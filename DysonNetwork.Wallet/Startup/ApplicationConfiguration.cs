@@ -30,6 +30,7 @@ public static class ApplicationConfiguration
         app.MapGrpcService<PaymentServiceGrpc>();
         app.MapGrpcService<MerchantServiceGrpc>();
         app.MapGrpcService<SubscriptionServiceGrpc>();
+        app.MapGrpcService<SubscriptionCatalogServiceGrpc>();
         app.MapGrpcReflectionService();
 
         return app;

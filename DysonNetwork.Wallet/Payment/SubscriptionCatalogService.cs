@@ -468,6 +468,40 @@ public class SubscriptionCatalogService(
         return (created, true);
     }
 
+    public async Task<(SnWalletSubscriptionDefinition Definition, bool Created)> UpsertDefinitionFromSeedAsync(
+        SubscriptionCatalogSeedDefinition definition,
+        CancellationToken cancellationToken = default
+    )
+    {
+        var existing = await _db.WalletSubscriptionDefinitions
+            .FirstOrDefaultAsync(x => x.Identifier == definition.Identifier, cancellationToken);
+
+        if (existing is not null)
+        {
+            var changed = ApplyDefinitionUpdates(existing, definition);
+            if (changed)
+                _db.WalletSubscriptionDefinitions.Update(existing);
+            await _db.SaveChangesAsync(cancellationToken);
+            return (existing, false);
+        }
+
+        var created = BuildDefinition(definition);
+        _db.WalletSubscriptionDefinitions.Add(created);
+        await _db.SaveChangesAsync(cancellationToken);
+        return (created, true);
+    }
+
+    public Task<List<SnWalletSubscriptionDefinition>> GetDefinitionsByAppAsync(
+        string appIdentifier,
+        CancellationToken cancellationToken = default
+    )
+    {
+        return _db.WalletSubscriptionDefinitions
+            .Where(x => x.AppIdentifier == appIdentifier)
+            .OrderBy(x => x.DisplayName)
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<bool> DeleteDefinitionAsync(
         string identifier,
         CancellationToken cancellationToken = default
