@@ -127,6 +127,48 @@ public class SubscriptionController(
         return subscriptionsList;
     }
 
+    [HttpGet("billing")]
+    [Authorize]
+    public async Task<ActionResult<List<BillingRecordResponse>>> ListBillingRecords(
+        [FromQuery] int offset = 0,
+        [FromQuery] int take = 20
+    )
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
+
+        take = Math.Clamp(take, 1, 200);
+        offset = Math.Max(0, offset);
+        var accountId = Guid.Parse(currentUser.Id);
+        var accountIdentifier = currentUser.Id;
+
+        var query = db.InboundOrders
+            .AsNoTracking()
+            .IncludeBillingRelations()
+            .Where(x =>
+                x.AccountIdentifier == accountIdentifier ||
+                x.WalletSubscriptions.Any(s => s.AccountId == accountId) ||
+                x.WalletOrders.Any(o =>
+                    (o.PayeeWallet != null && o.PayeeWallet.AccountId == accountId) ||
+                    (o.Transaction != null && (
+                        (o.Transaction.PayerWallet != null && o.Transaction.PayerWallet.AccountId == accountId) ||
+                        (o.Transaction.PayeeWallet != null && o.Transaction.PayeeWallet.AccountId == accountId)
+                    ))
+                )
+            )
+            .OrderByDescending(x => x.BegunAt);
+
+        var totalCount = await query.CountAsync(HttpContext.RequestAborted);
+        Response.Headers.Append("X-Total", totalCount.ToString());
+
+        var records = await query
+            .Skip(offset)
+            .Take(take)
+            .ToListAsync(HttpContext.RequestAborted);
+
+        return Ok(records.Select(x => BillingRecordResponse.FromEntity(x, includeAccountIdentifier: false)));
+    }
+
     [HttpGet("pending-activations")]
     [Authorize]
     public async Task<ActionResult<PendingActivationListResponse>> ListPendingActivations(

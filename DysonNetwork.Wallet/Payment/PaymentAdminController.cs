@@ -178,6 +178,74 @@ public class PaymentAdminController(
         return Ok(order);
     }
 
+    [HttpGet("inbound-orders")]
+    [AskPermission(PermissionKeys.OrdersView)]
+    public async Task<ActionResult<List<BillingRecordResponse>>> ListInboundOrders(
+        [FromQuery] string? provider = null,
+        [FromQuery] string? externalId = null,
+        [FromQuery] string? accountIdentifier = null,
+        [FromQuery] string? productIdentifier = null,
+        [FromQuery] OrderStatus? orderStatus = null,
+        [FromQuery] SubscriptionStatus? subscriptionStatus = null,
+        [FromQuery] bool? isTesting = null,
+        [FromQuery] int offset = 0,
+        [FromQuery] int take = 50
+    )
+    {
+        take = Math.Clamp(take, 1, 200);
+        offset = Math.Max(0, offset);
+
+        var query = db.InboundOrders
+            .AsNoTracking()
+            .IncludeBillingRelations()
+            .AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(provider))
+            query = query.Where(x => x.Provider == provider);
+        if (!string.IsNullOrWhiteSpace(externalId))
+            query = query.Where(x => x.ExternalId == externalId);
+        if (!string.IsNullOrWhiteSpace(accountIdentifier))
+            query = query.Where(x => x.AccountIdentifier == accountIdentifier);
+        if (!string.IsNullOrWhiteSpace(productIdentifier))
+            query = query.Where(x =>
+                x.ProductIdentifier == productIdentifier ||
+                x.WalletOrders.Any(o => o.ProductIdentifier == productIdentifier) ||
+                x.WalletSubscriptions.Any(s => s.Identifier == productIdentifier)
+            );
+        if (orderStatus.HasValue)
+            query = query.Where(x => x.WalletOrders.Any(o => o.Status == orderStatus.Value));
+        if (subscriptionStatus.HasValue)
+            query = query.Where(x => x.WalletSubscriptions.Any(s => s.Status == subscriptionStatus.Value));
+        if (isTesting.HasValue)
+            query = query.Where(x => x.IsTesting == isTesting.Value);
+
+        var total = await query.CountAsync(HttpContext.RequestAborted);
+        Response.Headers.Append("X-Total", total.ToString());
+
+        var items = await query
+            .OrderByDescending(x => x.BegunAt)
+            .Skip(offset)
+            .Take(take)
+            .ToListAsync(HttpContext.RequestAborted);
+
+        return Ok(items.Select(x => BillingRecordResponse.FromEntity(x)).ToList());
+    }
+
+    [HttpGet("inbound-orders/{id:guid}")]
+    [AskPermission(PermissionKeys.OrdersView)]
+    public async Task<ActionResult<BillingRecordResponse>> GetInboundOrder(Guid id)
+    {
+        var inboundOrder = await db.InboundOrders
+            .AsNoTracking()
+            .IncludeBillingRelations()
+            .FirstOrDefaultAsync(x => x.Id == id, HttpContext.RequestAborted);
+
+        if (inboundOrder is null)
+            return NotFound(new ApiError { Code = "WALLET_INBOUND_ORDER_NOT_FOUND", Message = "Inbound order was not found.", Status = 404 });
+
+        return Ok(BillingRecordResponse.FromEntity(inboundOrder));
+    }
+
     [HttpPost("balance")]
     [AskPermission(PermissionKeys.WalletsBalanceModify)]
     public async Task<ActionResult<SnWalletTransaction>> ModifyWalletBalance([FromBody] AdminWalletBalanceRequest request)
