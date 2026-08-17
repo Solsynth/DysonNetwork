@@ -759,6 +759,8 @@ public class PostActionController(
         "thumb_down",
         "cry",
         "confuse",
+        "hello",
+        "shock",
         "ridicule",
         "clap",
         "laugh",

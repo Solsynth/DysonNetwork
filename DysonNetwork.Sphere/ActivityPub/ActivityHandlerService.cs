@@ -910,6 +910,8 @@ public class ActivityHandlerService(
             "😂" or "🤣" => ("laugh", PostReactionAttitude.Positive),
             "🎉" => ("party", PostReactionAttitude.Positive),
             "🙏" or "🤗" => ("pray", PostReactionAttitude.Positive),
+            "👋" => ("hello", PostReactionAttitude.Neutral),
+            "😱" => ("shock", PostReactionAttitude.Neutral),
             "😕" => ("confuse", PostReactionAttitude.Neutral),
             "😡" => ("angry", PostReactionAttitude.Negative),
             _ => ("heart", PostReactionAttitude.Positive)

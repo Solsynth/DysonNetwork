@@ -18,6 +18,8 @@ The following reaction symbols are available by default:
 | `thumb_down` | Thumbs down |
 | `cry` | Crying face |
 | `confuse` | Confused face |
+| `hello` | Waving hand |
+| `shock` | Shocked face |
 | `clap` | Clapping hands |
 | `laugh` | Laughing face |
 | `angry` | Angry face |

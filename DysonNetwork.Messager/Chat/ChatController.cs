@@ -1290,6 +1290,8 @@ public partial class ChatController(
         "thumb_down",
         "cry",
         "confuse",
+        "hello",
+        "shock",
         "ridicule",
         "clap",
         "laugh",

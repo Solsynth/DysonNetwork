@@ -83,6 +83,8 @@ public partial class PostService(
             "party" => "🎉",
             "pray" => "🙏",
             "cry" => "😭",
+            "hello" => "👋",
+            "shock" => "😱",
             "confuse" => "😕",
             "angry" => "😡",
             _ => null,
