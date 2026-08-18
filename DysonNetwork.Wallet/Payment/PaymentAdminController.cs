@@ -135,6 +135,7 @@ public class PaymentAdminController(
         if (walletIds.Count > 0)
         {
             query = query.Where(o =>
+                (o.PayerWalletId.HasValue && walletIds.Contains(o.PayerWalletId.Value)) ||
                 (o.PayeeWalletId.HasValue && walletIds.Contains(o.PayeeWalletId.Value)) ||
                 (o.Transaction != null && o.Transaction.PayerWalletId.HasValue && walletIds.Contains(o.Transaction.PayerWalletId.Value)) ||
                 (o.Transaction != null && o.Transaction.PayeeWalletId.HasValue && walletIds.Contains(o.Transaction.PayeeWalletId.Value)));

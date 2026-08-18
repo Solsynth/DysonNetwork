@@ -254,6 +254,8 @@ public class OrderController(
         public DateTimeOffset UpdatedAt { get; set; }
         public DateTimeOffset ExpiredAt { get; set; }
         public Guid? PayeeWalletId { get; set; }
+        public Guid? PayerWalletId { get; set; }
+
         public Guid? TransactionId { get; set; }
         public List<SnWalletOrderItem> Items { get; set; } = new();
 
@@ -279,9 +281,8 @@ public class OrderController(
                 Meta = order.Meta,
                 Amount = order.Amount,
                 CreatedAt = ToDateTimeOffset(order.CreatedAt),
-                UpdatedAt = ToDateTimeOffset(order.UpdatedAt),
-                ExpiredAt = ToDateTimeOffset(order.ExpiredAt),
                 PayeeWalletId = order.PayeeWalletId,
+                PayerWalletId = order.PayerWalletId,
                 TransactionId = order.TransactionId,
                 Items = order.Items,
                 App = app,
@@ -305,6 +306,82 @@ public class OrderController(
             PublisherId = Guid.Parse(developer.PublisherId),
             PublisherName = string.IsNullOrWhiteSpace(developer.PublisherName) ? null : developer.PublisherName
         };
+    }
+
+    [HttpGet("mine")]
+    [Authorize]
+    public async Task<ActionResult<List<SnWalletOrder>>> ListMyOrders(
+        [FromQuery] OrderStatus? status = null,
+        [FromQuery] string? appIdentifier = null,
+        [FromQuery] string? productIdentifier = null,
+        [FromQuery] int offset = 0,
+        [FromQuery] int take = 50
+    )
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
+
+        await payment.ExpireOverdueOrdersAsync(HttpContext.RequestAborted);
+
+        var walletIds = (await ws.GetAccountWalletsAsync(Guid.Parse(currentUser.Id)))
+            .Select(w => w.Id)
+            .ToHashSet();
+        if (walletIds.Count == 0)
+            return Ok(new List<SnWalletOrder>());
+
+        offset = Math.Max(0, offset);
+        take = Math.Clamp(take, 1, 200);
+        var query = db.PaymentOrders
+            .AsNoTracking()
+            .Include(o => o.Transaction)
+            .Include(o => o.Items)
+            .Where(o =>
+                (o.PayerWalletId.HasValue && walletIds.Contains(o.PayerWalletId.Value)) ||
+                (o.Transaction != null &&
+                 o.Transaction.PayerWalletId.HasValue &&
+                 walletIds.Contains(o.Transaction.PayerWalletId.Value)));
+
+        if (status.HasValue)
+            query = query.Where(o => o.Status == status.Value);
+        if (!string.IsNullOrWhiteSpace(appIdentifier))
+            query = query.Where(o => o.AppIdentifier == appIdentifier);
+        if (!string.IsNullOrWhiteSpace(productIdentifier))
+            query = query.Where(o => o.ProductIdentifier == productIdentifier);
+
+        Response.Headers.Append("X-Total", (await query.CountAsync(HttpContext.RequestAborted)).ToString());
+        return Ok(await query
+            .OrderByDescending(o => o.CreatedAt)
+            .Skip(offset)
+            .Take(take)
+            .ToListAsync(HttpContext.RequestAborted));
+    }
+
+    [HttpGet("mine/{id:guid}")]
+    [Authorize]
+    public async Task<ActionResult<SnWalletOrder>> GetMyOrder(Guid id)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
+
+        var walletIds = (await ws.GetAccountWalletsAsync(Guid.Parse(currentUser.Id)))
+            .Select(w => w.Id)
+            .ToHashSet();
+        var order = await db.PaymentOrders
+            .AsNoTracking()
+            .Include(o => o.Transaction)
+            .Include(o => o.Items)
+            .FirstOrDefaultAsync(o =>
+                o.Id == id &&
+                ((o.PayerWalletId.HasValue && walletIds.Contains(o.PayerWalletId.Value)) ||
+                 (o.Transaction != null &&
+                  o.Transaction.PayerWalletId.HasValue &&
+                  walletIds.Contains(o.Transaction.PayerWalletId.Value))),
+                HttpContext.RequestAborted);
+
+        if (order is null)
+            return NotFound(new ApiError { Code = "WALLET_ORDER_NOT_FOUND", Message = "Order was not found.", Status = 404 });
+
+        return Ok(order);
     }
 
     [HttpGet("{id:guid}")]

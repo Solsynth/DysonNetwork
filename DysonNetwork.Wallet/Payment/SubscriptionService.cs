@@ -642,7 +642,8 @@ public class SubscriptionService(
         var definition = await catalog.GetDefinitionAsync(subscription.Identifier);
         if (definition is null) throw new InvalidOperationException("No matching subscription found.");
 
-        return await payment.CreateOrderAsync(
+        return await payment.CreateUserOrderAsync(
+            accountId,
             null,
             definition.Currency,
             subscription.FinalPrice,
@@ -673,8 +674,8 @@ public class SubscriptionService(
         if (gift is null) throw new InvalidOperationException("No matching gift found.");
         var definition = await catalog.GetDefinitionAsync(gift.SubscriptionIdentifier);
         if (definition is null) throw new InvalidOperationException("No matching subscription found.");
-
-        return await payment.CreateOrderAsync(
+        return await payment.CreateUserOrderAsync(
+            accountId,
             null,
             definition.Currency,
             gift.FinalPrice,

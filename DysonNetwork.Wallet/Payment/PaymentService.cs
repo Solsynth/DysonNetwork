@@ -56,7 +56,8 @@ public class PaymentService(
         Dictionary<string, object>? meta = null,
         bool reuseable = true,
         List<SnWalletOrderItem>? items = null,
-        Guid? inboundOrderId = null
+        Guid? inboundOrderId = null,
+        Guid? payerWalletId = null
     )
     {
         // ponytail: skip reuse check when items are present — line-item orders are never reused
@@ -66,6 +67,7 @@ public class PaymentService(
             var existingOrder = await db.PaymentOrders
                 .Where(o => o.Status == Shared.Models.OrderStatus.Unpaid &&
                             o.PayeeWalletId == payeeWalletId &&
+                            o.PayerWalletId == payerWalletId &&
                             o.Currency == currency &&
                             o.Amount == amount &&
                             o.AppIdentifier == appIdentifier &&
@@ -81,10 +83,10 @@ public class PaymentService(
                     return existingOrder;
             }
         }
-
         var order = new SnWalletOrder
         {
             PayeeWalletId = payeeWalletId,
+            PayerWalletId = payerWalletId,
             Currency = currency,
             Amount = TruncateToThreeDecimals(amount),
             ExpiredAt = now.Plus(expiration ?? Duration.FromHours(24)),
@@ -110,6 +112,38 @@ public class PaymentService(
         await db.SaveChangesAsync();
         return order;
     }
+    public async Task<SnWalletOrder> CreateUserOrderAsync(
+        Guid accountId,
+        Guid? payeeWalletId,
+        string currency,
+        decimal amount,
+        Duration? expiration = null,
+        string? appIdentifier = null,
+        string? productIdentifier = null,
+        string? remarks = null,
+        Dictionary<string, object>? meta = null,
+        bool reuseable = true,
+        List<SnWalletOrderItem>? items = null
+    )
+    {
+        var payerWallet = await wat.GetAccountWalletAsync(accountId)
+            ?? throw new InvalidOperationException("Account wallet was not found.");
+
+        return await CreateOrderAsync(
+            payeeWalletId,
+            currency,
+            amount,
+            expiration,
+            appIdentifier,
+            productIdentifier,
+            remarks,
+            meta,
+            reuseable,
+            items,
+            payerWalletId: payerWallet.Id
+        );
+    }
+
     public async Task<SnWalletInboundOrder> CreateInboundOrderAsync(
         ISubscriptionOrder providerOrder,
         CancellationToken cancellationToken = default
@@ -539,10 +573,8 @@ public class PaymentService(
     private async Task NotifyPocketUpdated(Guid walletId, string currency, decimal amount, decimal heldAmount)
     {
         var pocket = await db.WalletPockets
-            .AsNoTracking()
             .FirstOrDefaultAsync(p => p.WalletId == walletId && p.Currency == currency);
-
-        if (pocket == null) return;
+        if (pocket is null) return;
 
         var ownerAccountId = await db.Wallets
             .Where(w => w.Id == walletId)
@@ -573,6 +605,9 @@ public class PaymentService(
             .Include(o => o.PayeeWallet)
             .FirstOrDefaultAsync(o => o.Id == orderId) ?? throw new InvalidOperationException("Order not found");
 
+        if (order.PayerWalletId.HasValue && order.PayerWalletId.Value != payerWallet.Id)
+            throw new InvalidOperationException("Order is reserved for a different wallet.");
+
         if (order.Status == Shared.Models.OrderStatus.Paid)
         {
             if (!payerWallet.AccountId.HasValue)
@@ -596,14 +631,12 @@ public class PaymentService(
         {
             throw new InvalidOperationException($"Order is in invalid status: {order.Status}");
         }
-
         if (order.ExpiredAt < SystemClock.Instance.GetCurrentInstant())
         {
             order.Status = Shared.Models.OrderStatus.Expired;
             await db.SaveChangesAsync();
             throw new InvalidOperationException("Order has expired");
         }
-
         var isAppOrder = !string.IsNullOrEmpty(order.AppIdentifier);
 
         // Resolve or auto-create merchant for app orders (funds go to escrow, settled later)
@@ -638,6 +671,9 @@ public class PaymentService(
                 }
             }
         }
+
+        if (!order.PayerWalletId.HasValue)
+            order.PayerWalletId = payerWallet.Id;
 
         var transaction = await CreateTransactionAsync(
             payerWallet.Id,

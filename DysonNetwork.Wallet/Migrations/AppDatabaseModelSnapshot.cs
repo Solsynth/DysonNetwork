@@ -609,6 +609,10 @@ namespace DysonNetwork.Wallet.Migrations
                     b.Property<Instant>("ExpiredAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("expired_at");
+                    b.Property<Guid?>("PayerWalletId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("payer_wallet_id");
+
 
                     b.Property<Guid?>("InboundOrderId")
                         .HasColumnType("uuid")
@@ -649,6 +653,9 @@ namespace DysonNetwork.Wallet.Migrations
 
                     b.HasIndex("InboundOrderId")
                         .HasDatabaseName("ix_payment_orders_inbound_order_id");
+
+                    b.HasIndex("PayerWalletId")
+                        .HasDatabaseName("ix_payment_orders_payer_wallet_id");
 
                     b.HasIndex("PayeeWalletId")
                         .HasDatabaseName("ix_payment_orders_payee_wallet_id");
@@ -1197,6 +1204,12 @@ namespace DysonNetwork.Wallet.Migrations
 
             modelBuilder.Entity("DysonNetwork.Shared.Models.SnWalletOrder", b =>
                 {
+                    b.HasOne("DysonNetwork.Shared.Models.SnWallet", "PayerWallet")
+                        .WithMany()
+                        .HasForeignKey("PayerWalletId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_payment_orders_wallets_payer_wallet_id");
+
                     b.HasOne("DysonNetwork.Shared.Models.SnWalletInboundOrder", "InboundOrder")
                         .WithMany("WalletOrders")
                         .HasForeignKey("InboundOrderId")
@@ -1212,6 +1225,8 @@ namespace DysonNetwork.Wallet.Migrations
                         .WithMany()
                         .HasForeignKey("TransactionId")
                         .HasConstraintName("fk_payment_orders_payment_transactions_transaction_id");
+
+                    b.Navigation("PayerWallet");
 
                     b.Navigation("InboundOrder");
 

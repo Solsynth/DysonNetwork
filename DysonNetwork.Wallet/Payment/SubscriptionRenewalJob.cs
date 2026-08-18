@@ -83,7 +83,11 @@ public class SubscriptionRenewalJob(
                 {
                     try
                     {
-                        var order = await paymentService.CreateOrderAsync(
+                        var wallet = await walletService.GetAccountWalletAsync(subscription.AccountId);
+                        if (wallet is null) continue;
+
+                        var order = await paymentService.CreateUserOrderAsync(
+                            subscription.AccountId,
                             null,
                             definition.Currency,
                             subscription.FinalPrice,
@@ -96,9 +100,6 @@ public class SubscriptionRenewalJob(
                                 ["is_renewal"] = true
                             }
                         );
-
-                        var wallet = await walletService.GetAccountWalletAsync(subscription.AccountId);
-                        if (wallet is null) continue;
 
                         // Process automatic payment from wallet
                         await paymentService.PayOrderAsync(order.Id, wallet);

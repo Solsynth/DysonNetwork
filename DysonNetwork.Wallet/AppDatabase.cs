@@ -65,6 +65,13 @@ public class AppDatabase(
         modelBuilder.Ignore<SnAuthChallenge>();
         modelBuilder.Ignore<SnAuthClient>();
         modelBuilder.Ignore<SnAccountRelationship>();
+        modelBuilder.Entity<SnWalletOrder>()
+            .HasOne(o => o.PayerWallet)
+            .WithMany()
+            .HasForeignKey(o => o.PayerWalletId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+
         modelBuilder.Entity<SnWalletInboundOrder>()
             .HasMany(i => i.WalletOrders)
             .WithOne(o => o.InboundOrder)
