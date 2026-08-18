@@ -376,13 +376,14 @@ public class SubscriptionService(
     public async Task NotifyProviderOrderProcessedAsync(
         ISubscriptionOrder order,
         SnWalletInboundOrder inboundOrder,
+        object processedOrder,
         CancellationToken cancellationToken = default
     )
     {
         if (inboundOrder.NotificationSentAt.HasValue)
             return;
 
-        var account = await ResolveAccountForOrderAsync(order);
+        var account = await ResolveAccountForProcessedOrderAsync(order, processedOrder, cancellationToken);
         if (account is null)
         {
             logger.LogWarning(
@@ -420,11 +421,64 @@ public class SubscriptionService(
                     ),
                     IsSavable = true
                 }
-            }
+            },
+            cancellationToken: cancellationToken
         );
 
         inboundOrder.NotificationSentAt = SystemClock.Instance.GetCurrentInstant();
         await db.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task<SnAccount?> ResolveAccountForProcessedOrderAsync(
+        ISubscriptionOrder order,
+        object processedOrder,
+        CancellationToken cancellationToken
+    )
+    {
+        var accountId = processedOrder switch
+        {
+            SnWalletSubscription subscription => subscription.AccountId,
+            SnWalletOrder walletOrder => ResolveAccountIdFromOrderMetadata(walletOrder.Meta),
+            _ => null
+        };
+
+        if (accountId is { } resolvedAccountId && resolvedAccountId != Guid.Empty)
+        {
+            try
+            {
+                var accountProto = await accountGrpc.GetAccountAsync(
+                    new DyGetAccountRequest { Id = resolvedAccountId.ToString() },
+                    cancellationToken: cancellationToken
+                );
+                if (accountProto is not null)
+                    return SnAccount.FromProtoValue(accountProto);
+            }
+            catch (RpcException ex) when (ex.StatusCode is StatusCode.NotFound or StatusCode.InvalidArgument)
+            {
+                logger.LogDebug(
+                    "Processed order account {AccountId} was not found; falling back to provider account resolution.",
+                    resolvedAccountId
+                );
+            }
+        }
+
+        return await ResolveAccountForOrderAsync(order);
+    }
+
+    private static Guid? ResolveAccountIdFromOrderMetadata(Dictionary<string, object>? metadata)
+    {
+        if (metadata is null || !metadata.TryGetValue("account_id", out var value))
+            return null;
+
+        if (value is Guid accountId)
+            return accountId;
+
+        if (value is JsonElement jsonValue && jsonValue.ValueKind == JsonValueKind.String)
+            value = jsonValue.GetString();
+
+        return Guid.TryParse(value?.ToString(), out var parsedAccountId)
+            ? parsedAccountId
+            : null;
     }
 
     private async Task<SnAccount?> ResolveAccountForOrderAsync(ISubscriptionOrder order)

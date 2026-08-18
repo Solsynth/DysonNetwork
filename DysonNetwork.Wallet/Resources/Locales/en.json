@@ -6,6 +6,7 @@
     "orderPaidBody": "Paid {amount} {currency}",
     "orderReceivedTitle": "Order Received",
     "orderReceivedBody": "Received {amount} {currency}",
+    "subscriptionAppliedTitle": "Subscription Applied",
     "providerOrderProcessedTitle": "Order Processed",
     "providerOrderProcessedBody": "Your {product} order has been processed successfully.",
     "providerOrderSandboxTitle": "Sandbox Order Received",

@@ -6,6 +6,7 @@
     "orderPaidBody": "支付了 {amount} {currency}",
     "orderReceivedTitle": "订单已接收",
     "orderReceivedBody": "收到了 {amount} {currency}",
+    "subscriptionAppliedTitle": "订阅已应用",
     "providerOrderProcessedTitle": "订单已处理",
     "providerOrderProcessedBody": "您的 {product} 订单已成功处理。",
     "providerOrderSandboxTitle": "已收到沙盒订单",

@@ -811,6 +811,7 @@ public class SubscriptionController(
         await subscriptions.NotifyProviderOrderProcessedAsync(
             order,
             inboundOrder,
+            result,
             HttpContext.RequestAborted
         );
         return result;
