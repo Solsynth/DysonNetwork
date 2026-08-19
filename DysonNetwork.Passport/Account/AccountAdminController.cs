@@ -331,6 +331,7 @@ public class AccountAdminController(
             AccountId = account.Id,
             Verification = mark
         });
+        await accountService.PurgeAccountCache(account);
         return Ok(mark);
     }
 
@@ -341,12 +342,12 @@ public class AccountAdminController(
         var account = await LookupAccountAsync(identifier);
         if (account is null)
             return NotFound(new ApiError { Code = "PASSPORT_ACCOUNT_NOT_FOUND", Message = "Account not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
-
         await eventBus.PublishAsync(new ProfileFieldUpdatedEvent
         {
             AccountId = account.Id,
             Verification = null
         });
+        await accountService.PurgeAccountCache(account);
         return NoContent();
     }
 

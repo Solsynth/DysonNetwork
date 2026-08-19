@@ -26,9 +26,14 @@ public class AccountService(
     public const string AccountCachePrefix = "account:";
     private static readonly TimeSpan AccountCacheTtl = TimeSpan.FromMinutes(5);
 
-    public async Task PurgeAccountCache(SnAccount account)
+    public Task PurgeAccountCache(SnAccount account)
     {
-        await cache.RemoveGroupAsync($"{AccountCachePrefix}{account.Id}");
+        return PurgeAccountCache(account.Id);
+    }
+
+    public async Task PurgeAccountCache(Guid accountId)
+    {
+        await cache.RemoveGroupAsync($"{AccountCachePrefix}{accountId}");
     }
 
     public async Task<List<SnAccount>> GetAllSuperusersAsync()
@@ -284,6 +289,7 @@ public class AccountService(
                 AccountId = account.Id,
                 ActiveBadge = null
             });
+            await PurgeAccountCache(account);
         }
     }
 

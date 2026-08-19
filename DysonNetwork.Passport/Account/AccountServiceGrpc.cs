@@ -260,6 +260,7 @@ public class AccountServiceGrpc(
 
         var incoming = SnAccountProfile.FromProtoValue(request.Profile);
         var evt = new ProfileFieldUpdatedEvent { AccountId = accountId };
+        var hasProfileFieldUpdate = false;
 
         var hasMask = request.UpdateMask is not null && request.UpdateMask.Paths.Count > 0;
         if (!hasMask)
@@ -271,6 +272,7 @@ public class AccountServiceGrpc(
             evt.SocialCredits = incoming.SocialCredits;
             evt.ActiveBadge = incoming.ActiveBadge;
             evt.Verification = incoming.Verification;
+            hasProfileFieldUpdate = true;
         }
         else
         {
@@ -280,9 +282,11 @@ public class AccountServiceGrpc(
                 {
                     case "verification":
                         evt.Verification = incoming.Verification;
+                        hasProfileFieldUpdate = true;
                         break;
                     case "active_badge":
                         evt.ActiveBadge = incoming.ActiveBadge;
+                        hasProfileFieldUpdate = true;
                         break;
                     case "experience":
                         evt.Experience = incoming.Experience;
@@ -301,9 +305,10 @@ public class AccountServiceGrpc(
         }
 
         if (evt.LastSeenAt is not null || evt.Experience is not null || evt.ExperienceDelta is not null ||
-            evt.SocialCredits is not null || evt.ActiveBadge is not null || evt.Verification is not null)
+            evt.SocialCredits is not null || hasProfileFieldUpdate)
         {
             await eventBus.PublishAsync(evt, context.CancellationToken);
+            await _accountService.PurgeAccountCache(accountId);
         }
 
         var profile = await _accountService.GetOrCreateAccountProfileAsync(accountId);
@@ -744,8 +749,9 @@ public class AccountServiceGrpc(
             AccountId = accountId,
             ActiveBadge = badge.ToReference()
         }, cancellationToken);
-    }
+        await _accountService.PurgeAccountCache(accountId);
 
+    }
 
     private async Task<List<SnAccount>> HydrateAccountsAsync(
         IEnumerable<DyAccount> remoteAccounts,
