@@ -384,7 +384,7 @@ public class FediverseActorController(
 
         try
         {
-            var client = httpClientFactory.CreateClient();
+            var client = httpClientFactory.CreateClient("ActivityPub");
             var request = new HttpRequestMessage(HttpMethod.Get, actor.OutboxUri);
             request.Headers.Accept.ParseAdd("application/activity+json");
             request.Headers.Add("User-Agent", $"DysonNetwork/1.0 (https://{Domain})");
@@ -483,7 +483,7 @@ public class FediverseActorController(
     {
         try
         {
-            var client = httpClientFactory.CreateClient();
+            var client = httpClientFactory.CreateClient("ActivityPub");
             var request = new HttpRequestMessage(HttpMethod.Get, pageUrl);
             request.Headers.Accept.ParseAdd("application/activity+json");
             request.Headers.Add("User-Agent", $"DysonNetwork/1.0 (https://{Domain})");

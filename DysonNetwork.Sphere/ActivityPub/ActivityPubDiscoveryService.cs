@@ -164,7 +164,7 @@ public partial class ActivityPubDiscoveryService(
 ) : IActorDiscoveryService
 {
     private string Domain => configuration["ActivityPub:Domain"] ?? "localhost";
-    private HttpClient HttpClient => httpClientFactory.CreateClient();
+    private HttpClient HttpClient => httpClientFactory.CreateClient("ActivityPub");
 
     private static readonly Regex HandlePattern = HandleRegex();
 

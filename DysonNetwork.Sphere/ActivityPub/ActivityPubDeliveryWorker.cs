@@ -297,7 +297,7 @@ public class ActivityPubDeliveryWorker(
         ILogger logger,
         CancellationToken cancellationToken)
     {
-        var client = httpClientFactory.CreateClient();
+        var client = httpClientFactory.CreateClient("ActivityPub");
         var json = JsonSerializer.Serialize(activity);
         var request = new HttpRequestMessage(HttpMethod.Post, inboxUrl)
         {

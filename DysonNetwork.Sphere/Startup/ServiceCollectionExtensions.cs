@@ -21,6 +21,7 @@ using DysonNetwork.Sphere.Translation;
 using DysonNetwork.Sphere.Live;
 using DysonNetwork.Sphere.Automod;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Http.Resilience;
 using NodaTime;
 using NodaTime.Serialization.SystemTextJson;
 
@@ -43,6 +44,22 @@ public static class ServiceCollectionExtensions
                 client.Timeout = TimeSpan.FromSeconds(3);
                 client.MaxResponseContentBufferSize = 10 * 1024 * 1024;
                 client.DefaultRequestHeaders.Add("User-Agent", "facebookexternalhit/1.1");
+            });
+            var activityPubClient = services.AddHttpClient("ActivityPub", client =>
+            {
+                client.Timeout = TimeSpan.FromSeconds(10);
+            });
+#pragma warning disable EXTEXP0001
+            activityPubClient.RemoveAllResilienceHandlers();
+#pragma warning restore EXTEXP0001
+            activityPubClient.ConfigureAdditionalHttpMessageHandlers((handlers, _) =>
+            {
+                for (var i = handlers.Count - 1; i >= 0; i--)
+                {
+                    var handlerType = handlers[i].GetType();
+                    if (handlerType.FullName == "Microsoft.Extensions.Http.Resilience.ResilienceHandler")
+                        handlers.RemoveAt(i);
+                }
             });
 
             services
