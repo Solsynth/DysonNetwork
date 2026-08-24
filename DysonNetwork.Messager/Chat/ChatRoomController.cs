@@ -890,13 +890,20 @@ public class ChatRoomController(
         {
             if (chatRoom.Type != ChatRoomType.Group)
                 return BadRequest(new ApiError { Code = "CHAT_ROOM_SLUG_INVALID", Message = "Only group chat rooms can have a shareable slug.", Status = 400 });
+
+            // An explicit empty string clears the shareable slug.
             if (normalizedSlug is null)
-                return BadRequest(new ApiError { Code = "CHAT_ROOM_SLUG_INVALID", Message = "Chat room slug cannot be empty.", Status = 400 });
-            if (!ChatRoomSlugRegex.IsMatch(normalizedSlug))
-                return BadRequest(new ApiError { Code = "CHAT_ROOM_SLUG_INVALID", Message = "Slug must be URL-safe (lowercase alphanumeric, hyphens, underscores, or periods) and cannot start or end with special characters.", Status = 400 });
-            if (!await crs.IsChatRoomSlugAvailable(normalizedSlug, accountId, chatRoom.RealmId, excludeRoomId: chatRoom.Id))
-                return Conflict(ApiError.Conflict("A chat room with this slug already exists in this scope.", code: "CHAT_ROOM_SLUG_EXISTS"));
-            chatRoom.Slug = normalizedSlug;
+            {
+                chatRoom.Slug = null;
+            }
+            else
+            {
+                if (!ChatRoomSlugRegex.IsMatch(normalizedSlug))
+                    return BadRequest(new ApiError { Code = "CHAT_ROOM_SLUG_INVALID", Message = "Slug must be URL-safe (lowercase alphanumeric, hyphens, underscores, or periods) and cannot start or end with special characters.", Status = 400 });
+                if (!await crs.IsChatRoomSlugAvailable(normalizedSlug, accountId, chatRoom.RealmId, excludeRoomId: chatRoom.Id))
+                    return Conflict(ApiError.Conflict("A chat room with this slug already exists in this scope.", code: "CHAT_ROOM_SLUG_EXISTS"));
+                chatRoom.Slug = normalizedSlug;
+            }
         }
 
         if (!IsEncryptionModeValidForRoomType(chatRoom.Type, chatRoom.EncryptionMode))
