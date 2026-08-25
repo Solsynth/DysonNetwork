@@ -25,9 +25,18 @@ public sealed class ChatUnreadSummary
     public bool HasUnread { get; init; }
 }
 
+public sealed class ChatReadReceipt
+{
+    public Guid ChatRoomId { get; init; }
+    public Guid MemberId { get; init; }
+    public Guid AccountId { get; init; }
+    public Instant LastReadAt { get; init; }
+}
+
 public partial class ChatService(
     AppDatabase db,
     ChatRoomService crs,
+    RemoteWebSocketService webSocket,
     IServiceScopeFactory scopeFactory,
     IRealtimeService realtime,
     ChatVoiceService voice,
@@ -1816,7 +1825,7 @@ public partial class ChatService(
     /// <param name="roomId">The user chat room</param>
     /// <param name="userId">The user id</param>
     /// <exception cref="ArgumentException"></exception>
-    public async Task ReadChatRoomAsync(Guid roomId, Guid userId)
+    public async Task<ChatReadReceipt> ReadChatRoomAsync(Guid roomId, Guid userId)
     {
         var sender = await db
             .ChatMembers.Where(m =>
@@ -1831,9 +1840,18 @@ public partial class ChatService(
 
         sender.LastReadAt = SystemClock.Instance.GetCurrentInstant();
         await db.SaveChangesAsync();
+        await crs.PurgeRoomMembersCache(roomId);
+
+        return new ChatReadReceipt
+        {
+            ChatRoomId = sender.ChatRoomId,
+            MemberId = sender.Id,
+            AccountId = sender.AccountId,
+            LastReadAt = sender.LastReadAt.Value
+        };
     }
 
-    public async Task ReadAllChatRoomsAsync(Guid userId)
+    public async Task<List<ChatReadReceipt>> ReadAllChatRoomsAsync(Guid userId)
     {
         var now = SystemClock.Instance.GetCurrentInstant();
         var members = await db
@@ -1848,7 +1866,67 @@ public partial class ChatService(
             member.LastReadAt = now;
 
         await db.SaveChangesAsync();
+        foreach (var roomId in members.Select(m => m.ChatRoomId).Distinct())
+            await crs.PurgeRoomMembersCache(roomId);
+
+        return members
+            .Select(member => new ChatReadReceipt
+            {
+                ChatRoomId = member.ChatRoomId,
+                MemberId = member.Id,
+                AccountId = member.AccountId,
+                LastReadAt = member.LastReadAt!.Value
+            })
+            .ToList();
     }
+
+    public async Task BroadcastReadReceiptAsync(
+        ChatReadReceipt receipt,
+        string? excludedDeviceId = null
+    )
+    {
+        var payload = InfraObjectCoder.ConvertObjectToByteString(new Dictionary<string, object>
+        {
+            ["chat_room_id"] = receipt.ChatRoomId,
+            ["account_id"] = receipt.AccountId,
+            ["member_id"] = receipt.MemberId,
+            ["last_read_at"] = receipt.LastReadAt
+        }).ToByteArray();
+
+        if (excludedDeviceId is null)
+        {
+            await webSocket.PushWebSocketPacket(
+                receipt.AccountId.ToString(),
+                WebSocketPacketType.MessageRead,
+                payload
+            );
+        }
+        else
+        {
+            await webSocket.PushWebSocketPacket(
+                receipt.AccountId.ToString(),
+                WebSocketPacketType.MessageRead,
+                payload,
+                [excludedDeviceId]
+            );
+        }
+
+        var members = await crs.ListRoomMembers(receipt.ChatRoomId);
+        var peerAccountIds = members
+            .Where(member => member.AccountId != receipt.AccountId)
+            .Select(member => member.AccountId.ToString())
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+        if (peerAccountIds.Count == 0)
+            return;
+
+        await webSocket.PushWebSocketPacketToUsers(
+            peerAccountIds,
+            WebSocketPacketType.MessageRead,
+            payload
+        );
+    }
+
 
     public async Task<int> CountUnreadMessage(Guid userId, Guid chatRoomId)
     {

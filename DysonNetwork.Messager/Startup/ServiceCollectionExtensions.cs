@@ -430,19 +430,10 @@ public static class ServiceCollectionExtensions
                 return;
             }
 
-            await cs.ReadChatRoomAsync(chatRoomId, evt.AccountId);
+            var receipt = await cs.ReadChatRoomAsync(chatRoomId, evt.AccountId);
             logger.LogDebug("Processed messages.read for account {AccountId} room {RoomId}", evt.AccountId, chatRoomId);
 
-            await ws.PushWebSocketPacket(
-                evt.AccountId.ToString(),
-                WebSocketPacketType.MessageRead,
-                InfraObjectCoder.ConvertObjectToByteString(new Dictionary<string, object>
-                {
-                    ["chat_room_id"] = chatRoomId,
-                    ["account_id"] = evt.AccountId
-                }).ToByteArray(),
-                [evt.DeviceId]
-            );
+            await cs.BroadcastReadReceiptAsync(receipt, evt.DeviceId);
         }
 
         private static bool TryGetGuidFromJson(JsonElement obj, string propertyName, out Guid value)

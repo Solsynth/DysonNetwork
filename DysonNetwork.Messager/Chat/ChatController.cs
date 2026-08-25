@@ -274,7 +274,9 @@ public partial class ChatController(
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
 
         var accountId = Guid.Parse(currentUser.Id);
-        await cs.ReadAllChatRoomsAsync(accountId);
+        var receipts = await cs.ReadAllChatRoomsAsync(accountId);
+        foreach (var receipt in receipts)
+            await cs.BroadcastReadReceiptAsync(receipt);
 
         return Ok();
     }
