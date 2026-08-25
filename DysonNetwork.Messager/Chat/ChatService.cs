@@ -1911,6 +1911,13 @@ public partial class ChatService(
             );
         }
 
+        var room = await db.ChatRooms
+            .Where(r => r.Id == receipt.ChatRoomId)
+            .Select(r => new { r.IsReadReceiptsPublic })
+            .FirstOrDefaultAsync();
+        if (room is null || !room.IsReadReceiptsPublic)
+            return;
+
         var members = await crs.ListRoomMembers(receipt.ChatRoomId);
         var peerAccountIds = members
             .Where(member => member.AccountId != receipt.AccountId)

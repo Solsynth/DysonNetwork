@@ -656,6 +656,7 @@ public class ChatRoomController(
         public Guid? RealmId { get; set; }
         public bool? IsCommunity { get; set; }
         public bool? IsPublic { get; set; }
+        public bool? IsReadReceiptsPublic { get; set; }
         public ChatRoomEncryptionMode? EncryptionMode { get; set; }
         public Dictionary<string, object>? E2eePolicy { get; set; }
     }
@@ -829,6 +830,7 @@ public class ChatRoomController(
         var previousDescription = chatRoom.Description;
         var previousIsCommunity = chatRoom.IsCommunity;
         var previousIsPublic = chatRoom.IsPublic;
+        var previousIsReadReceiptsPublic = chatRoom.IsReadReceiptsPublic;
         var previousRealmId = chatRoom.RealmId;
         var previousSlug = chatRoom.Slug;
         var previousPictureId = chatRoom.Picture?.Id;
@@ -880,6 +882,8 @@ public class ChatRoomController(
             chatRoom.IsCommunity = request.IsCommunity.Value;
         if (request.IsPublic is not null)
             chatRoom.IsPublic = request.IsPublic.Value;
+        if (request.IsReadReceiptsPublic is not null)
+            chatRoom.IsReadReceiptsPublic = request.IsReadReceiptsPublic.Value;
         if (request.EncryptionMode is not null)
             return Conflict(ApiError.Conflict("Use POST /api/chat/{id}/mls/enable to enable encryption. Encryption cannot be disabled.", code: "CHAT_MLS_ENABLE_ENDPOINT_REQUIRED"));
         if (request.E2eePolicy is not null)
@@ -936,6 +940,12 @@ public class ChatRoomController(
             {
                 ["old"] = previousIsPublic,
                 ["new"] = chatRoom.IsPublic
+            };
+        if (previousIsReadReceiptsPublic != chatRoom.IsReadReceiptsPublic)
+            changes["is_read_receipts_public"] = new Dictionary<string, object>
+            {
+                ["old"] = previousIsReadReceiptsPublic,
+                ["new"] = chatRoom.IsReadReceiptsPublic
             };
         if (previousRealmId != chatRoom.RealmId)
             changes["realm_id"] = new Dictionary<string, object?>
@@ -1310,6 +1320,8 @@ public class ChatRoomController(
             if (member is null) return StatusCode(403, ApiError.Unauthorized("You need to be a member to see members of private chat room.", forbidden: true));
         }
 
+        var maskReadReceipts = !room.IsReadReceiptsPublic && accountId.HasValue;
+
         var query = db.ChatMembers
             .Where(m => m.ChatRoomId == roomId)
             .Where(m => m.LeaveAt == null);
@@ -1352,6 +1364,16 @@ public class ChatRoomController(
 
             members = await crs.LoadMemberAccounts(result);
 
+            if (maskReadReceipts)
+            {
+                var requester = accountId!.Value;
+                foreach (var member in members)
+                {
+                    if (member.AccountId != requester)
+                        member.LastReadAt = null;
+                }
+            }
+
             return Ok(members.Where(m => m.Account is not null).ToList());
         }
         else
@@ -1365,6 +1387,16 @@ public class ChatRoomController(
                 .Take(take)
                 .ToListAsync();
             members = await crs.LoadMemberAccounts(members);
+
+            if (maskReadReceipts)
+            {
+                var requester = accountId!.Value;
+                foreach (var member in members)
+                {
+                    if (member.AccountId != requester)
+                        member.LastReadAt = null;
+                }
+            }
 
             return Ok(members.Where(m => m.Account is not null).ToList());
         }
