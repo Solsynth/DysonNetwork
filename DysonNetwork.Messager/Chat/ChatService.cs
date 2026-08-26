@@ -1918,9 +1918,17 @@ public partial class ChatService(
         if (room is null || !room.IsReadReceiptsPublic)
             return;
 
+        // Fan out only to currently subscribed room members (like typing
+        // indicators) so offline members are not addressed in the push.
+        var subscribedMemberIds = await crs.GetSubscribedMembers(receipt.ChatRoomId);
+        if (subscribedMemberIds.Count == 0)
+            return;
+
         var members = await crs.ListRoomMembers(receipt.ChatRoomId);
         var peerAccountIds = members
-            .Where(member => member.AccountId != receipt.AccountId)
+            .Where(member =>
+                subscribedMemberIds.Contains(member.Id) &&
+                member.AccountId != receipt.AccountId)
             .Select(member => member.AccountId.ToString())
             .Distinct(StringComparer.Ordinal)
             .ToList();
