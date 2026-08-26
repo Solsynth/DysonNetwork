@@ -1860,13 +1860,56 @@ TIP-: 忌提示标题 | 具体提醒，要写清今天不适合怎么做、容�
         {
             activeSession.Type = type;
             activeSession.Tags = normalizedTags;
-            db.PresenceActivityTags.RemoveRange(activeSession.ActivityTags);
-            activeSession.ActivityTags = normalizedTags.Select(t => new SnPresenceActivityTag
+
+            // The session query does not include ActivityTags, so the tracked
+            // navigation is empty; removing via it would leave the persisted
+            // rows behind and re-inserting the same slugs would then violate
+            // the (ActivityId, Slug) primary key. Load the real rows and
+            // reconcile by slug instead. Also account for tracked tag entities
+            // left over from a previously failed SaveChanges on this context
+            // so a retry stays idempotent.
+            var existingTags = await db.PresenceActivityTags
+                .Where(t => t.ActivityId == activeSession.Id)
+                .ToListAsync();
+            var knownTags = existingTags
+                .Concat(db.ChangeTracker.Entries<SnPresenceActivityTag>()
+                    .Where(e => e.Entity.ActivityId == activeSession.Id)
+                    .Select(e => e.Entity))
+                .Distinct()
+                .ToList();
+
+            var newTagSlugs = normalizedTags.Select(t => t.Slug).ToHashSet(StringComparer.Ordinal);
+            var tagNames = normalizedTags.ToDictionary(t => t.Slug, t => t.Name, StringComparer.Ordinal);
+
+            // Keep one entry per slug, preferring the persisted row over an
+            // unpersisted leftover; drop the rest.
+            var keptTags = new List<SnPresenceActivityTag>();
+            var tagsToRemove = new List<SnPresenceActivityTag>();
+            var keptSlugs = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var tag in knownTags)
             {
-                ActivityId = activeSession.Id,
-                Slug = t.Slug,
-                Name = t.Name,
-            }).ToList();
+                if (!keptSlugs.Add(tag.Slug))
+                {
+                    tagsToRemove.Add(tag);
+                    continue;
+                }
+                keptTags.Add(tag);
+                if (tagNames.TryGetValue(tag.Slug, out var tagName))
+                    tag.Name = tagName;
+            }
+
+            var tagsToAdd = normalizedTags
+                .Where(t => !keptSlugs.Contains(t.Slug))
+                .Select(t => new SnPresenceActivityTag
+                {
+                    ActivityId = activeSession.Id,
+                    Slug = t.Slug,
+                    Name = t.Name,
+                })
+                .ToList();
+
+            db.PresenceActivityTags.RemoveRange(tagsToRemove);
+            activeSession.ActivityTags = keptTags.Concat(tagsToAdd).ToList();
             activeSession.Visibility = visibility;
             activeSession.Provider = provider;
             activeSession.ReferenceId = referenceId;
