@@ -29,6 +29,7 @@ public interface ISendMessageRequest
     Guid? RepliedMessageId { get; }
     Guid? ForwardedMessageId { get; }
     SnChatEncryptionMeta? EncryptionMeta { get; }
+    bool IsThreadRoot { get; }
 }
 
 public static class ChatMessageHelpers

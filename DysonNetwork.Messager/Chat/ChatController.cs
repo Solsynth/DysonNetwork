@@ -372,6 +372,7 @@ public partial class ChatController(
         public Guid? RepliedMessageId { get; set; }
         public Guid? ForwardedMessageId { get; set; }
         public SnChatEncryptionMeta? EncryptionMeta { get; set; }
+        public bool IsThreadRoot { get; set; }
     }
 
     public class DeleteMessageRequest
@@ -412,6 +413,11 @@ public partial class ChatController(
     {
         public SnChatRoom Room { get; set; } = null!;
         public List<SnChatMessage> Messages { get; set; } = [];
+    }
+    public class ThreadReplyListResponse
+    {
+        public SnChatMessage Root { get; set; } = null!;
+        public List<ThreadReplyNode> Replies { get; set; } = [];
     }
 
     [HttpGet("messages/search")]
@@ -518,6 +524,7 @@ public partial class ChatController(
             message.Sender = members.First(member => member.Id == message.SenderId);
 
         await cs.HydrateMessageReactionsAsync(messages, accountId);
+        await cs.HydrateMessageThreadsAsync(messages, accountId);
         Response.Headers["X-Total"] = totalCount.ToString();
 
         return Ok(messages
@@ -561,6 +568,7 @@ public partial class ChatController(
             message.Sender = members.First(x => x.Id == message.SenderId);
 
         await cs.HydrateMessageReactionsAsync(messages, currentUserId);
+        await cs.HydrateMessageThreadsAsync(messages, currentUserId);
 
         Response.Headers["X-Total"] = totalCount.ToString();
 
@@ -586,6 +594,7 @@ public partial class ChatController(
 
         message.Sender = await crs.LoadMemberAccount(message.Sender);
         await cs.HydrateMessageReactionsAsync([message], currentUserId);
+        await cs.HydrateMessageThreadsAsync([message], currentUserId);
 
         return Ok(message);
     }
@@ -695,7 +704,8 @@ public partial class ChatController(
             ChatRoomId = roomId,
             Meta = request.Meta ?? new Dictionary<string, object>(),
             EncryptionMeta = request.EncryptionMeta,
-            ClientMessageId = request.ClientMessageId ?? request.Nonce
+            ClientMessageId = request.ClientMessageId ?? request.Nonce,
+            IsThreadRoot = request.IsThreadRoot
         };
 
         // If client provides the complete embeds list, use it directly
@@ -767,11 +777,25 @@ public partial class ChatController(
         if (request.RepliedMessageId.HasValue)
         {
             var repliedMessage = await db.ChatMessages
-                .FirstOrDefaultAsync(m => m.Id == request.RepliedMessageId.Value && m.ChatRoomId == roomId);
+                .Where(m => m.Id == request.RepliedMessageId.Value && m.ChatRoomId == roomId)
+                .Select(m => new { m.Id, m.RepliedMessageId })
+                .FirstOrDefaultAsync();
             if (repliedMessage == null)
                 return BadRequest(new ApiError { Code = "CHAT_REPLY_MESSAGE_NOT_FOUND", Message = "The message you're replying to does not exist.", Status = 400 });
 
             message.RepliedMessageId = repliedMessage.Id;
+            if (request.IsThreadRoot && repliedMessage.RepliedMessageId.HasValue)
+                return BadRequest(new ApiError { Code = "CHAT_THREAD_ROOT_EXISTS", Message = "This message is already a reply in a thread; its replies stay in that thread.", Status = 400 });
+        }
+        else if (request.IsThreadRoot)
+        {
+            return BadRequest(new ApiError { Code = "CHAT_THREAD_ROOT_REQUIRES_REPLY", Message = "A thread reply must reference the thread-root message.", Status = 400 });
+        }
+
+        if (!request.IsThreadRoot)
+        {
+            // Any reply without an explicit thread-root flag becomes its own thread root.
+            message.IsThreadRoot = message.IsThreadRoot || message.RepliedMessageId == null;
         }
 
         if (request.ForwardedMessageId.HasValue)
@@ -785,6 +809,7 @@ public partial class ChatController(
         }
 
         // Extract mentioned users
+        if (!e2eeMode)        // Extract mentioned users
         if (!e2eeMode)
         {
             message.MembersMentioned = await ChatMessageHelpers.ExtractMentionedUsersAsync(request.Content, request.RepliedMessageId,
@@ -1440,6 +1465,108 @@ public partial class ChatController(
         return Ok(reactions);
     }
 
+    [HttpGet("{roomId:guid}/messages/{messageId:guid}/thread")]
+    public async Task<ActionResult<ThreadReplyListResponse>> GetMessageThread(
+        Guid roomId,
+        Guid messageId,
+        [FromQuery] int offset = 0,
+        [FromQuery] int take = 20)
+    {
+        var currentUser = HttpContext.Items["CurrentUser"] as DyAccount;
+        var currentUserId = currentUser is null ? (Guid?)null : Guid.Parse(currentUser.Id);
+
+        var (room, roomError) = await GetReadableRoomAsync(roomId, currentUser);
+        if (roomError is not null) return roomError;
+
+        var root = await db.ChatMessages
+            .Where(m => m.Id == messageId && m.ChatRoomId == roomId)
+            .FirstOrDefaultAsync();
+        if (root is null) return NotFound();
+
+        var totalCount = await db.ChatMessages
+            .Where(m => m.RepliedMessageId == messageId)
+            .CountAsync();
+
+        var rootReplies = await db.ChatMessages
+            .Where(m => m.RepliedMessageId == messageId)
+            .OrderByDescending(m => m.RoomSequence)
+            .ThenByDescending(m => m.CreatedAt)
+            .Include(m => m.Sender)
+            .Skip(offset)
+            .Take(take)
+            .ToListAsync();
+
+        Response.Headers["X-Total"] = totalCount.ToString();
+
+        if (rootReplies.Count == 0)
+            return Ok(new ThreadReplyListResponse { Root = root, Replies = [] });
+
+        var repliesByParent = new Dictionary<Guid, List<SnChatMessage>>();
+        var visited = rootReplies.Select(e => e.Id).ToHashSet();
+        var frontier = rootReplies.Select(e => e.Id).ToList();
+
+        while (frontier.Count > 0)
+        {
+            var parentIds = frontier;
+            var children = await db.ChatMessages
+                .Where(m => parentIds.Contains(m.RepliedMessageId!.Value))
+                .OrderBy(m => m.RoomSequence)
+                .ThenBy(m => m.CreatedAt)
+                .Include(m => m.Sender)
+                .ToListAsync();
+
+            frontier = [];
+            foreach (var child in children)
+            {
+                if (!visited.Add(child.Id)) continue;
+                var parentId = child.RepliedMessageId!.Value;
+                if (!repliesByParent.TryGetValue(parentId, out var siblings))
+                {
+                    siblings = [];
+                    repliesByParent[parentId] = siblings;
+                }
+                siblings.Add(child);
+                frontier.Add(child.Id);
+            }
+        }
+
+        var tree = new List<ThreadReplyNode>();
+        foreach (var rootReply in rootReplies)
+            FlattenThreadReplies(rootReply, repliesByParent, 0, tree);
+
+        var memberIds = tree.Select(n => n.Message.SenderId).Distinct().ToList();
+        var members = await db.ChatMembers
+            .Where(m => memberIds.Contains(m.Id))
+            .ToListAsync();
+        members = await crs.LoadMemberAccounts(members);
+        foreach (var node in tree)
+            node.Message.Sender = members.First(x => x.Id == node.Message.SenderId);
+
+        var replyMessages = tree.Select(n => n.Message).ToList();
+        await cs.HydrateMessageThreadsAsync(replyMessages, currentUserId);
+        await cs.HydrateMessageReactionsAsync(replyMessages, currentUserId);
+
+        return Ok(new ThreadReplyListResponse { Root = root, Replies = tree });
+    }
+
+    private static void FlattenThreadReplies(
+        SnChatMessage message,
+        Dictionary<Guid, List<SnChatMessage>> repliesByParent,
+        int depth,
+        List<ThreadReplyNode> result)
+    {
+        var node = new ThreadReplyNode
+        {
+            Message = message,
+            Depth = depth
+        };
+        result.Add(node);
+
+        var replies = repliesByParent.GetValueOrDefault(message.Id, []);
+        foreach (var reply in replies)
+            FlattenThreadReplies(reply, repliesByParent, depth + 1, result);
+    }
+
     public class SyncRequest
     {
         [Required] public long LastSyncTimestamp { get; set; }
@@ -1547,6 +1674,7 @@ public partial class ChatController(
                 message.Sender = sender;
         }
         await cs.HydrateMessageReactionsAsync(messages, accountId);
+        await cs.HydrateMessageThreadsAsync(messages, accountId);
 
         var latestTimestamp = messages.Count > 0
             ? messages.Last().CreatedAt

@@ -313,6 +313,7 @@ public class ChatRoomController(
                 message.Sender = sender;
         }
         await cs.HydrateMessageReactionsAsync(lastMessageMap.Values.ToList(), accountId);
+        await cs.HydrateMessageThreadsAsync(lastMessageMap.Values.ToList(), accountId);
 
         var summaries = summaryMembers
             .Select(m => new ChatRoomSummarySyncChange

@@ -16,6 +16,8 @@ using DysonNetwork.Shared.Registry;
 using Grpc.Core;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
+using System.ComponentModel.DataAnnotations.Schema;
+using Npgsql;
 
 namespace DysonNetwork.Messager.Chat;
 
@@ -2065,6 +2067,7 @@ public partial class ChatService(
             messages.Values.OfType<SnChatMessage>().ToList(),
             userId
         );
+        await HydrateMessageThreadsAsync(messages.Values.OfType<SnChatMessage>().ToList(), userId);
 
         return messages;
     }
@@ -2126,6 +2129,7 @@ public partial class ChatService(
             }
         }
         await HydrateMessageReactionsAsync(syncMessages, accountId);
+        await HydrateMessageThreadsAsync(syncMessages, accountId);
 
         var latestTimestamp =
             syncMessages.Count > 0
@@ -3175,6 +3179,63 @@ public partial class ChatService(
 
         EscapeMarkdownHeadings(messages);
     }
+
+    public async Task HydrateMessageThreadsAsync(List<SnChatMessage> messages, Guid? accountId = null)
+    {
+        if (messages.Count == 0) return;
+
+        var messageIds = messages.Select(m => m.Id).ToList();
+
+        var directReplyCounts = await db.ChatMessages
+            .Where(m => messageIds.Contains(m.RepliedMessageId!.Value))
+            .GroupBy(m => m.RepliedMessageId!.Value)
+            .Select(g => new { MessageId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.MessageId, x => x.Count);
+
+        var threadReplyCounts = await GetThreadReplyCountBatch(messageIds);
+
+        foreach (var message in messages)
+        {
+            message.ThreadRepliesCount = message.IsThreadRoot
+                ? threadReplyCounts.GetValueOrDefault(message.Id, 0)
+                : message.RepliedMessageId == null ? 0 : message.ThreadRepliesCount;
+            message.IsThreadRoot = message.IsThreadRoot || directReplyCounts.ContainsKey(message.Id);
+        }
+    }
+
+    private async Task<Dictionary<Guid, int>> GetThreadReplyCountBatch(List<Guid> messageIds)
+    {
+        if (messageIds.Count == 0) return [];
+        var messageIdsParameter = new NpgsqlParameter<Guid[]>("messageIds", messageIds.ToArray());
+        var results = await db
+            .Database.SqlQueryRaw<ThreadReplyCountResult>(
+                """
+                WITH RECURSIVE reply_tree AS (
+                    SELECT replied_message_id AS ancestor_id, id AS descendant_id
+                    FROM chat_messages
+                    WHERE replied_message_id = ANY (@messageIds) AND deleted_at IS NULL
+                    UNION ALL
+                    SELECT reply_tree.ancestor_id, chat_messages.id AS descendant_id
+                    FROM chat_messages
+                    INNER JOIN reply_tree ON chat_messages.replied_message_id = reply_tree.descendant_id
+                    WHERE chat_messages.deleted_at IS NULL
+                )
+                SELECT ancestor_id, COUNT(*)::int AS count
+                FROM reply_tree
+                GROUP BY ancestor_id
+                """,
+                messageIdsParameter
+            )
+            .ToListAsync();
+        return results.ToDictionary(x => x.AncestorId, x => x.Count);
+    }
+
+    private sealed class ThreadReplyCountResult
+    {
+        [Column("ancestor_id")] public Guid AncestorId { get; set; }
+        [Column("count")] public int Count { get; set; }
+    }
+
 }
 
 public class SyncResponse
