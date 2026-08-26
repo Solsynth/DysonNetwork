@@ -1480,8 +1480,10 @@ public partial class ChatController(
 
         var root = await db.ChatMessages
             .Where(m => m.Id == messageId && m.ChatRoomId == roomId)
+            .Include(m => m.Sender)
             .FirstOrDefaultAsync();
         if (root is null) return NotFound();
+        root.Sender = await crs.LoadMemberAccount(root.Sender);
 
         var totalCount = await db.ChatMessages
             .Where(m => m.RepliedMessageId == messageId)
