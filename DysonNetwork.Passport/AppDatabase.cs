@@ -35,6 +35,8 @@ public class AppDatabase(
     public DbSet<SnCheckInResult> AccountCheckInResults { get; set; } = null!;
     public DbSet<SnPresenceActivity> PresenceActivities { get; set; } = null!;
     public DbSet<SnPresenceCatalogItem> PresenceCatalogItems { get; set; } = null!;
+    public DbSet<SnPresenceActivityTag> PresenceActivityTags { get; set; } = null!;
+    public DbSet<SnPresenceCatalogTag> PresenceCatalogTags { get; set; } = null!;
     public DbSet<SnPresenceArtwork> PresenceArtworks { get; set; } = null!;
     public DbSet<SnUserCalendarEvent> UserCalendarEvents { get; set; } = null!;
     public DbSet<SnCalendarEventSubscription> CalendarEventSubscriptions { get; set; } = null!;
@@ -172,7 +174,27 @@ public class AppDatabase(
         modelBuilder.Entity<SnPresenceCatalogItem>()
             .HasIndex(e => new { e.AccountId, e.Provider, e.CatalogKey, e.DeletedAt });
         modelBuilder.Entity<SnPresenceCatalogItem>()
-            .HasIndex(e => new { e.AccountId, e.Category, e.DeletedAt });
+            .HasIndex(e => new { e.AccountId, e.DeletedAt });
+
+        modelBuilder.Entity<SnPresenceActivityTag>()
+            .HasKey(t => new { t.ActivityId, t.Slug });
+        modelBuilder.Entity<SnPresenceActivityTag>()
+            .HasIndex(t => t.Slug);
+        modelBuilder.Entity<SnPresenceActivityTag>()
+            .HasOne(t => t.Activity)
+            .WithMany(a => a.ActivityTags)
+            .HasForeignKey(t => t.ActivityId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<SnPresenceCatalogTag>()
+            .HasKey(t => new { t.CatalogId, t.Slug });
+        modelBuilder.Entity<SnPresenceCatalogTag>()
+            .HasIndex(t => t.Slug);
+        modelBuilder.Entity<SnPresenceCatalogTag>()
+            .HasOne(t => t.Catalog)
+            .WithMany(c => c.CatalogTags)
+            .HasForeignKey(t => t.CatalogId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         modelBuilder.Entity<SnPresenceArtwork>()
             .HasKey(a => a.Hash);

@@ -46,11 +46,11 @@ public class PresenceActivityController(
         [FromQuery] int offset = 0,
         [FromQuery] int take = 20,
         [FromQuery] string? query = null,
-        [FromQuery] PresenceType? type = null,
+        [FromQuery] string? type = null,
         [FromQuery] string? provider = null,
         [FromQuery] string? referenceId = null,
         [FromQuery] string? term = null,
-        [FromQuery] PresenceCategory? category = null,
+        [FromQuery] string[]? tags = null,
         [FromQuery] PresenceVisibility? visibility = null,
         [FromQuery] string? catalogId = null,
         [FromQuery] DateTimeOffset? from = null,
@@ -61,11 +61,11 @@ public class PresenceActivityController(
             return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var hasFilters = !string.IsNullOrWhiteSpace(query)
-            || type.HasValue
+            || !string.IsNullOrWhiteSpace(type)
             || !string.IsNullOrWhiteSpace(provider)
             || !string.IsNullOrWhiteSpace(referenceId)
             || !string.IsNullOrWhiteSpace(term)
-            || category.HasValue
+            || (tags is { Length: > 0 })
             || visibility.HasValue
             || !string.IsNullOrWhiteSpace(catalogId)
             || from.HasValue
@@ -87,7 +87,7 @@ public class PresenceActivityController(
             referenceId,
             term,
             isActive: includeExpired ? null : true,
-            category: category,
+            tags: tags,
             visibility: visibility,
             catalogId: catalogId,
             from: from.HasValue ? NodaTime.Instant.FromDateTimeOffset(from.Value) : null,
@@ -159,8 +159,8 @@ public class PresenceActivityController(
                 currentUser.Id,
                 activity =>
                 {
-                    if (request.Type.HasValue)
-                        activity.Type = request.Type.Value;
+                    if (!string.IsNullOrWhiteSpace(request.Type))
+                        activity.Type = request.Type.Trim();
                     activity.Provider = NormalizeProvider(request.Provider);
                     activity.ReferenceId = NormalizeNullableField(request.ReferenceId);
                     activity.Title = request.Title;
@@ -182,13 +182,13 @@ public class PresenceActivityController(
             }
         }
 
-        if (!request.Type.HasValue)
+        if (string.IsNullOrWhiteSpace(request.Type))
             return BadRequest(new ApiError { Code = "PASSPORT_ACTIVITY_TYPE_REQUIRED", Message = "Type is required when creating a new activity.", Status = 400, TraceId = HttpContext.TraceIdentifier });
 
         var newActivity = new SnPresenceActivity
         {
             AccountId = currentUser.Id,
-            Type = request.Type.Value,
+            Type = request.Type.Trim(),
             Provider = NormalizeProvider(request.Provider),
             ReferenceId = NormalizeNullableField(request.ReferenceId),
             ManualId = request.ManualId,
@@ -245,14 +245,14 @@ public class PresenceActivityController(
             return BadRequest(new ApiError { Code = "PASSPORT_ACTIVITY_ARTWORK_INVALID", Message = ex.Message, Status = 400, TraceId = HttpContext.TraceIdentifier });
         }
 
-        if (!request.Type.HasValue)
+        if (string.IsNullOrWhiteSpace(request.Type))
             return BadRequest(new ApiError { Code = "PASSPORT_ACTIVITY_TYPE_REQUIRED", Message = "Type is required when starting a session.", Status = 400, TraceId = HttpContext.TraceIdentifier });
 
         var result = await service.StartActivitySession(
             currentUser.Id,
             request.ManualId,
-            request.Type.Value,
-            request.Category,
+            request.Type.Trim(),
+            request.Tags,
             NormalizeProvider(request.Provider),
             NormalizeNullableField(request.ReferenceId),
             request.Title,
@@ -311,7 +311,7 @@ public class PresenceActivityController(
     [ProducesResponseType<List<SnPresenceCatalogItem>>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<ActionResult<List<SnPresenceCatalogItem>>> GetCatalog(
-        [FromQuery] PresenceCategory? category = null,
+        [FromQuery] string[]? tags = null,
         [FromQuery] string? provider = null,
         [FromQuery] string? query = null,
         [FromQuery] bool? isActive = null,
@@ -324,7 +324,7 @@ public class PresenceActivityController(
 
         var results = await service.GetCatalogItems(
             currentUser.Id,
-            category,
+            tags,
             provider,
             query,
             isActive,
@@ -346,7 +346,7 @@ public class PresenceActivityController(
     public async Task<ActionResult<Dictionary<string, long>>> GetStats(
         [FromQuery] DateTimeOffset? from = null,
         [FromQuery] DateTimeOffset? to = null,
-        [FromQuery] PresenceCategory? category = null
+        [FromQuery] string[]? tags = null
     )
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
@@ -356,7 +356,32 @@ public class PresenceActivityController(
             currentUser.Id,
             from.HasValue ? NodaTime.Instant.FromDateTimeOffset(from.Value) : null,
             to.HasValue ? NodaTime.Instant.FromDateTimeOffset(to.Value) : null,
-            category
+            tags
+        );
+
+        return Ok(results);
+    }
+
+    /// <summary>
+    /// Retrieves per-tag accumulated duration in seconds from ended session rows.
+    /// </summary>
+    /// <returns>Dictionary keyed by tag slug with total seconds</returns>
+    [HttpGet("tags/stats")]
+    [ApiFeature("presences.stats", Revision = 1)]
+    [ProducesResponseType<Dictionary<string, long>>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<ActionResult<Dictionary<string, long>>> GetTagStats(
+        [FromQuery] DateTimeOffset? from = null,
+        [FromQuery] DateTimeOffset? to = null
+    )
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
+
+        var results = await service.GetTagStats(
+            currentUser.Id,
+            from.HasValue ? NodaTime.Instant.FromDateTimeOffset(from.Value) : null,
+            to.HasValue ? NodaTime.Instant.FromDateTimeOffset(to.Value) : null
         );
 
         return Ok(results);
@@ -405,8 +430,8 @@ public class PresenceActivityController(
             currentUser.Id,
             activity =>
             {
-                if (request.Type.HasValue)
-                    activity.Type = request.Type.Value;
+                if (!string.IsNullOrWhiteSpace(request.Type))
+                    activity.Type = request.Type.Trim();
                 if (request.Provider != null)
                     activity.Provider = NormalizeProvider(request.Provider);
                 if (request.ReferenceId != null)
@@ -480,8 +505,8 @@ public class PresenceActivityController(
     /// </summary>
     public class StartSessionRequest
     {
-        /// <summary>The type of presence activity (e.g., Gaming, Music, Workout)</summary>
-        public PresenceType? Type { get; set; }
+        /// <summary>Free-form activity type (e.g. "gaming", "coding")</summary>
+        public string? Type { get; set; }
 
         /// <summary>User-defined identifier for the session; re-starting the same id refreshes the active session</summary>
         public string? ManualId { get; set; }
@@ -519,8 +544,8 @@ public class PresenceActivityController(
         /// <summary>Extensible metadata dictionary for custom developer data</summary>
         public Dictionary<string, object?>? Meta { get; set; }
 
-        /// <summary>High-level classification of the activity</summary>
-        public PresenceCategory Category { get; set; } = PresenceCategory.Unknown;
+        /// <summary>Query-friendly tags: slug + human-readable name (e.g. genre, gamemode, work kind)</summary>
+        public List<SnPresenceTag> Tags { get; set; } = [];
 
         /// <summary>Visibility of the activity to other users</summary>
         public PresenceVisibility Visibility { get; set; } = PresenceVisibility.Public;
@@ -549,8 +574,8 @@ public class PresenceActivityController(
     /// </summary>
     public class SetActivityRequest
     {
-        /// <summary>The type of presence activity (e.g., Gaming, Music, Workout)</summary>
-        public PresenceType? Type { get; set; }
+        /// <summary>Free-form activity type (e.g. "gaming", "coding")</summary>
+        public string? Type { get; set; }
 
         /// <summary>User-defined identifier for the activity (optional, for easy reference)</summary>
         public string? ManualId { get; set; }

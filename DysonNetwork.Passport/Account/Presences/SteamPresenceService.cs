@@ -196,7 +196,7 @@ public class SteamPresenceService(
                 accountId,
                 "steam",
                 presenceActivity.Type,
-                PresenceCategory.Gaming,
+                new List<SnPresenceTag> { new() { Slug = "gaming", Name = "Gaming" } },
                 presenceActivity.Provider,
                 presenceActivity.ReferenceId,
                 presenceActivity.Title,
@@ -302,7 +302,7 @@ public class SteamPresenceService(
         return new SnPresenceActivity
         {
             AccountId = accountId,
-            Type = PresenceType.Gaming,
+            Type = "gaming",
             Provider = "steam",
             ReferenceId = gameId,
             ManualId = "steam",

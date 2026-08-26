@@ -6,6 +6,7 @@ using DysonNetwork.Passport;
 using DysonNetwork.Shared.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using NetTopologySuite.Geometries;
 using NodaTime;
@@ -16,9 +17,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace DysonNetwork.Passport.Migrations
 {
     [DbContext(typeof(AppDatabase))]
-    partial class AppDatabaseModelSnapshot : ModelSnapshot
+    [Migration("20260826130528_ReplaceCategoryWithTags")]
+    partial class ReplaceCategoryWithTags
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -2500,6 +2503,16 @@ namespace DysonNetwork.Passport.Migrations
                         .HasColumnType("character varying(4096)")
                         .HasColumnName("subtitle_url");
 
+                    b.PrimitiveCollection<string>("TagSlugs")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("tag_slugs");
+
+                    b.Property<List<SnPresenceTag>>("Tags")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("tags");
+
                     b.Property<string>("Title")
                         .HasMaxLength(4096)
                         .HasColumnType("character varying(4096)")
@@ -2535,31 +2548,6 @@ namespace DysonNetwork.Passport.Migrations
                         .HasDatabaseName("ix_presence_activities_account_id_started_at_ended_at_deleted_");
 
                     b.ToTable("presence_activities", (string)null);
-                });
-
-            modelBuilder.Entity("DysonNetwork.Shared.Models.SnPresenceActivityTag", b =>
-                {
-                    b.Property<Guid>("ActivityId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("activity_id");
-
-                    b.Property<string>("Slug")
-                        .HasMaxLength(256)
-                        .HasColumnType("character varying(256)")
-                        .HasColumnName("slug");
-
-                    b.Property<string>("Name")
-                        .HasMaxLength(256)
-                        .HasColumnType("character varying(256)")
-                        .HasColumnName("name");
-
-                    b.HasKey("ActivityId", "Slug")
-                        .HasName("pk_presence_activity_tags");
-
-                    b.HasIndex("Slug")
-                        .HasDatabaseName("ix_presence_activity_tags_slug");
-
-                    b.ToTable("presence_activity_tags", (string)null);
                 });
 
             modelBuilder.Entity("DysonNetwork.Shared.Models.SnPresenceCatalogItem", b =>
@@ -2644,6 +2632,16 @@ namespace DysonNetwork.Passport.Migrations
                         .HasColumnType("character varying(4096)")
                         .HasColumnName("subtitle_url");
 
+                    b.PrimitiveCollection<string>("TagSlugs")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("tag_slugs");
+
+                    b.Property<List<SnPresenceTag>>("Tags")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("tags");
+
                     b.Property<string>("TitleUrl")
                         .HasMaxLength(4096)
                         .HasColumnType("character varying(4096)")
@@ -2671,31 +2669,6 @@ namespace DysonNetwork.Passport.Migrations
                         .HasDatabaseName("ix_presence_catalog_items_account_id_provider_catalog_key_dele");
 
                     b.ToTable("presence_catalog_items", (string)null);
-                });
-
-            modelBuilder.Entity("DysonNetwork.Shared.Models.SnPresenceCatalogTag", b =>
-                {
-                    b.Property<Guid>("CatalogId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("catalog_id");
-
-                    b.Property<string>("Slug")
-                        .HasMaxLength(256)
-                        .HasColumnType("character varying(256)")
-                        .HasColumnName("slug");
-
-                    b.Property<string>("Name")
-                        .HasMaxLength(256)
-                        .HasColumnType("character varying(256)")
-                        .HasColumnName("name");
-
-                    b.HasKey("CatalogId", "Slug")
-                        .HasName("pk_presence_catalog_tags");
-
-                    b.HasIndex("Slug")
-                        .HasDatabaseName("ix_presence_catalog_tags_slug");
-
-                    b.ToTable("presence_catalog_tags", (string)null);
                 });
 
             modelBuilder.Entity("DysonNetwork.Shared.Models.SnProgressEventReceipt", b =>
@@ -3818,30 +3791,6 @@ namespace DysonNetwork.Passport.Migrations
                     b.Navigation("Group");
                 });
 
-            modelBuilder.Entity("DysonNetwork.Shared.Models.SnPresenceActivityTag", b =>
-                {
-                    b.HasOne("DysonNetwork.Shared.Models.SnPresenceActivity", "Activity")
-                        .WithMany("ActivityTags")
-                        .HasForeignKey("ActivityId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_presence_activity_tags_presence_activities_activity_id");
-
-                    b.Navigation("Activity");
-                });
-
-            modelBuilder.Entity("DysonNetwork.Shared.Models.SnPresenceCatalogTag", b =>
-                {
-                    b.HasOne("DysonNetwork.Shared.Models.SnPresenceCatalogItem", "Catalog")
-                        .WithMany("CatalogTags")
-                        .HasForeignKey("CatalogId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_presence_catalog_tags_presence_catalog_items_catalog_id");
-
-                    b.Navigation("Catalog");
-                });
-
             modelBuilder.Entity("DysonNetwork.Shared.Models.SnRealmLabel", b =>
                 {
                     b.HasOne("DysonNetwork.Shared.Models.SnRealm", "Realm")
@@ -3966,16 +3915,6 @@ namespace DysonNetwork.Passport.Migrations
                     b.Navigation("Members");
 
                     b.Navigation("Nodes");
-                });
-
-            modelBuilder.Entity("DysonNetwork.Shared.Models.SnPresenceActivity", b =>
-                {
-                    b.Navigation("ActivityTags");
-                });
-
-            modelBuilder.Entity("DysonNetwork.Shared.Models.SnPresenceCatalogItem", b =>
-                {
-                    b.Navigation("CatalogTags");
                 });
 
             modelBuilder.Entity("DysonNetwork.Shared.Models.SnRealm", b =>

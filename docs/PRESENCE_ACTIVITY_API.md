@@ -154,7 +154,7 @@ Create a new presence activity with a configurable lease period.
 **Response:** Returns the created `SnPresenceActivity` object with populated fields.
 
 **Field Details:**
-- `type`: PresenceType enum (Unknown, Gaming, Music, Workout)
+- `type`: Free-form string (e.g. `"gaming"`, `"coding"`, `"music"`); no fixed enum — clients may use arbitrary values
 - `provider`: Optional stable upstream provider key
 - `reference_id`: Optional stable upstream object identifier
 - `manual_id`: Optional user-defined string identifier
@@ -252,29 +252,22 @@ For administrative or debugging purposes. Returns activities for the specified a
 
 ## Related Changes
 
-- See [Presence Sessions & Catalog API](./PRESENCE_SESSIONS_CATALOG_API.md) for session windows (`started_at`/`ended_at`), the accumulating catalog, per-catalog stats, and the `category`/`visibility`/`catalog_id`/`from`/`to` history filters.
+- See [Presence Sessions & Catalog API](./PRESENCE_SESSIONS_CATALOG_API.md) for session windows (`started_at`/`ended_at`), the accumulating catalog with query-friendly `tags`, per-catalog stats, and the `tags`/`visibility`/`catalog_id`/`from`/`to` history filters.
 
 ---
 
 ## Data Models
 
-### PresenceType Enum
-```csharp
-public enum PresenceType
-{
-    Unknown,
-    Gaming,
-    Music,
-    Workout
-}
-```
+### Type Field
+
+`Type` is a **free-form string** — there is no fixed enum. Common values: `"gaming"`, `"music"`, `"workout"`, `"coding"`. Clients may use any string (e.g. `"arbitrary-activity-kind"`); the value is stored verbatim (trimmed) and matched exactly by the `type` filter.
 
 ### SnPresenceActivity
 ```csharp
 public class SnPresenceActivity : ModelBase
 {
     public Guid Id { get; set; } // System-generated GUID
-    public PresenceType Type { get; set; }
+    public string? Type { get; set; } // Free-form activity type
     public string? ManualId { get; set; } // User-defined ID
     public string? Title { get; set; }
     public string? Subtitle { get; set; }
@@ -306,8 +299,8 @@ The `GET /api/activities` endpoint supports the following query capabilities:
 - Searching always queries the database directly (bypasses the 1-minute cache)
 
 **Type Filter (`type`):**
-- Matches exactly on the `PresenceType` enum value
-- Combine with `query` for targeted filtering (e.g., `&type=Music&query=artist_name`)
+- Matches exactly on the free-form string value (case-sensitive, trimmed)
+- Combine with `query` for targeted filtering (e.g., `&type=music&query=artist_name`)
 
 **Active/Expired Filter (`include_expired`):**
 - `include_expired=false` (default): Only activities where `lease_expires_at > now`

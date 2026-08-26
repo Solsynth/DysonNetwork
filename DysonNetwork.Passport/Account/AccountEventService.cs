@@ -202,7 +202,7 @@ public class AccountEventService(
     private static bool PresenceActivityContentEqual(SnPresenceActivity a, SnPresenceActivity b)
     {
         return a.Type == b.Type
-            && a.Category == b.Category
+            && TagsEqual(a.Tags, b.Tags)
             && a.Visibility == b.Visibility
             && a.StartedAt == b.StartedAt
             && a.EndedAt == b.EndedAt
@@ -222,6 +222,13 @@ public class AccountEventService(
                 == JsonSerializer.Serialize(b.Meta, InfraObjectCoder.SerializerOptions);
     }
 
+    private static bool TagsEqual(List<SnPresenceTag> a, List<SnPresenceTag> b)
+    {
+        return a.Count == b.Count
+            && a.OrderBy(t => t.Slug).Select(t => (t.Slug, t.Name))
+                .SequenceEqual(b.OrderBy(t => t.Slug).Select(t => (t.Slug, t.Name)));
+    }
+
     private static SnPresenceActivity ClonePresenceActivity(SnPresenceActivity activity)
     {
         return new SnPresenceActivity
@@ -229,7 +236,7 @@ public class AccountEventService(
             Id = activity.Id,
             AccountId = activity.AccountId,
             Type = activity.Type,
-            Category = activity.Category,
+            Tags = activity.Tags.Select(t => new SnPresenceTag { Slug = t.Slug, Name = t.Name }).ToList(),
             Visibility = activity.Visibility,
             StartedAt = activity.StartedAt,
             EndedAt = activity.EndedAt,
@@ -1461,6 +1468,7 @@ TIP-: 忌提示标题 | 具体提醒，要写清今天不适合怎么做、容�
         var now = SystemClock.Instance.GetCurrentInstant();
         var activities = await db
             .PresenceActivities
+            .Include(e => e.ActivityTags)
             .Where(e =>
                 e.AccountId == userId && e.LeaseExpiresAt > now && e.DeletedAt == null
             )
@@ -1552,12 +1560,12 @@ TIP-: 忌提示标题 | 具体提醒，要写清今天不适合怎么做、容�
         int offset = 0,
         int take = 20,
         string? query = null,
-        PresenceType? type = null,
+        string? type = null,
         string? provider = null,
         string? referenceId = null,
         string? term = null,
         bool? isActive = null,
-        PresenceCategory? category = null,
+        IEnumerable<string>? tags = null,
         PresenceVisibility? visibility = null,
         string? catalogId = null,
         Instant? from = null,
@@ -1580,9 +1588,10 @@ TIP-: 忌提示标题 | 具体提醒，要写清今天不适合怎么做、容�
                 || e.QueryableTerms.Contains(normalizedQuery));
         }
 
-        if (type.HasValue)
+        if (!string.IsNullOrWhiteSpace(type))
         {
-            baseQuery = baseQuery.Where(e => e.Type == type.Value);
+            var normalizedType = type.Trim();
+            baseQuery = baseQuery.Where(e => e.Type == normalizedType);
         }
 
         if (!string.IsNullOrWhiteSpace(provider))
@@ -1613,9 +1622,20 @@ TIP-: 忌提示标题 | 具体提醒，要写清今天不适合怎么做、容�
             baseQuery = baseQuery.Where(e => e.LeaseExpiresAt <= now);
         }
 
-        if (category.HasValue)
+        if (tags is not null)
         {
-            baseQuery = baseQuery.Where(e => e.Category == category.Value);
+            var normalizedTags = tags
+                .Where(t => !string.IsNullOrWhiteSpace(t))
+                .Select(t => t.Trim())
+                .Distinct(StringComparer.Ordinal)
+                .ToList();
+            if (normalizedTags.Count > 0)
+            {
+                foreach (var tagSlug in normalizedTags)
+                {
+                    baseQuery = baseQuery.Where(e => e.ActivityTags.Any(t => t.Slug == tagSlug));
+                }
+            }
         }
 
         if (visibility.HasValue)
@@ -1643,10 +1663,16 @@ TIP-: 忌提示标题 | 具体提醒，要写清今天不适合怎么做、容�
         var totalCount = await baseQuery.CountAsync();
 
         var activities = await baseQuery
+            .Include(e => e.ActivityTags)
             .OrderByDescending(e => e.StartedAt ?? e.CreatedAt)
             .Skip(offset)
             .Take(take)
             .ToListAsync();
+
+        foreach (var activity in activities)
+            activity.Tags = activity.ActivityTags
+                .Select(t => new SnPresenceTag { Slug = t.Slug, Name = t.Name })
+                .ToList();
 
         return (activities, totalCount);
     }
@@ -1749,8 +1775,8 @@ TIP-: 忌提示标题 | 具体提醒，要写清今天不适合怎么做、容�
     public async Task<SnPresenceActivity> StartActivitySession(
         Guid userId,
         string manualId,
-        PresenceType type,
-        PresenceCategory category,
+        string? type,
+        List<SnPresenceTag> tags,
         string? provider,
         string? referenceId,
         string? title,
@@ -1772,6 +1798,15 @@ TIP-: 忌提示标题 | 具体提醒，要写清今天不适合怎么做、容�
 
         var now = SystemClock.Instance.GetCurrentInstant();
         var normalizedTerms = NormalizeQueryableTerms(queryableTerms);
+        var normalizedTags = tags
+            .Where(t => !string.IsNullOrWhiteSpace(t.Slug))
+            .GroupBy(t => t.Slug.Trim(), StringComparer.Ordinal)
+            .Select(g => new SnPresenceTag
+            {
+                Slug = g.Key,
+                Name = g.First().Name,
+            })
+            .ToList();
 
         var activeSession = await db.PresenceActivities.FirstOrDefaultAsync(e =>
             e.ManualId == manualId
@@ -1800,7 +1835,12 @@ TIP-: 忌提示标题 | 具体提醒，要写清今天不适合怎么做、容�
                     Name = catalogName ?? title,
                     Subtitle = subtitle,
                     Caption = caption,
-                    Category = category,
+                    Tags = normalizedTags,
+                    CatalogTags = normalizedTags.Select(t => new SnPresenceCatalogTag
+                    {
+                        Slug = t.Slug,
+                        Name = t.Name,
+                    }).ToList(),
                     Visibility = visibility,
                     LargeImage = largeImage,
                     SmallImage = smallImage,
@@ -1819,7 +1859,14 @@ TIP-: 忌提示标题 | 具体提醒，要写清今天不适合怎么做、容�
         if (activeSession != null)
         {
             activeSession.Type = type;
-            activeSession.Category = category;
+            activeSession.Tags = normalizedTags;
+            db.PresenceActivityTags.RemoveRange(activeSession.ActivityTags);
+            activeSession.ActivityTags = normalizedTags.Select(t => new SnPresenceActivityTag
+            {
+                ActivityId = activeSession.Id,
+                Slug = t.Slug,
+                Name = t.Name,
+            }).ToList();
             activeSession.Visibility = visibility;
             activeSession.Provider = provider;
             activeSession.ReferenceId = referenceId;
@@ -1849,7 +1896,12 @@ TIP-: 忌提示标题 | 具体提醒，要写清今天不适合怎么做、容�
                 AccountId = userId,
                 ManualId = manualId,
                 Type = type,
-                Category = category,
+                Tags = normalizedTags,
+                ActivityTags = normalizedTags.Select(t => new SnPresenceActivityTag
+                {
+                    Slug = t.Slug,
+                    Name = t.Name,
+                }).ToList(),
                 Visibility = visibility,
                 Provider = provider,
                 ReferenceId = referenceId,
@@ -1903,7 +1955,9 @@ TIP-: 忌提示标题 | 具体提醒，要写清今天不适合怎么做、容�
 
         if (activeSession.CatalogId.HasValue)
         {
-            var catalog = await db.PresenceCatalogItems.FindAsync(activeSession.CatalogId.Value);
+            var catalog = await db.PresenceCatalogItems
+                .Include(c => c.CatalogTags)
+                .FirstOrDefaultAsync(c => c.Id == activeSession.CatalogId.Value);
             if (catalog != null && catalog.DeletedAt == null)
             {
                 var durationSeconds = (long)(now - activeSession.StartedAt!.Value).TotalSeconds;
@@ -1913,6 +1967,26 @@ TIP-: 忌提示标题 | 具体提醒，要写清今天不适合怎么做、容�
                 catalog.SessionCount += 1;
                 catalog.LastActiveAt = now;
                 catalog.UpdatedAt = now;
+
+                // Merge the session's tags into the catalog item (union by slug)
+                var sessionTags = await db.PresenceActivityTags
+                    .Where(t => t.ActivityId == activeSession.Id)
+                    .ToListAsync();
+                var existingSlugs = catalog.CatalogTags
+                    .Select(t => t.Slug)
+                    .ToHashSet(StringComparer.Ordinal);
+                foreach (var sessionTag in sessionTags)
+                {
+                    if (!existingSlugs.Contains(sessionTag.Slug))
+                    {
+                        catalog.CatalogTags.Add(new SnPresenceCatalogTag
+                        {
+                            CatalogId = catalog.Id,
+                            Slug = sessionTag.Slug,
+                            Name = sessionTag.Name,
+                        });
+                    }
+                }
             }
         }
 
@@ -1928,7 +2002,7 @@ TIP-: 忌提示标题 | 具体提醒，要写清今天不适合怎么做、容�
 
     public async Task<List<SnPresenceCatalogItem>> GetCatalogItems(
         Guid userId,
-        PresenceCategory? category = null,
+        IEnumerable<string>? tags = null,
         string? provider = null,
         string? query = null,
         bool? isActive = null,
@@ -1938,9 +2012,20 @@ TIP-: 忌提示标题 | 具体提醒，要写清今天不适合怎么做、容�
         var baseQuery = db.PresenceCatalogItems.Where(e =>
             e.AccountId == userId && e.DeletedAt == null);
 
-        if (category.HasValue)
+        if (tags is not null)
         {
-            baseQuery = baseQuery.Where(e => e.Category == category.Value);
+            var normalizedTags = tags
+                .Where(t => !string.IsNullOrWhiteSpace(t))
+                .Select(t => t.Trim())
+                .Distinct(StringComparer.Ordinal)
+                .ToList();
+            if (normalizedTags.Count > 0)
+            {
+                foreach (var tagSlug in normalizedTags)
+                {
+                    baseQuery = baseQuery.Where(e => e.CatalogTags.Any(t => t.Slug == tagSlug));
+                }
+            }
         }
 
         if (!string.IsNullOrWhiteSpace(provider))
@@ -1967,18 +2052,26 @@ TIP-: 忌提示标题 | 具体提醒，要写清今天不适合怎么做、容�
             baseQuery = baseQuery.Where(e => e.LastActiveAt == null || e.LastActiveAt <= now - Duration.FromHours(24));
         }
 
-        return await baseQuery
+        var items = await baseQuery
+            .Include(e => e.CatalogTags)
             .OrderByDescending(e => e.LastActiveAt ?? e.UpdatedAt)
             .Skip(offset)
             .Take(take)
             .ToListAsync();
+
+        foreach (var item in items)
+            item.Tags = item.CatalogTags
+                .Select(t => new SnPresenceTag { Slug = t.Slug, Name = t.Name })
+                .ToList();
+
+        return items;
     }
 
     public async Task<Dictionary<string, long>> GetCatalogStats(
         Guid userId,
         Instant? from = null,
         Instant? to = null,
-        PresenceCategory? category = null)
+        IEnumerable<string>? tags = null)
     {
         var baseQuery = db.PresenceActivities.Where(e =>
             e.AccountId == userId
@@ -1992,11 +2085,22 @@ TIP-: 忌提示标题 | 具体提醒，要写清今天不适合怎么做、容�
         if (to.HasValue)
             baseQuery = baseQuery.Where(e => e.EndedAt < to.Value);
 
-        if (category.HasValue)
+        if (tags is not null)
         {
-            baseQuery = baseQuery.Where(e =>
-                db.PresenceCatalogItems.Any(c =>
-                    c.Id == e.CatalogId && c.Category == category.Value));
+            var normalizedTags = tags
+                .Where(t => !string.IsNullOrWhiteSpace(t))
+                .Select(t => t.Trim())
+                .Distinct(StringComparer.Ordinal)
+                .ToList();
+            if (normalizedTags.Count > 0)
+            {
+                foreach (var tagSlug in normalizedTags)
+                {
+                    baseQuery = baseQuery.Where(e =>
+                        db.PresenceCatalogItems.Any(c =>
+                            c.Id == e.CatalogId && c.CatalogTags.Any(t => t.Slug == tagSlug)));
+                }
+            }
         }
 
         var grouped = await baseQuery
@@ -2009,6 +2113,36 @@ TIP-: 忌提示标题 | 具体提醒，要写清今天不适合怎么做、容�
             .ToListAsync();
 
         return grouped.ToDictionary(g => g.CatalogId.ToString(), g => g.TotalSeconds);
+    }
+
+    public async Task<Dictionary<string, long>> GetTagStats(
+        Guid userId,
+        Instant? from = null,
+        Instant? to = null)
+    {
+        var endedSessions = db.PresenceActivities.Where(e =>
+            e.AccountId == userId
+            && e.DeletedAt == null
+            && e.EndedAt != null
+            && e.StartedAt != null);
+
+        if (from.HasValue)
+            endedSessions = endedSessions.Where(e => e.EndedAt >= from.Value);
+        if (to.HasValue)
+            endedSessions = endedSessions.Where(e => e.EndedAt < to.Value);
+
+        var perTag = await endedSessions
+            .SelectMany(e => e.ActivityTags)
+            .GroupBy(t => t.Slug)
+            .Select(g => new
+            {
+                Slug = g.Key,
+                TotalSeconds = g.Sum(t =>
+                    (long)Math.Floor((t.Activity.EndedAt!.Value - t.Activity.StartedAt!.Value).TotalSeconds)),
+            })
+            .ToListAsync();
+
+        return perTag.ToDictionary(g => g.Slug, g => g.TotalSeconds);
     }
 
     private static string[] NormalizeQueryableTerms(IEnumerable<string>? terms)
