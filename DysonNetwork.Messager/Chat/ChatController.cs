@@ -373,6 +373,12 @@ public partial class ChatController(
         public Guid? ForwardedMessageId { get; set; }
         public SnChatEncryptionMeta? EncryptionMeta { get; set; }
         public bool IsThreadRoot { get; set; }
+
+        /// <summary>
+        /// Id of the thread root this reply belongs to. Set for replies created
+        /// via "reply in thread"; regular direct replies leave it null.
+        /// </summary>
+        public Guid? ThreadId { get; set; }
     }
 
     public class DeleteMessageRequest
@@ -548,10 +554,10 @@ public partial class ChatController(
         var (room, roomError) = await GetReadableRoomAsync(roomId, currentUser);
         if (roomError is not null) return roomError;
 
-        // The main timeline shows top-level messages only; thread replies
-        // live in the thread panel.
+        // The main timeline shows top-level messages and regular (direct)
+        // replies; in-thread replies live in the thread panel.
         var visibleMessages = db.ChatMessages
-            .Where(m => m.ChatRoomId == roomId && m.RepliedMessageId == null);
+            .Where(m => m.ChatRoomId == roomId && m.ThreadId == null);
         var totalCount = await visibleMessages.CountAsync();
         var messages = await visibleMessages
             .OrderByDescending(m => m.RoomSequence)
@@ -774,8 +780,43 @@ public partial class ChatController(
             }
         }
 
-        // Validate reply and forward message IDs exist (allowed in E2EE for plaintext metadata references)
-        if (request.RepliedMessageId.HasValue)
+        // Thread membership and reply quoting are separate now:
+        //  - a thread reply carries ThreadId (the thread root) and uses
+        //    RepliedMessageId only as its parent link inside the thread;
+        //  - a regular (direct) reply carries only RepliedMessageId (the quoted
+        //    target) and stays in the main timeline.
+        if (request.ThreadId.HasValue)
+        {
+            var threadRoot = await db.ChatMessages
+                .Where(m => m.Id == request.ThreadId.Value && m.ChatRoomId == roomId)
+                .Select(m => new { m.Id, m.RepliedMessageId })
+                .FirstOrDefaultAsync();
+            if (threadRoot == null)
+                return BadRequest(new ApiError { Code = "CHAT_THREAD_NOT_FOUND", Message = "The thread root message does not exist.", Status = 400 });
+            if (threadRoot.RepliedMessageId.HasValue)
+                return BadRequest(new ApiError { Code = "CHAT_THREAD_ROOT_IS_REPLY", Message = "Thread replies must target a top-level message.", Status = 400 });
+
+            message.ThreadId = threadRoot.Id;
+            message.IsThreadRoot = false;
+
+            // Optional parent link within the thread (for nesting); it must
+            // belong to the same thread.
+            if (request.RepliedMessageId.HasValue)
+            {
+                var parent = await db.ChatMessages
+                    .Where(m => m.Id == request.RepliedMessageId.Value && m.ChatRoomId == roomId)
+                    .Select(m => new { m.Id, m.ThreadId })
+                    .FirstOrDefaultAsync();
+                if (parent == null)
+                    return BadRequest(new ApiError { Code = "CHAT_REPLY_MESSAGE_NOT_FOUND", Message = "The message you're replying to does not exist.", Status = 400 });
+                // The parent is either the thread root itself (no ThreadId) or
+                // another member of the same thread.
+                if (parent.ThreadId != null && parent.ThreadId != message.ThreadId)
+                    return BadRequest(new ApiError { Code = "CHAT_THREAD_PARENT_MISMATCH", Message = "The parent must belong to the same thread.", Status = 400 });
+                message.RepliedMessageId = parent.Id;
+            }
+        }
+        else if (request.RepliedMessageId.HasValue)
         {
             var repliedMessage = await db.ChatMessages
                 .Where(m => m.Id == request.RepliedMessageId.Value && m.ChatRoomId == roomId)
@@ -784,19 +825,9 @@ public partial class ChatController(
             if (repliedMessage == null)
                 return BadRequest(new ApiError { Code = "CHAT_REPLY_MESSAGE_NOT_FOUND", Message = "The message you're replying to does not exist.", Status = 400 });
 
+            // Regular direct reply: quoted target, not a thread member.
             message.RepliedMessageId = repliedMessage.Id;
-            if (request.IsThreadRoot && repliedMessage.RepliedMessageId.HasValue)
-                return BadRequest(new ApiError { Code = "CHAT_THREAD_ROOT_EXISTS", Message = "This message is already a reply in a thread; its replies stay in that thread.", Status = 400 });
-        }
-        else if (request.IsThreadRoot)
-        {
-            return BadRequest(new ApiError { Code = "CHAT_THREAD_ROOT_REQUIRES_REPLY", Message = "A thread reply must reference the thread-root message.", Status = 400 });
-        }
-
-        if (!request.IsThreadRoot)
-        {
-            // Any reply without an explicit thread-root flag becomes its own thread root.
-            message.IsThreadRoot = message.IsThreadRoot || message.RepliedMessageId == null;
+            message.ThreadId = null;
         }
 
         if (request.ForwardedMessageId.HasValue)
@@ -1487,11 +1518,11 @@ public partial class ChatController(
         root.Sender = await crs.LoadMemberAccount(root.Sender);
 
         var totalCount = await db.ChatMessages
-            .Where(m => m.RepliedMessageId == messageId)
+            .Where(m => m.ThreadId == messageId)
             .CountAsync();
 
         var rootReplies = await db.ChatMessages
-            .Where(m => m.RepliedMessageId == messageId)
+            .Where(m => m.ThreadId == messageId)
             .OrderByDescending(m => m.RoomSequence)
             .ThenByDescending(m => m.CreatedAt)
             .Include(m => m.Sender)
@@ -1659,7 +1690,7 @@ public partial class ChatController(
             .ToListAsync();
         var messages = await db.ChatMessages
             .Where(m => memberRoomIds.Contains(m.ChatRoomId) &&
-                m.RepliedMessageId == null &&
+                m.ThreadId == null &&
                 (m.CreatedAt > lastSyncInstant ||
                  (m.CreatedAt == lastSyncInstant && lastSyncMessageId != null &&
                   m.Id.CompareTo(lastSyncMessageId.Value) > 0)))
