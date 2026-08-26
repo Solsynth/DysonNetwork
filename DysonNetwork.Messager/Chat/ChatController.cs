@@ -548,11 +548,12 @@ public partial class ChatController(
         var (room, roomError) = await GetReadableRoomAsync(roomId, currentUser);
         if (roomError is not null) return roomError;
 
-        var totalCount = await db.ChatMessages
-            .Where(m => m.ChatRoomId == roomId)
-            .CountAsync();
-        var messages = await db.ChatMessages
-            .Where(m => m.ChatRoomId == roomId)
+        // The main timeline shows top-level messages only; thread replies
+        // live in the thread panel.
+        var visibleMessages = db.ChatMessages
+            .Where(m => m.ChatRoomId == roomId && m.RepliedMessageId == null);
+        var totalCount = await visibleMessages.CountAsync();
+        var messages = await visibleMessages
             .OrderByDescending(m => m.RoomSequence)
             .ThenByDescending(m => m.CreatedAt)
             .Include(m => m.Sender)
@@ -1658,6 +1659,7 @@ public partial class ChatController(
             .ToListAsync();
         var messages = await db.ChatMessages
             .Where(m => memberRoomIds.Contains(m.ChatRoomId) &&
+                m.RepliedMessageId == null &&
                 (m.CreatedAt > lastSyncInstant ||
                  (m.CreatedAt == lastSyncInstant && lastSyncMessageId != null &&
                   m.Id.CompareTo(lastSyncMessageId.Value) > 0)))

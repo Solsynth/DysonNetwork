@@ -2092,7 +2092,7 @@ public partial class ChatService(
 
         IQueryable<SnChatMessage> query = db.ChatMessages
             .AsNoTracking()
-            .Where(m => m.ChatRoomId == roomId);
+            .Where(m => m.ChatRoomId == roomId && m.RepliedMessageId == null);
 
         if (useSequenceRecovery)
         {
