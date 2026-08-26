@@ -34,6 +34,7 @@ public class AppDatabase(
     public DbSet<SnAccountStatus> AccountStatuses { get; set; } = null!;
     public DbSet<SnCheckInResult> AccountCheckInResults { get; set; } = null!;
     public DbSet<SnPresenceActivity> PresenceActivities { get; set; } = null!;
+    public DbSet<SnPresenceCatalogItem> PresenceCatalogItems { get; set; } = null!;
     public DbSet<SnPresenceArtwork> PresenceArtworks { get; set; } = null!;
     public DbSet<SnUserCalendarEvent> UserCalendarEvents { get; set; } = null!;
     public DbSet<SnCalendarEventSubscription> CalendarEventSubscriptions { get; set; } = null!;
@@ -166,6 +167,12 @@ public class AppDatabase(
             .HasIndex(e => new { e.AccountId, e.Provider, e.DeletedAt });
         modelBuilder.Entity<SnPresenceActivity>()
             .HasIndex(e => new { e.Provider, e.ReferenceId, e.DeletedAt });
+        modelBuilder.Entity<SnPresenceActivity>()
+            .HasIndex(e => new { e.AccountId, e.StartedAt, e.EndedAt, e.DeletedAt });
+        modelBuilder.Entity<SnPresenceCatalogItem>()
+            .HasIndex(e => new { e.AccountId, e.Provider, e.CatalogKey, e.DeletedAt });
+        modelBuilder.Entity<SnPresenceCatalogItem>()
+            .HasIndex(e => new { e.AccountId, e.Category, e.DeletedAt });
 
         modelBuilder.Entity<SnPresenceArtwork>()
             .HasKey(a => a.Hash);

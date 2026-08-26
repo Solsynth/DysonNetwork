@@ -56,6 +56,7 @@ public class AccountEventService(
     private const string StatusCacheKey = "account:status:";
     private const string PreviousStatusCacheKey = "account:status:prev:";
     private const string ActivityCacheKey = "account:activities:";
+    private const string CatalogCacheKey = "account:catalog:";
     private const string ConnectionIdleStateCacheKey = "account:connection-idle-state:";
     private const string ConnectionIdleStateLockKey = "account:connection-idle-state:lock:";
 
@@ -82,6 +83,12 @@ public class AccountEventService(
     public void PurgeActivityCache(Guid userId)
     {
         var cacheKey = $"{ActivityCacheKey}{userId}";
+        cache.RemoveAsync(cacheKey);
+    }
+
+    public void PurgeCatalogCache(Guid userId)
+    {
+        var cacheKey = $"{CatalogCacheKey}{userId}";
         cache.RemoveAsync(cacheKey);
     }
 
@@ -195,6 +202,11 @@ public class AccountEventService(
     private static bool PresenceActivityContentEqual(SnPresenceActivity a, SnPresenceActivity b)
     {
         return a.Type == b.Type
+            && a.Category == b.Category
+            && a.Visibility == b.Visibility
+            && a.StartedAt == b.StartedAt
+            && a.EndedAt == b.EndedAt
+            && a.CatalogId == b.CatalogId
             && a.Provider == b.Provider
             && a.ReferenceId == b.ReferenceId
             && a.ManualId == b.ManualId
@@ -217,6 +229,11 @@ public class AccountEventService(
             Id = activity.Id,
             AccountId = activity.AccountId,
             Type = activity.Type,
+            Category = activity.Category,
+            Visibility = activity.Visibility,
+            StartedAt = activity.StartedAt,
+            EndedAt = activity.EndedAt,
+            CatalogId = activity.CatalogId,
             Provider = activity.Provider,
             ReferenceId = activity.ReferenceId,
             ManualId = activity.ManualId,
@@ -1443,9 +1460,11 @@ TIP-: 忌提示标题 | 具体提醒，要写清今天不适合怎么做、容�
 
         var now = SystemClock.Instance.GetCurrentInstant();
         var activities = await db
-            .PresenceActivities.Where(e =>
+            .PresenceActivities
+            .Where(e =>
                 e.AccountId == userId && e.LeaseExpiresAt > now && e.DeletedAt == null
             )
+            .OrderByDescending(e => e.StartedAt ?? e.CreatedAt)
             .ToListAsync();
 
         await cache.SetWithGroupsAsync(
@@ -1537,7 +1556,12 @@ TIP-: 忌提示标题 | 具体提醒，要写清今天不适合怎么做、容�
         string? provider = null,
         string? referenceId = null,
         string? term = null,
-        bool? isActive = null
+        bool? isActive = null,
+        PresenceCategory? category = null,
+        PresenceVisibility? visibility = null,
+        string? catalogId = null,
+        Instant? from = null,
+        Instant? to = null
     )
     {
         var baseQuery = db.PresenceActivities.Where(e =>
@@ -1589,10 +1613,37 @@ TIP-: 忌提示标题 | 具体提醒，要写清今天不适合怎么做、容�
             baseQuery = baseQuery.Where(e => e.LeaseExpiresAt <= now);
         }
 
+        if (category.HasValue)
+        {
+            baseQuery = baseQuery.Where(e => e.Category == category.Value);
+        }
+
+        if (visibility.HasValue)
+        {
+            baseQuery = baseQuery.Where(e => e.Visibility == visibility.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(catalogId))
+        {
+            if (!Guid.TryParse(catalogId, out var parsedCatalogId))
+                return ([], 0);
+            baseQuery = baseQuery.Where(e => e.CatalogId == parsedCatalogId);
+        }
+
+        if (from.HasValue)
+        {
+            baseQuery = baseQuery.Where(e => e.StartedAt != null && e.StartedAt >= from.Value);
+        }
+
+        if (to.HasValue)
+        {
+            baseQuery = baseQuery.Where(e => e.StartedAt != null && e.StartedAt < to.Value);
+        }
+
         var totalCount = await baseQuery.CountAsync();
 
         var activities = await baseQuery
-            .OrderByDescending(e => e.CreatedAt)
+            .OrderByDescending(e => e.StartedAt ?? e.CreatedAt)
             .Skip(offset)
             .Take(take)
             .ToListAsync();
@@ -1693,6 +1744,280 @@ TIP-: 忌提示标题 | 具体提醒，要写清今天不适合怎么做、容�
         await BroadcastPresenceActivitiesUpdated(activity.AccountId);
 
         return activity;
+    }
+
+    public async Task<SnPresenceActivity> StartActivitySession(
+        Guid userId,
+        string manualId,
+        PresenceType type,
+        PresenceCategory category,
+        string? provider,
+        string? referenceId,
+        string? title,
+        string? subtitle,
+        string? caption,
+        string? largeImage,
+        string? smallImage,
+        string? titleUrl,
+        string? subtitleUrl,
+        string[] queryableTerms,
+        Dictionary<string, object?>? meta,
+        string? catalogKey,
+        string? catalogName,
+        PresenceVisibility visibility,
+        int leaseMinutes)
+    {
+        if (leaseMinutes is < 1 or > 60)
+            throw new ArgumentException("Lease minutes must be between 1 and 60");
+
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var normalizedTerms = NormalizeQueryableTerms(queryableTerms);
+
+        var activeSession = await db.PresenceActivities.FirstOrDefaultAsync(e =>
+            e.ManualId == manualId
+            && e.AccountId == userId
+            && e.LeaseExpiresAt > now
+            && e.DeletedAt == null
+            && e.EndedAt == null);
+
+        SnPresenceCatalogItem? catalog = null;
+        if (!string.IsNullOrWhiteSpace(catalogKey))
+        {
+            catalog = await db.PresenceCatalogItems.FirstOrDefaultAsync(e =>
+                e.AccountId == userId
+                && e.Provider == provider
+                && e.CatalogKey == catalogKey
+                && e.DeletedAt == null);
+
+            if (catalog == null)
+            {
+                catalog = new SnPresenceCatalogItem
+                {
+                    AccountId = userId,
+                    Provider = provider,
+                    CatalogKey = catalogKey,
+                    ReferenceId = referenceId,
+                    Name = catalogName ?? title,
+                    Subtitle = subtitle,
+                    Caption = caption,
+                    Category = category,
+                    Visibility = visibility,
+                    LargeImage = largeImage,
+                    SmallImage = smallImage,
+                    TitleUrl = titleUrl,
+                    SubtitleUrl = subtitleUrl,
+                    QueryableTerms = normalizedTerms,
+                    Meta = meta ?? [],
+                    CreatedAt = now,
+                    UpdatedAt = now,
+                };
+                db.PresenceCatalogItems.Add(catalog);
+            }
+        }
+
+        SnPresenceActivity activity;
+        if (activeSession != null)
+        {
+            activeSession.Type = type;
+            activeSession.Category = category;
+            activeSession.Visibility = visibility;
+            activeSession.Provider = provider;
+            activeSession.ReferenceId = referenceId;
+            activeSession.Title = title;
+            activeSession.Subtitle = subtitle;
+            activeSession.Caption = caption;
+            activeSession.LargeImage = largeImage;
+            activeSession.SmallImage = smallImage;
+            activeSession.TitleUrl = titleUrl;
+            activeSession.SubtitleUrl = subtitleUrl;
+            activeSession.QueryableTerms = normalizedTerms;
+            activeSession.Meta = meta;
+            activeSession.LeaseMinutes = leaseMinutes;
+            activeSession.LeaseExpiresAt = now + Duration.FromMinutes(leaseMinutes);
+            activeSession.UpdatedAt = now;
+            if (catalog != null)
+            {
+                activeSession.CatalogId = catalog.Id;
+                activeSession.Catalog = catalog;
+            }
+            activity = activeSession;
+        }
+        else
+        {
+            activity = new SnPresenceActivity
+            {
+                AccountId = userId,
+                ManualId = manualId,
+                Type = type,
+                Category = category,
+                Visibility = visibility,
+                Provider = provider,
+                ReferenceId = referenceId,
+                Title = title,
+                Subtitle = subtitle,
+                Caption = caption,
+                LargeImage = largeImage,
+                SmallImage = smallImage,
+                TitleUrl = titleUrl,
+                SubtitleUrl = subtitleUrl,
+                QueryableTerms = normalizedTerms,
+                Meta = meta,
+                LeaseMinutes = leaseMinutes,
+                LeaseExpiresAt = now + Duration.FromMinutes(leaseMinutes),
+                StartedAt = now,
+                EndedAt = null,
+                CatalogId = catalog?.Id,
+                Catalog = catalog,
+                CreatedAt = now,
+                UpdatedAt = now,
+            };
+            db.PresenceActivities.Add(activity);
+        }
+
+        await db.SaveChangesAsync();
+
+        PurgeActivityCache(userId);
+        PurgeCatalogCache(userId);
+
+        await BroadcastPresenceActivitiesUpdated(userId);
+
+        return activity;
+    }
+
+    public async Task<SnPresenceActivity?> EndActivitySession(Guid userId, string manualId)
+    {
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var activeSession = await db.PresenceActivities.FirstOrDefaultAsync(e =>
+            e.ManualId == manualId
+            && e.AccountId == userId
+            && e.LeaseExpiresAt > now
+            && e.DeletedAt == null
+            && e.EndedAt == null);
+
+        if (activeSession == null)
+            return null;
+
+        activeSession.EndedAt = now;
+        activeSession.LeaseExpiresAt = now;
+        activeSession.UpdatedAt = now;
+
+        if (activeSession.CatalogId.HasValue)
+        {
+            var catalog = await db.PresenceCatalogItems.FindAsync(activeSession.CatalogId.Value);
+            if (catalog != null && catalog.DeletedAt == null)
+            {
+                var durationSeconds = (long)(now - activeSession.StartedAt!.Value).TotalSeconds;
+                if (durationSeconds < 0)
+                    durationSeconds = 0;
+                catalog.TotalSeconds += durationSeconds;
+                catalog.SessionCount += 1;
+                catalog.LastActiveAt = now;
+                catalog.UpdatedAt = now;
+            }
+        }
+
+        await db.SaveChangesAsync();
+
+        PurgeActivityCache(userId);
+        PurgeCatalogCache(userId);
+
+        await BroadcastPresenceActivitiesUpdated(userId);
+
+        return activeSession;
+    }
+
+    public async Task<List<SnPresenceCatalogItem>> GetCatalogItems(
+        Guid userId,
+        PresenceCategory? category = null,
+        string? provider = null,
+        string? query = null,
+        bool? isActive = null,
+        int offset = 0,
+        int take = 50)
+    {
+        var baseQuery = db.PresenceCatalogItems.Where(e =>
+            e.AccountId == userId && e.DeletedAt == null);
+
+        if (category.HasValue)
+        {
+            baseQuery = baseQuery.Where(e => e.Category == category.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(provider))
+        {
+            var normalizedProvider = provider.Trim();
+            baseQuery = baseQuery.Where(e => e.Provider == normalizedProvider);
+        }
+
+        if (!string.IsNullOrWhiteSpace(query))
+        {
+            var normalizedQuery = query.Trim().ToLowerInvariant();
+            baseQuery = baseQuery.Where(e =>
+                (e.Name != null && e.Name.Contains(query))
+                || e.QueryableTerms.Contains(normalizedQuery));
+        }
+
+        var now = SystemClock.Instance.GetCurrentInstant();
+        if (isActive == true)
+        {
+            baseQuery = baseQuery.Where(e => e.LastActiveAt != null && e.LastActiveAt > now - Duration.FromHours(24));
+        }
+        else if (isActive == false)
+        {
+            baseQuery = baseQuery.Where(e => e.LastActiveAt == null || e.LastActiveAt <= now - Duration.FromHours(24));
+        }
+
+        return await baseQuery
+            .OrderByDescending(e => e.LastActiveAt ?? e.UpdatedAt)
+            .Skip(offset)
+            .Take(take)
+            .ToListAsync();
+    }
+
+    public async Task<Dictionary<string, long>> GetCatalogStats(
+        Guid userId,
+        Instant? from = null,
+        Instant? to = null,
+        PresenceCategory? category = null)
+    {
+        var baseQuery = db.PresenceActivities.Where(e =>
+            e.AccountId == userId
+            && e.DeletedAt == null
+            && e.EndedAt != null
+            && e.StartedAt != null
+            && e.CatalogId != null);
+
+        if (from.HasValue)
+            baseQuery = baseQuery.Where(e => e.EndedAt >= from.Value);
+        if (to.HasValue)
+            baseQuery = baseQuery.Where(e => e.EndedAt < to.Value);
+
+        if (category.HasValue)
+        {
+            baseQuery = baseQuery.Where(e =>
+                db.PresenceCatalogItems.Any(c =>
+                    c.Id == e.CatalogId && c.Category == category.Value));
+        }
+
+        var grouped = await baseQuery
+            .GroupBy(e => e.CatalogId!.Value)
+            .Select(g => new
+            {
+                CatalogId = g.Key,
+                TotalSeconds = g.Sum(e => (long)Math.Floor((e.EndedAt!.Value - e.StartedAt!.Value).TotalSeconds)),
+            })
+            .ToListAsync();
+
+        return grouped.ToDictionary(g => g.CatalogId.ToString(), g => g.TotalSeconds);
+    }
+
+    private static string[] NormalizeQueryableTerms(IEnumerable<string>? terms)
+    {
+        return (terms ?? [])
+            .Where(term => !string.IsNullOrWhiteSpace(term))
+            .Select(term => term.Trim().ToLowerInvariant())
+            .Distinct()
+            .ToArray();
     }
 
     public async Task<SnPresenceActivity> UpdateActivity(

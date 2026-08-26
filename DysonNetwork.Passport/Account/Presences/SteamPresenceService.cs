@@ -189,40 +189,38 @@ public class SteamPresenceService(
         if (!string.IsNullOrEmpty(playerSummaryData.PlayingGameId) && !string.IsNullOrEmpty(playerSummaryData.PlayingGameName))
         {
             var presenceActivity = ParsePlayerSummaryToPresenceActivity(accountId, playerSummaryData);
+            var gameId = playerSummaryData.PlayingGameId?.ToString() ?? "";
+            var gameName = playerSummaryData.PlayingGameName;
 
-            var updatedActivity = await accountEventService.UpdateActivityByManualId(
-                "steam",
+            var updatedActivity = await accountEventService.StartActivitySession(
                 accountId,
-                UpdateActivityWithPresenceData,
-                10
+                "steam",
+                presenceActivity.Type,
+                PresenceCategory.Gaming,
+                presenceActivity.Provider,
+                presenceActivity.ReferenceId,
+                presenceActivity.Title,
+                presenceActivity.Subtitle,
+                presenceActivity.Caption,
+                presenceActivity.LargeImage,
+                presenceActivity.SmallImage,
+                presenceActivity.TitleUrl,
+                presenceActivity.SubtitleUrl,
+                presenceActivity.QueryableTerms,
+                presenceActivity.Meta,
+                catalogKey: gameId,
+                catalogName: gameName,
+                visibility: PresenceVisibility.Public,
+                leaseMinutes: 10
             );
-
-            if (updatedActivity == null)
-                await accountEventService.SetActivity(presenceActivity, 10);
-
-            void UpdateActivityWithPresenceData(SnPresenceActivity activity)
-            {
-                activity.Type = PresenceType.Gaming;
-                activity.Provider = presenceActivity.Provider;
-                activity.ReferenceId = presenceActivity.ReferenceId;
-                activity.Title = presenceActivity.Title;
-                activity.Subtitle = presenceActivity.Subtitle;
-                activity.Caption = presenceActivity.Caption;
-                activity.LargeImage = presenceActivity.LargeImage;
-                activity.SmallImage = presenceActivity.SmallImage;
-                activity.TitleUrl = presenceActivity.TitleUrl;
-                activity.SubtitleUrl = presenceActivity.SubtitleUrl;
-                activity.QueryableTerms = presenceActivity.QueryableTerms;
-                activity.Meta = presenceActivity.Meta;
-            }
 
             return new SteamPresenceScanItem
             {
                 AccountId = accountId,
                 SteamId = steamId,
-                Status = updatedActivity == null ? "created" : "updated",
-                GameId = playerSummaryData.PlayingGameId?.ToString(),
-                GameName = playerSummaryData.PlayingGameName,
+                Status = "updated",
+                GameId = gameId,
+                GameName = gameName,
                 Raw = playerSummaryData
             };
         }
@@ -285,15 +283,7 @@ public class SteamPresenceService(
     /// </summary>
     private async Task RemoveSteamPresenceAsync(Guid accountId)
     {
-        await accountEventService.UpdateActivityByManualId(
-            "steam",
-            accountId,
-            activity =>
-            {
-                // Mark it for immediate expiration
-                activity.LeaseExpiresAt = SystemClock.Instance.GetCurrentInstant();
-            }
-        );
+        await accountEventService.EndActivitySession(accountId, "steam");
     }
 
     private static SnPresenceActivity ParsePlayerSummaryToPresenceActivity(Guid accountId, dynamic playerSummary)

@@ -32,6 +32,11 @@ public class PresenceActivityController(
     /// <param name="provider">Filter by upstream provider such as steam or spotify</param>
     /// <param name="referenceId">Filter by upstream object identifier</param>
     /// <param name="term">Filter by normalized queryable term</param>
+    /// <param name="category">Filter by presence category</param>
+    /// <param name="visibility">Filter by presence visibility</param>
+    /// <param name="catalogId">Filter by catalog item id</param>
+    /// <param name="from">Only include sessions started at or after this instant</param>
+    /// <param name="to">Only include sessions started before this instant</param>
     /// <returns>List of presence activities</returns>
     [HttpGet]
     [ProducesResponseType<List<SnPresenceActivity>>(StatusCodes.Status200OK)]
@@ -44,7 +49,12 @@ public class PresenceActivityController(
         [FromQuery] PresenceType? type = null,
         [FromQuery] string? provider = null,
         [FromQuery] string? referenceId = null,
-        [FromQuery] string? term = null
+        [FromQuery] string? term = null,
+        [FromQuery] PresenceCategory? category = null,
+        [FromQuery] PresenceVisibility? visibility = null,
+        [FromQuery] string? catalogId = null,
+        [FromQuery] DateTimeOffset? from = null,
+        [FromQuery] DateTimeOffset? to = null
     )
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
@@ -54,7 +64,12 @@ public class PresenceActivityController(
             || type.HasValue
             || !string.IsNullOrWhiteSpace(provider)
             || !string.IsNullOrWhiteSpace(referenceId)
-            || !string.IsNullOrWhiteSpace(term);
+            || !string.IsNullOrWhiteSpace(term)
+            || category.HasValue
+            || visibility.HasValue
+            || !string.IsNullOrWhiteSpace(catalogId)
+            || from.HasValue
+            || to.HasValue;
 
         if (!includeExpired && !hasFilters)
         {
@@ -71,7 +86,12 @@ public class PresenceActivityController(
             provider,
             referenceId,
             term,
-            isActive: includeExpired ? null : true);
+            isActive: includeExpired ? null : true,
+            category: category,
+            visibility: visibility,
+            catalogId: catalogId,
+            from: from.HasValue ? NodaTime.Instant.FromDateTimeOffset(from.Value) : null,
+            to: to.HasValue ? NodaTime.Instant.FromDateTimeOffset(to.Value) : null);
 
         Response.Headers["X-Total"] = total.ToString();
         return Ok(results);
@@ -188,6 +208,161 @@ public class PresenceActivityController(
     }
 
     /// <summary>
+    /// Starts a presence session with catalog accumulation.
+    /// Re-starting the same manualId refreshes the active session instead of creating a new row.
+    /// </summary>
+    /// <param name="request">Session start parameters</param>
+    /// <returns>The started session activity</returns>
+    [HttpPost("sessions/start")]
+    [ApiFeature("presences.activities", Revision = 2)]
+    [ProducesResponseType<SnPresenceActivity>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<SnPresenceActivity>> StartActivitySession(
+        [FromBody] StartSessionRequest request,
+        CancellationToken cancellationToken
+    )
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
+
+        if (string.IsNullOrWhiteSpace(request.ManualId))
+            return BadRequest(new ApiError { Code = "PASSPORT_ACTIVITY_MANUAL_ID_REQUIRED", Message = "ManualId is required.", Status = 400, TraceId = HttpContext.TraceIdentifier });
+
+        try
+        {
+            await artworkService.ValidateAndTouchReferencesAsync(
+                [request.LargeImage, request.SmallImage],
+                cancellationToken
+            );
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return BadRequest(new ApiError { Code = "PASSPORT_ACTIVITY_ARTWORK_NOT_FOUND", Message = ex.Message, Status = 400, TraceId = HttpContext.TraceIdentifier });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new ApiError { Code = "PASSPORT_ACTIVITY_ARTWORK_INVALID", Message = ex.Message, Status = 400, TraceId = HttpContext.TraceIdentifier });
+        }
+
+        if (!request.Type.HasValue)
+            return BadRequest(new ApiError { Code = "PASSPORT_ACTIVITY_TYPE_REQUIRED", Message = "Type is required when starting a session.", Status = 400, TraceId = HttpContext.TraceIdentifier });
+
+        var result = await service.StartActivitySession(
+            currentUser.Id,
+            request.ManualId,
+            request.Type.Value,
+            request.Category,
+            NormalizeProvider(request.Provider),
+            NormalizeNullableField(request.ReferenceId),
+            request.Title,
+            request.Subtitle,
+            request.Caption,
+            request.LargeImage,
+            request.SmallImage,
+            request.TitleUrl,
+            request.SubtitleUrl,
+            NormalizeQueryableTerms(request.QueryableTerms),
+            request.Meta,
+            request.CatalogKey,
+            request.CatalogName,
+            request.Visibility,
+            request.LeaseMinutes
+        );
+
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Ends a presence session and accumulates its duration into the catalog item.
+    /// Idempotent: ending an already-ended session returns 404.
+    /// </summary>
+    /// <param name="request">Session end parameters</param>
+    /// <returns>The ended session activity</returns>
+    [HttpPost("sessions/end")]
+    [ApiFeature("presences.activities", Revision = 2)]
+    [ProducesResponseType<SnPresenceActivity>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<SnPresenceActivity>> EndActivitySession(
+        [FromBody] EndSessionRequest request,
+        CancellationToken cancellationToken
+    )
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
+
+        if (string.IsNullOrWhiteSpace(request.ManualId))
+            return BadRequest(new ApiError { Code = "PASSPORT_ACTIVITY_MANUAL_ID_REQUIRED", Message = "ManualId is required.", Status = 400, TraceId = HttpContext.TraceIdentifier });
+
+        var result = await service.EndActivitySession(currentUser.Id, request.ManualId);
+        if (result == null)
+            return NotFound(new ApiError { Code = "PASSPORT_ACTIVITY_NOT_FOUND", Message = "Activity not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
+
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Retrieves the catalog of accumulated activity items for the authenticated user.
+    /// </summary>
+    /// <returns>List of catalog items</returns>
+    [HttpGet("catalog")]
+    [ApiFeature("presences.catalog", Revision = 1)]
+    [ProducesResponseType<List<SnPresenceCatalogItem>>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<ActionResult<List<SnPresenceCatalogItem>>> GetCatalog(
+        [FromQuery] PresenceCategory? category = null,
+        [FromQuery] string? provider = null,
+        [FromQuery] string? query = null,
+        [FromQuery] bool? isActive = null,
+        [FromQuery] int offset = 0,
+        [FromQuery] int take = 50
+    )
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
+
+        var results = await service.GetCatalogItems(
+            currentUser.Id,
+            category,
+            provider,
+            query,
+            isActive,
+            offset,
+            take
+        );
+
+        return Ok(results);
+    }
+
+    /// <summary>
+    /// Retrieves per-catalog accumulated duration in seconds for the authenticated user.
+    /// </summary>
+    /// <returns>Dictionary keyed by catalog id with total seconds</returns>
+    [HttpGet("stats")]
+    [ApiFeature("presences.stats", Revision = 1)]
+    [ProducesResponseType<Dictionary<string, long>>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<ActionResult<Dictionary<string, long>>> GetStats(
+        [FromQuery] DateTimeOffset? from = null,
+        [FromQuery] DateTimeOffset? to = null,
+        [FromQuery] PresenceCategory? category = null
+    )
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
+
+        var results = await service.GetCatalogStats(
+            currentUser.Id,
+            from.HasValue ? NodaTime.Instant.FromDateTimeOffset(from.Value) : null,
+            to.HasValue ? NodaTime.Instant.FromDateTimeOffset(to.Value) : null,
+            category
+        );
+
+        return Ok(results);
+    }
+
+    /// <summary>
     /// Updates an existing presence activity using either its GUID or manual ID.
     /// </summary>
     /// <param name="id">System-generated GUID of the activity (optional)</param>
@@ -298,6 +473,75 @@ public class PresenceActivityController(
 
             return NoContent();
         }
+    }
+
+    /// <summary>
+    /// Request model for starting a presence session.
+    /// </summary>
+    public class StartSessionRequest
+    {
+        /// <summary>The type of presence activity (e.g., Gaming, Music, Workout)</summary>
+        public PresenceType? Type { get; set; }
+
+        /// <summary>User-defined identifier for the session; re-starting the same id refreshes the active session</summary>
+        public string? ManualId { get; set; }
+
+        /// <summary>Upstream provider identifier such as steam or spotify</summary>
+        public string? Provider { get; set; }
+
+        /// <summary>Upstream object identifier such as a game id or track id</summary>
+        public string? ReferenceId { get; set; }
+
+        /// <summary>Main title of the activity</summary>
+        public string? Title { get; set; }
+
+        /// <summary>Secondary subtitle of the activity</summary>
+        public string? Subtitle { get; set; }
+
+        /// <summary>Additional caption/description</summary>
+        public string? Caption { get; set; }
+
+        /// <summary>Large image URL or base64 string</summary>
+        public string? LargeImage { get; set; }
+
+        /// <summary>Small image URL or base64 string</summary>
+        public string? SmallImage { get; set; }
+
+        /// <summary>Title URL</summary>
+        public string? TitleUrl { get; set; }
+
+        /// <summary>Subtitle URL</summary>
+        public string? SubtitleUrl { get; set; }
+
+        /// <summary>Normalized query terms for structured lookup such as artists, albums, app names, or platforms</summary>
+        public string[]? QueryableTerms { get; set; }
+
+        /// <summary>Extensible metadata dictionary for custom developer data</summary>
+        public Dictionary<string, object?>? Meta { get; set; }
+
+        /// <summary>High-level classification of the activity</summary>
+        public PresenceCategory Category { get; set; } = PresenceCategory.Unknown;
+
+        /// <summary>Visibility of the activity to other users</summary>
+        public PresenceVisibility Visibility { get; set; } = PresenceVisibility.Public;
+
+        /// <summary>Stable key of the catalog item this session accumulates into</summary>
+        public string? CatalogKey { get; set; }
+
+        /// <summary>Display name for the catalog item (falls back to title)</summary>
+        public string? CatalogName { get; set; }
+
+        /// <summary>Lease duration in minutes (1-60, default: 5)</summary>
+        public int LeaseMinutes { get; set; } = 5;
+    }
+
+    /// <summary>
+    /// Request model for ending a presence session.
+    /// </summary>
+    public class EndSessionRequest
+    {
+        /// <summary>User-defined identifier of the session to end</summary>
+        public string? ManualId { get; set; }
     }
 
     /// <summary>

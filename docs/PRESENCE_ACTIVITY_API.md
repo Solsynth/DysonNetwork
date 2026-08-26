@@ -252,7 +252,7 @@ For administrative or debugging purposes. Returns activities for the specified a
 
 ## Related Changes
 
-- See [Presence Queryable Fields](./PRESENCE_QUERYABLE_FIELDS.md) for the new `provider`, `reference_id`, `queryable_terms`, timeline deduplication, and 90-day retention cleanup behavior.
+- See [Presence Sessions & Catalog API](./PRESENCE_SESSIONS_CATALOG_API.md) for session windows (`started_at`/`ended_at`), the accumulating catalog, per-catalog stats, and the `category`/`visibility`/`catalog_id`/`from`/`to` history filters.
 
 ---
 
