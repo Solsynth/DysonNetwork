@@ -1961,7 +1961,11 @@ public partial class ChatService(
 
         var query = db
             .ChatMessages.Where(m => m.ChatRoomId == chatRoomId)
-            .Where(m => m.SenderId != member.Id);
+            .Where(m =>
+                m.SenderId != member.Id
+                && m.Type != PlaceholderContentType
+                && !m.Type.StartsWith("messages.")
+            );
 
         if (member.LastReadAt is not null)
             query = query.Where(m => m.CreatedAt > member.LastReadAt.Value);
@@ -1998,6 +2002,8 @@ public partial class ChatService(
             join msg in db.ChatMessages on member.ChatRoomId equals msg.ChatRoomId
             where
                 msg.SenderId != member.Id
+                && msg.Type != PlaceholderContentType
+                && !msg.Type.StartsWith("messages.")
                 && (member.LastReadAt == null || msg.CreatedAt > member.LastReadAt)
             select new { member.ChatRoomId, member.Notify, Message = msg };
 
@@ -2772,7 +2778,7 @@ public partial class ChatService(
 
     // --- Placeholder message methods ---
 
-    private static readonly Duration PlaceholderDefaultTtl = Duration.FromMinutes(5);
+    private static readonly Duration PlaceholderDefaultTtl = Duration.FromMinutes(60);
     private const string PlaceholderContentType = "placeholder";
 
     /// <summary>
@@ -3024,6 +3030,8 @@ public partial class ChatService(
 
         if (toExpire.Count > 0)
             await db.SaveChangesAsync();
+        foreach (var msg in toExpire)
+            _ = DeliverPlaceholderExpiredAsync(msg);
 
         return toExpire.Count;
     }
