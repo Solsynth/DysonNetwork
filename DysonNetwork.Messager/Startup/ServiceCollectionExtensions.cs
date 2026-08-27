@@ -687,18 +687,69 @@ public static class ServiceCollectionExtensions
                 }
             }
 
-            if (requestData.RepliedMessageId.HasValue)
+            // Thread membership and reply quoting are separate now:
+            //  - a thread reply carries ThreadId (the thread root) and uses
+            //    RepliedMessageId only as its parent link inside the thread;
+            //  - a regular (direct) reply carries only RepliedMessageId (the quoted
+            //    target) and stays in the main timeline.
+            if (requestData.ThreadId.HasValue)
+            {
+                var threadRoot = await db.ChatMessages
+                    .Where(m => m.Id == requestData.ThreadId.Value && m.ChatRoomId == requestData.ChatRoomId)
+                    .Select(m => new { m.Id, m.RepliedMessageId })
+                    .FirstOrDefaultAsync();
+                if (threadRoot == null)
+                {
+                    await SendErrorResponse(evt, "The thread root message does not exist.", ws);
+                    return;
+                }
+                if (threadRoot.RepliedMessageId.HasValue)
+                {
+                    await SendErrorResponse(evt, "Thread replies must target a top-level message.", ws);
+                    return;
+                }
+
+                message.ThreadId = threadRoot.Id;
+                message.IsThreadRoot = false;
+
+                // Optional parent link within the thread (for nesting); it must
+                // belong to the same thread.
+                if (requestData.RepliedMessageId.HasValue)
+                {
+                    var parent = await db.ChatMessages
+                        .Where(m => m.Id == requestData.RepliedMessageId.Value && m.ChatRoomId == requestData.ChatRoomId)
+                        .Select(m => new { m.Id, m.ThreadId })
+                        .FirstOrDefaultAsync();
+                    if (parent == null)
+                    {
+                        await SendErrorResponse(evt, "The message you're replying to does not exist.", ws);
+                        return;
+                    }
+                    // The parent is either the thread root itself (no ThreadId) or
+                    // another member of the same thread.
+                    if (parent.ThreadId != null && parent.ThreadId != message.ThreadId)
+                    {
+                        await SendErrorResponse(evt, "The parent must belong to the same thread.", ws);
+                        return;
+                    }
+                    message.RepliedMessageId = parent.Id;
+                }
+            }
+            else if (requestData.RepliedMessageId.HasValue)
             {
                 var repliedMessage = await db.ChatMessages
-                    .FirstOrDefaultAsync(m =>
-                        m.Id == requestData.RepliedMessageId.Value && m.ChatRoomId == requestData.ChatRoomId);
+                    .Where(m => m.Id == requestData.RepliedMessageId.Value && m.ChatRoomId == requestData.ChatRoomId)
+                    .Select(m => new { m.Id, m.RepliedMessageId })
+                    .FirstOrDefaultAsync();
                 if (repliedMessage == null)
                 {
                     await SendErrorResponse(evt, "The message you're replying to does not exist.", ws);
                     return;
                 }
 
+                // Regular direct reply: quoted target, not a thread member.
                 message.RepliedMessageId = repliedMessage.Id;
+                message.ThreadId = null;
             }
 
             if (requestData.ForwardedMessageId.HasValue)
