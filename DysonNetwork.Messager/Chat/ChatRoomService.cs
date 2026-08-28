@@ -1,5 +1,6 @@
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
 using Grpc.Core;
 using Microsoft.EntityFrameworkCore;
@@ -41,6 +42,8 @@ public class ChatRoomService(
     private const string ChatRoomGroupPrefix = "chatroom:";
     private const string RoomMembersCacheKeyPrefix = "chatroom:members:";
     private const string ChatMemberCacheKey = "chatroom:{0}:member:{1}";
+    private const string AccountMissingCacheKeyPrefix = "chataccount:missing:{0}";
+    private static readonly TimeSpan AccountMissingCacheTtl = TimeSpan.FromMinutes(10);
 
     public async Task<List<SnChatMember>> ListRoomMembers(Guid roomId)
     {
@@ -307,11 +310,47 @@ public class ChatRoomService(
 
     public async Task<List<SnChatMember>> LoadMemberAccounts(ICollection<SnChatMember> members)
     {
-        var accountIds = members.Select(m => m.AccountId).ToList();
-        var accounts = (await remoteAccounts.GetAccountBatch(accountIds)).ToDictionary(a => Guid.Parse(a.Id), a => a);
+        var memberList = members.ToList();
+        if (memberList.Count == 0) return memberList;
+
+        var accountIds = memberList.Select(m => m.AccountId).Distinct().ToList();
+        var missingIds = new List<Guid>();
+        var accounts = new Dictionary<Guid, DyAccount>();
+
+        foreach (var accountId in accountIds)
+        {
+            var (found, missing) = await cache.GetAsyncWithStatus<bool>(string.Format(AccountMissingCacheKeyPrefix, accountId));
+            if (found && missing)
+                continue;
+
+            missingIds.Add(accountId);
+        }
+
+        if (missingIds.Count > 0)
+        {
+            var fetched = await remoteAccounts.GetAccountBatch(missingIds);
+            foreach (var account in fetched)
+            {
+                var id = Guid.Parse(account.Id);
+                accounts[id] = account;
+            }
+
+            var fetchedIds = fetched.Select(a => Guid.Parse(a.Id)).ToHashSet();
+            foreach (var accountId in missingIds)
+            {
+                if (fetchedIds.Contains(accountId)) continue;
+
+                await cache.SetAsync(
+                    string.Format(AccountMissingCacheKeyPrefix, accountId),
+                    true,
+                    AccountMissingCacheTtl
+                );
+            }
+        }
+
         List<SnChatMember> loadedMembers =
         [
-            .. members.Select(m =>
+            .. memberList.Select(m =>
             {
                 m.Account = accounts.TryGetValue(m.AccountId, out var account)
                     ? SnAccount.FromProtoValue(account)

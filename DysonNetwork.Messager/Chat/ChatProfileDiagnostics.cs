@@ -4,8 +4,11 @@ namespace DysonNetwork.Messager.Chat;
 
 /// <summary>
 /// Diagnostics for chat responses whose account lookup did not resolve or
-/// whose resolved account has no profile. Profiles are optional: bare
-/// profiles and profiles without visual identity are valid and are returned.
+/// whose resolved account has no profile. A missing account is expected
+/// for members whose account was deleted (historic rows are retained for
+/// message history), so it is logged at Debug, not Warning. Profiles are
+/// optional: bare profiles and profiles without visual identity are valid
+/// and are returned.
 /// </summary>
 public static class ChatProfileDiagnostics
 {
@@ -13,7 +16,7 @@ public static class ChatProfileDiagnostics
     {
         if (account is null)
         {
-            logger.LogWarning(
+            logger.LogDebug(
                 "ChatProfileDiagnostics: account lookup returned no account on route {Route}",
                 route
             );
