@@ -45,6 +45,7 @@ public class AccountServiceGrpc(
 
         await PopulatePerkSubscriptionAsync(account);
         await remoteContacts.PopulateContactsAsync(account, cancellationToken: context.CancellationToken);
+        await PopulateBadgesAsync([account], context.CancellationToken);
 
         return account.ToProtoValue();
     }
@@ -71,6 +72,7 @@ public class AccountServiceGrpc(
 
         await PopulatePerkSubscriptionAsync(account);
         await remoteContacts.PopulateContactsAsync(account, cancellationToken: context.CancellationToken);
+        await PopulateBadgesAsync([account], context.CancellationToken);
 
         return account.ToProtoValue();
     }
@@ -766,8 +768,35 @@ public class AccountServiceGrpc(
 
         await PopulatePerkSubscriptionsAsync(accounts);
         await PopulateContactsAsync(accounts, cancellationToken);
+        await PopulateBadgesAsync(accounts, cancellationToken);
 
         return accounts;
+    }
+
+    private async Task PopulateBadgesAsync(List<SnAccount> accounts, CancellationToken cancellationToken)
+    {
+        if (accounts.Count == 0) return;
+
+        try
+        {
+            var accountIds = accounts.Select(a => a.Id).ToList();
+            var badges = await _db.Badges
+                .AsNoTracking()
+                .Where(b => accountIds.Contains(b.AccountId))
+                .OrderByDescending(b => b.CreatedAt)
+                .ToListAsync(cancellationToken);
+
+            var badgeDict = badges.GroupBy(b => b.AccountId).ToDictionary(g => g.Key, g => g.ToList());
+            foreach (var account in accounts)
+            {
+                if (badgeDict.TryGetValue(account.Id, out var accountBadges))
+                    account.Badges = accountBadges;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to populate Badges for {Count} accounts in gRPC service", accounts.Count);
+        }
     }
 
     private async Task PopulatePerkSubscriptionAsync(SnAccount account)
