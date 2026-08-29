@@ -173,6 +173,7 @@ public static class ServiceCollectionExtensions
                     opts =>
                     {
                         opts.UseJetStream = false;
+                        opts.Parallelism = 8;
                     }
                 )
                 .AddListener<WebSocketConnectedEvent>(
