@@ -129,7 +129,7 @@ public class ChatRoomController(
         return Ok(chatRoom);
     }
 
-    [HttpGet("by-slug/{scope}/{chatSlug}")]
+    [HttpGet("public/{scope}/{chatSlug}")]
     public async Task<ActionResult<SnChatRoom>> GetChatRoomBySlug(string scope, string chatSlug)
     {
         var chatRoom = await crs.FindChatRoomBySlug(scope, chatSlug);
@@ -409,7 +409,7 @@ public class ChatRoomController(
         // Check if the related user is a bot account
         var isBotAccount = !string.IsNullOrEmpty(relatedUser.AutomatedId);
         SnBotChatConfig? botConfig = null;
-        
+
         if (isBotAccount)
         {
             var botId = Guid.Parse(relatedUser.AutomatedId);
@@ -2183,13 +2183,13 @@ public class ChatRoomController(
 
         var message = await db.ChatMessages
             .FirstOrDefaultAsync(m => m.Id == messageId && m.ChatRoomId == roomId);
-        
+
         if (message is null) return NotFound();
 
         // Soft delete the message
         message.DeletedAt = SystemClock.Instance.GetCurrentInstant();
         message.Content = "[Message deleted by moderator]";
-        
+
         db.ChatMessages.Update(message);
         await db.SaveChangesAsync();
 
@@ -2254,7 +2254,7 @@ public class ChatRoomController(
 
         var member = await db.ChatMembers
             .FirstOrDefaultAsync(m => m.ChatRoomId == roomId && m.AccountId == accountId && m.JoinedAt != null && m.LeaveAt == null);
-        
+
         if (member is null) return NotFound();
 
         // Set timeout
@@ -2267,7 +2267,7 @@ public class ChatRoomController(
             SenderId = currentAccountId,
             Since = SystemClock.Instance.GetCurrentInstant()
         };
-        
+
         db.ChatMembers.Update(member);
         await db.SaveChangesAsync();
 
