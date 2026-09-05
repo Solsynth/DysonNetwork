@@ -655,13 +655,18 @@ public partial class ChatService(
         SnChatMessage message,
         SnChatMember sender,
         SnChatRoom room,
-        string? clientIpAddress = null
+        string? clientIpAddress = null,
+        Func<SnChatMessage, Task>? onPersisted = null
     )
     {
         var existingMessage = await GetExistingClientMessageAsync(message);
         if (existingMessage is not null)
         {
             EscapeMarkdownHeadings([existingMessage]);
+            // A retried client_message_id that missed its first ack would
+            // otherwise hang; acknowledge the duplicate too.
+            if (onPersisted is not null)
+                await onPersisted(existingMessage);
             return existingMessage;
         }
 
@@ -698,6 +703,18 @@ public partial class ChatService(
                 setters.SetProperty(m => m.LastReadAt, message.CreatedAt)
             );
 
+        // Copy the value to ensure the delivery is correct before acknowledging,
+        // so the serialized ack carries the fully hydrated message.
+        message.Sender = sender;
+        message.ChatRoom = room;
+
+        // Acknowledge as soon as the message is persisted. The realm activity
+        // publish and action-log round-trips below are not part of the ack
+        // contract and must not delay the sender's messages.delivered, which
+        // otherwise serializes each send behind its own ack.
+        if (onPersisted is not null)
+            await onPersisted(message);
+
         if (
             room.RealmId.HasValue
             && sender.AccountId != Guid.Empty
@@ -717,10 +734,6 @@ public partial class ChatService(
         }
 
         await EmitChatUseActionLogAsync(message, sender, room, clientIpAddress);
-
-        // Copy the value to ensure the delivery is correct
-        message.Sender = sender;
-        message.ChatRoom = room;
 
         QueueMessageDelivery(message, sender, room);
 

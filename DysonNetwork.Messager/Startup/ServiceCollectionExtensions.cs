@@ -781,12 +781,18 @@ public static class ServiceCollectionExtensions
 
             try
             {
-                var result = await cs.SendMessageAsync(message, member, member.ChatRoom);
-
-                await ws.PushWebSocketPacketToDevice(
-                    evt.DeviceId,
-                    WebSocketPacketType.MessageDelivered,
-                    InfraObjectCoder.ConvertObjectToByteString(result).ToByteArray()
+                await cs.SendMessageAsync(
+                    message,
+                    member,
+                    member.ChatRoom,
+                    onPersisted: async persisted =>
+                    {
+                        await ws.PushWebSocketPacketToDevice(
+                            evt.DeviceId,
+                            WebSocketPacketType.MessageDelivered,
+                            InfraObjectCoder.ConvertObjectToByteString(persisted).ToByteArray()
+                        );
+                    }
                 );
             }
             catch (Exception ex)

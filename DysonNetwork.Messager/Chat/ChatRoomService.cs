@@ -317,13 +317,19 @@ public class ChatRoomService(
         var missingIds = new List<Guid>();
         var accounts = new Dictionary<Guid, DyAccount>();
 
-        foreach (var accountId in accountIds)
+        // Fire all missing-account cache lookups concurrently. A serialized
+        // per-member round trip is the dominant cold-path cost for large rooms.
+        var checkTasks = accountIds
+            .Select(async accountId =>
+                (AccountId: accountId, Result: await cache.GetAsyncWithStatus<bool>(
+                    string.Format(AccountMissingCacheKeyPrefix, accountId))))
+            .ToList();
+        foreach (var check in await Task.WhenAll(checkTasks))
         {
-            var (found, missing) = await cache.GetAsyncWithStatus<bool>(string.Format(AccountMissingCacheKeyPrefix, accountId));
-            if (found && missing)
+            if (check.Result.found && check.Result.value)
                 continue;
 
-            missingIds.Add(accountId);
+            missingIds.Add(check.AccountId);
         }
 
         if (missingIds.Count > 0)
