@@ -450,11 +450,14 @@ public class NfcController(
     }
 
     /// <summary>
-    /// Register a new NFC tag for the current user.
+    /// Register a new plain (unencrypted) NFC tag.
+    /// Requires nfc.admin permission: plain tags are no longer self-registered
+    /// by clients, only issued by administrators. Encrypted tags use the admin
+    /// API (/api/admin/nfc/tags) and are claimed by their owner instead.
     /// </summary>
     [HttpPost("tags")]
     [Authorize]
-    [AskPermission(PermissionKeys.NfcTagsCreate)]
+    [AskPermission(PermissionKeys.NfcAdminManage)]
     public async Task<ActionResult<NfcTagResponse>> RegisterTag(
         [FromBody] RegisterTagRequest request,
         CancellationToken cancellationToken)

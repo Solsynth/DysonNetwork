@@ -193,7 +193,7 @@ from the mobile clients; on other clients the cross-device approval prompt is th
 | `GET /api/nfc/lookup?uid=` | Optional | Look up tag by UID (admin/debug only, no MAC verification) |
 | `GET /api/nfc/tags/{id}` | Optional | Look up tag by entry ID (for unencrypted/plain tags) |
 | `GET /api/nfc/tags` | Required | List user's tags |
-| `POST /api/nfc/tags` | Required | Register an unencrypted tag |
+| `POST /api/nfc/tags` | `nfc.admin` | Register an unencrypted tag (administrators only) |
 | `POST /api/nfc/tags/claim` | Required | Claim an unclaimed encrypted tag by UID (without scanning) |
 | `PATCH /api/nfc/tags/{id}` | Required | Update tag metadata |
 | `POST /api/nfc/tags/{id}/lock` | Required | Lock a tag |
@@ -358,11 +358,11 @@ Response (200):
 ]
 ```
 
-### Register tag (unencrypted only)
+### Register tag (unencrypted only, administrators)
 
 `POST /api/nfc/tags`
 
-Requires JWT. Only for unencrypted/plain tags. Encrypted tags are registered via the admin API.
+Requires JWT **and the `nfc.admin.manage` permission** (superusers bypass permission checks). Plain tags are no longer self-registered by clients — only administrators issue them. Encrypted tags are registered via the admin API.
 
 Request body:
 
@@ -530,12 +530,12 @@ _This flow is currently disabled. Users must claim via Option A instead._
 | Unassigned | `null` | First authenticated scanner claims the tag |
 | Pre-assigned | User ID | Only the assigned user can claim the tag; others get `TAG_PRE_ASSIGNED` error |
 
-### User flow (unencrypted tags)
+### Admin flow (unencrypted tags)
 
-Unencrypted tags are self-registered by users:
+Unencrypted tags are issued by administrators, not self-registered by users:
 
-1. User calls `POST /api/nfc/tags` with `{ "uid": "..." }`
-2. User writes the tag entry ID (the UUID returned by the server) to the physical tag
+1. Administrator calls `POST /api/nfc/tags` with `{ "uid": "..." }`
+2. The tag entry ID (the UUID returned by the server) is written to the physical tag
 3. No key configuration needed
 
 ### Recommended NTAG424 SDM configuration (for factory)
