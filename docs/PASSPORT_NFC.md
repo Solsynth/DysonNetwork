@@ -145,28 +145,33 @@ Bytes 11-15: Reserved/zeros
 
 ## NFC Login Flow
 
-Encrypted NFC tags can be used as an authentication factor in the Padlock challenge flow.
+Encrypted NFC tags can be used as an authentication factor in the challenge flow, served by Stargate (formerly Padlock).
 
 ### Flow
 
 ```
 1. User creates auth challenge: POST /api/auth/challenge
-2. Client scans NFC tag → extracts uid_hex from SUN URL
+2. Client scans NFC tag → reads the NDEF URI (solian://phpass?picc_data=...&e=...&cmac=...)
+   and pairs it with the tag's hardware UID
 3. Client submits NFC factor: PATCH /api/auth/challenge/{id}
-   Body: { "factor_id": "...", "password": "<uid_hex>" }
-   Example password: "D7E4AF3C6F49A801D351FB82974B7729000000"
-4. Padlock calls Passport via gRPC to validate the SUN token
+   Body: { "factor_id": "...", "password": "<tag hardware uid>:<nfc payload>" }
+   Example password: "04A224B2C33A80:solian://phpass?picc_data=...&e=...&cmac=..."
+4. Stargate calls Passport via gRPC to validate the SUN token
 5. If valid, the NfcToken factor is completed (Trustworthy: 1)
 6. When all required steps are done, client exchanges for tokens: POST /api/auth/token
 ```
 
-### How Padlock validates NFC tokens
+### How Stargate validates NFC tokens
 
-Padlock's `AccountService.VerifyFactorCode` handles the `NfcToken` factor type:
-1. The `password` field contains the full hex UID string from the NFC scan
-2. Calls Passport's `DyNfcService.ValidateNfcToken` via gRPC with `uid_hex`
-3. Passport performs SUN decryption and counter check
+Stargate's `verifyNfcToken` (authctl) handles the `NfcToken` factor type:
+1. The `password` field is split on the first `:` — the part before it is the tag
+   hardware UID, the part after it is the payload (the full `solian://phpass?...` URL)
+2. Calls Passport's `DyNfcService.ValidateNfcToken` via gRPC with `tag_uid` and `uid_hex`
+   (the field is named `uid_hex` for history; it carries the SUN URL)
+3. Passport performs SUN decryption and counter check, and reports the tag's owner
 4. Returns `{ is_valid, account_id, tag_id, error_code }`
+5. The reported `account_id` must match the account that owns the challenge; a tag
+   registered to a different account never satisfies the challenge
 
 ### Setting up NfcToken as an auth factor
 
@@ -176,6 +181,9 @@ POST /api/auth/factors { "type": "NfcToken", "secret": "<tag_id>" }
 ```
 
 The factor's `Config` dictionary stores the associated tag ID. Trustworthy level: 1 (single-step factor).
+NfcToken counts toward a challenge's required step count (`DetectChallengeRisk`), so an
+account with password + NFC tag demands both on a risky login. The tag can only be scanned
+from the mobile clients; on other clients the cross-device approval prompt is the way through.
 
 ## Authentication
 
@@ -193,11 +201,11 @@ The factor's `Config` dictionary stores the associated tag ID. Trustworthy level
 | `POST /api/admin/nfc/tags` | `nfc.admin` | Create encrypted tag with SUN key (factory) |
 | `GET /api/admin/nfc/tags` | `nfc.admin` | List all encrypted tags |
 
-### gRPC endpoints (internal, Padlock ↔ Passport)
+### gRPC endpoints (internal, Stargate ↔ Passport)
 
 | gRPC Method | Direction | Description |
 |---|---|---|
-| `DyNfcService.ValidateNfcToken` | Padlock → Passport | Validate SUN token for login. Returns `{ is_valid, account_id, tag_id, error_code }` |
+| `DyNfcService.ValidateNfcToken` | Stargate → Passport | Validate SUN token for login. Returns `{ is_valid, account_id, tag_id, error_code }` |
 | `DyNfcService.ResolveNfcTag` | Any → Passport | Resolve SUN token to full user profile. Returns `{ is_valid, account, profile, is_friend, actions }` |
 
 The current user is read from `HttpContext.Items["CurrentUser"]`.
@@ -663,7 +671,7 @@ Soft-deleted NFC tags follow the standard Passport recycling job cleanup (7 days
 The NFC feature supports:
 
 - **Social identification** (scan-only): Both encrypted (SUN) and unencrypted tags can resolve to user profiles.
-- **Login via NFC**: Encrypted SUN tags can be used as an `NfcToken` auth factor in the Padlock challenge flow. Padlock calls Passport via gRPC to validate SUN tokens.
+- **Login via NFC**: Encrypted SUN tags can be used as an `NfcToken` auth factor in the Stargate challenge flow. Stargate calls Passport via gRPC to validate SUN tokens.
 
 Possible future enhancements:
 
