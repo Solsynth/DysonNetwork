@@ -258,6 +258,8 @@ public class PostActionController(
         public Instant? PublishedAt { get; set; }
         public Guid? RepliedPostId { get; set; }
         public Guid? ForwardedPostId { get; set; }
+        public Guid? ChainedPostId { get; set; }
+        public bool? AutoChain { get; set; }
         public Guid? RealmId { get; set; }
 
         public Guid? SurveyId { get; set; }
@@ -482,6 +484,32 @@ public class PostActionController(
             post.ForwardedPostId = forwardedPost.Id;
         }
 
+        if (request.ChainedPostId is not null && (request.RepliedPostId is not null || request.ForwardedPostId is not null))
+            return BadRequest(new ApiError { Code = "POST_CHAIN_CONFLICT", Message = "A chained post cannot also be a reply or a forward.", Status = 400 });
+
+        if (request.ChainedPostId is not null)
+        {
+            var chainedTarget = await db
+                .Posts.Where(p => p.Id == request.ChainedPostId.Value)
+                .Include(p => p.Publisher)
+                .FirstOrDefaultAsync();
+            if (chainedTarget is null)
+                return BadRequest(new ApiError { Code = "POST_CHAIN_TARGET_NOT_FOUND", Message = "Post to chain to was not found.", Status = 400 });
+            if (chainedTarget.PublisherId != publisher.Id)
+                return BadRequest(new ApiError { Code = "POST_CHAIN_DIFFERENT_PUBLISHER", Message = "You can only chain posts to your own posts.", Status = 400 });
+
+            // Flat chain: every chained post points at the chain head.
+            var chainHeadId = chainedTarget.ChainedPostId ?? chainedTarget.Id;
+            var chainHead = chainHeadId == chainedTarget.Id
+                ? chainedTarget
+                : await db.Posts.Where(p => p.Id == chainHeadId).Include(p => p.Publisher).FirstOrDefaultAsync();
+            if (chainHead is null)
+                return BadRequest(new ApiError { Code = "POST_CHAIN_TARGET_NOT_FOUND", Message = "Post to chain to was not found.", Status = 400 });
+
+            post.ChainedPostId = chainHead.Id;
+            post.ChainedPost = chainHead;
+        }
+
         if (request.RealmId is not null)
         {
             var realm = await rs.GetRealm(request.RealmId.Value.ToString());
@@ -675,7 +703,8 @@ public class PostActionController(
                 attachments: request.Attachments,
                 tags: request.Tags,
                 categories: request.Categories,
-                actor: currentUser
+                actor: currentUser,
+                autoChain: request.AutoChain ?? true
             );
         }
         catch (InvalidOperationException err)

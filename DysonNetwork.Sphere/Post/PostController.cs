@@ -513,6 +513,7 @@ public class PostController(
             .Include(e => e.ForwardedPost)
             .Include(e => e.FeaturedRecords)
             .Where(p => p.FediverseUri == null)
+            .Where(p => p.ChainedPostId == null)
             .AsQueryable();
         if (publisher != null)
             query = query.Where(p => p.PublisherId == publisher.Id);
@@ -1019,7 +1020,8 @@ public class PostController(
             .Include(e => e.RepliedPost)
             .Include(e => e.ForwardedPost)
             .Include(e => e.FeaturedRecords)
-            .Where(p => p.FediverseUri == null);
+            .Where(p => p.FediverseUri == null)
+            .Where(p => p.ChainedPostId == null);
 
         if (publisher != null)
             baseQuery = baseQuery.Where(p => p.PublisherId == publisher.Id);
@@ -1182,7 +1184,8 @@ public class PostController(
             .Include(e => e.RepliedPost)
             .Include(e => e.ForwardedPost)
             .Include(e => e.FeaturedRecords)
-            .Where(p => p.FediverseUri == null);
+            .Where(p => p.FediverseUri == null)
+            .Where(p => p.ChainedPostId == null);
 
         if (publisher != null)
             baseQuery = baseQuery.Where(p => p.PublisherId == publisher.Id);

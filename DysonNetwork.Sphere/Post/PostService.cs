@@ -1589,7 +1589,8 @@ public partial class PostService(
         List<string>? attachments = null,
         List<string>? tags = null,
         List<string>? categories = null,
-        DyAccount? actor = null
+        DyAccount? actor = null,
+        bool autoChain = true
     )
     {
         if (post.Empty)
@@ -1652,6 +1653,38 @@ public partial class PostService(
             post.DraftedAt is null
             && post.PublishedAt is not null
             && post.PublishedAt.Value.ToDateTimeUtc() <= now;
+
+        if (isPublishedNow && autoChain && post.ChainedPostId == null
+            && post.RepliedPostId == null && post.ForwardedPostId == null
+            && post.Type == PostType.Moment && post.PublisherId is not null)
+        {
+            var configuration = serviceProvider.GetRequiredService<IConfiguration>();
+            var windowMinutes =
+                int.TryParse(configuration["Posts:AutoChainWindowMinutes"], out var w) ? w : 5;
+
+            var latest = await db.Posts
+                .Where(p => p.PublisherId == post.PublisherId
+                    && p.Id != post.Id
+                    && p.DraftedAt == null
+                    && p.PublishedAt != null
+                    && p.PublishedAt >= post.PublishedAt!.Value - Duration.FromMinutes(windowMinutes)
+                    && p.PublishedAt < post.PublishedAt.Value
+                    && p.RepliedPostId == null
+                    && p.ForwardedPostId == null)
+                .OrderByDescending(p => p.PublishedAt)
+                .FirstOrDefaultAsync();
+
+            if (latest is not null)
+            {
+                // Flat chain: children always point at the chain head.
+                var head = latest.ChainedPostId is null
+                    ? latest
+                    : await db.Posts.FirstAsync(p => p.Id == latest.ChainedPostId.Value);
+                post.ChainedPostId = head.Id;
+                post.ChainedPost = head;
+                await db.SaveChangesAsync();
+            }
+        }
 
         if (isPublishedNow)
             _ = Task.Run(async () =>
@@ -2190,6 +2223,9 @@ public partial class PostService(
             await db
                 .Posts.Where(p => p.ForwardedPostId == post.Id)
                 .ExecuteUpdateAsync(p => p.SetProperty(x => x.ForwardedGone, true));
+            await db
+                .Posts.Where(p => p.ChainedPostId == post.Id)
+                .ExecuteUpdateAsync(p => p.SetProperty(x => x.ChainedPostId, (Guid?)null));
 
             db.Posts.Remove(post);
             await db.SaveChangesAsync();
@@ -2282,6 +2318,10 @@ public partial class PostService(
     public async Task<SnPost> PinPostAsync(SnPost post, DyAccount currentUser, PostPinMode pinMode)
     {
         var accountId = Guid.Parse(currentUser.Id);
+        if (post.ChainedPostId != null)
+            throw new InvalidOperationException(
+                "Chained posts cannot be pinned."
+            );
         if (post.RepliedPostId != null)
         {
             if (pinMode != PostPinMode.ReplyPage)
@@ -2906,6 +2946,64 @@ public partial class PostService(
         return posts;
     }
 
+    private async Task<List<SnPost>> LoadChainedChildrenAsync(
+        List<SnPost> posts,
+        DyAccount? currentUser,
+        bool truncate
+    )
+    {
+        var headIds = posts.Where(p => p.ChainedPostId == null).Select(p => p.Id).ToList();
+        if (headIds.Count == 0)
+            return posts;
+
+        var children = await db.Posts
+            .Where(p => p.ChainedPostId != null && headIds.Contains(p.ChainedPostId.Value))
+            .Include(p => p.ForwardedPost)
+            .Include(p => p.Categories)
+            .Include(p => p.Tags)
+            .OrderBy(p => p.PublishedAt)
+            .ToListAsync();
+
+        if (children.Count == 0)
+            return posts;
+
+        // Recurse for publishers/actors/interactive; children carry ChainedPostId
+        // so this does not recurse further into chained grandchildren.
+        children = await LoadPostInfo(children, currentUser, truncate, trackViews: false);
+
+        var byHead = children
+            .GroupBy(p => p.ChainedPostId!.Value)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        // Visibility gate per child, mirroring the RepliedPost gate in LoadInteractive.
+        List<SnPublisher> publishers = [];
+        List<Guid> userFriends = [];
+        if (currentUser is not null)
+        {
+            var friendsResponse = await accounts.ListFriendsAsync(
+                new DyListRelationshipSimpleRequest { AccountId = currentUser.Id }
+            );
+            userFriends = friendsResponse.AccountsId.Select(Guid.Parse).ToList();
+            publishers = await ps.GetUserPublishers(Guid.Parse(currentUser.Id));
+        }
+
+        foreach (var post in posts)
+        {
+            if (post.ChainedPostId != null)
+                continue;
+            if (!byHead.TryGetValue(post.Id, out var list))
+                continue;
+
+            var visible = list
+                .Where(c => CanViewPost(c, currentUser, publishers, userFriends))
+                .ToList();
+            post.ChainedPosts = visible;
+            post.ChainedCount = visible.Count;
+        }
+
+        return posts;
+    }
+
     private async Task<List<SnPost>> LoadInteractive(
         List<SnPost> posts,
         DyAccount? currentUser = null,
@@ -3087,6 +3185,7 @@ public partial class PostService(
 
         posts = await LoadPubsAndActors(posts);
         posts = await LoadInteractive(posts, currentUser, trackViews);
+        posts = await LoadChainedChildrenAsync(posts, currentUser, truncate);
 
         if (truncate)
             posts = TruncatePostContent(posts);

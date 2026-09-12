@@ -274,6 +274,7 @@ public class PostServiceGrpc(
         {
             // Exclude reply posts, only root posts
             query = query.Where(e => e.RepliedPostId == null);
+            query = query.Where(e => e.ChainedPostId == null);
         }
 
         if (request.After != null)

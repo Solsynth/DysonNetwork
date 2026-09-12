@@ -1268,6 +1268,7 @@ public class TimelineService(
             .Include(p => p.Categories)
             .Where(p => p.DraftedAt == null)
             .Where(p => p.RepliedPostId == null)
+            .Where(p => p.ChainedPostId == null)
             .Where(p => p.Visibility == PostVisibility.Public)
             .Where(p => p.PublisherId != null || p.RealmId != null)
             .Where(p =>
@@ -1957,6 +1958,7 @@ public class TimelineService(
             .Where(p => p.DraftedAt == null)
             .Where(p => p.Visibility == PostVisibility.Public)
             .Where(p => p.RepliedPostId == null)
+            .Where(p => p.ChainedPostId == null)
             .Where(p => p.RealmId == null || publicRealmIds.Contains(p.RealmId.Value))
             .OrderBy(_ => EF.Functions.Random())
             .Take(count);
@@ -2225,6 +2227,7 @@ public class TimelineService(
             .Include(e => e.FeaturedRecords)
             .Where(e => e.DraftedAt == null)
             .Where(e => e.RepliedPostId == null)
+            .Where(e => e.ChainedPostId == null)
             .Where(p => cursor == null || p.PublishedAt < cursor)
             .OrderByDescending(p => p.PublishedAt)
             .AsNoTracking()
