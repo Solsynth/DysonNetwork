@@ -2963,6 +2963,7 @@ public partial class PostService(
             .Include(p => p.ForwardedPost)
             .Include(p => p.Categories)
             .Include(p => p.Tags)
+            .AsNoTracking()
             .OrderBy(p => p.PublishedAt)
             .ToListAsync();
 
