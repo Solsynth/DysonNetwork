@@ -12,20 +12,20 @@ namespace DysonNetwork.Sphere.Migrations
         {
             migrationBuilder.AddColumn<bool>(
                 name: "is_community",
-                table: "sn_fediverse_actor",
+                table: "fediverse_actors",
                 type: "boolean",
                 nullable: false,
                 defaultValue: false);
 
             migrationBuilder.AddColumn<Guid>(
                 name: "realm_id",
-                table: "sn_fediverse_actor",
+                table: "fediverse_actors",
                 type: "uuid",
                 nullable: true);
 
             migrationBuilder.AddColumn<Guid>(
                 name: "realm_id",
-                table: "sn_fediverse_relationship",
+                table: "fediverse_relationships",
                 type: "uuid",
                 nullable: true);
         }
@@ -35,15 +35,15 @@ namespace DysonNetwork.Sphere.Migrations
         {
             migrationBuilder.DropColumn(
                 name: "is_community",
-                table: "sn_fediverse_actor");
+                table: "fediverse_actors");
 
             migrationBuilder.DropColumn(
                 name: "realm_id",
-                table: "sn_fediverse_actor");
+                table: "fediverse_actors");
 
             migrationBuilder.DropColumn(
                 name: "realm_id",
-                table: "sn_fediverse_relationship");
+                table: "fediverse_relationships");
         }
     }
 }
