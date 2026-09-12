@@ -2949,7 +2949,9 @@ public partial class PostService(
     private async Task<List<SnPost>> LoadChainedChildrenAsync(
         List<SnPost> posts,
         DyAccount? currentUser,
-        bool truncate
+        bool truncate,
+        List<Guid>? preloadedFriendIds = null,
+        List<SnPublisher>? preloadedPublishers = null
     )
     {
         var headIds = posts.Where(p => p.ChainedPostId == null).Select(p => p.Id).ToList();
@@ -2969,7 +2971,7 @@ public partial class PostService(
 
         // Recurse for publishers/actors/interactive; children carry ChainedPostId
         // so this does not recurse further into chained grandchildren.
-        children = await LoadPostInfo(children, currentUser, truncate, trackViews: false);
+        children = await LoadPostInfo(children, currentUser, truncate, trackViews: false, preloadedFriendIds, preloadedPublishers);
 
         var byHead = children
             .GroupBy(p => p.ChainedPostId!.Value)
@@ -2980,11 +2982,19 @@ public partial class PostService(
         List<Guid> userFriends = [];
         if (currentUser is not null)
         {
-            var friendsResponse = await accounts.ListFriendsAsync(
-                new DyListRelationshipSimpleRequest { AccountId = currentUser.Id }
-            );
-            userFriends = friendsResponse.AccountsId.Select(Guid.Parse).ToList();
-            publishers = await ps.GetUserPublishers(Guid.Parse(currentUser.Id));
+            if (preloadedFriendIds is not null && preloadedPublishers is not null)
+            {
+                userFriends = preloadedFriendIds;
+                publishers = preloadedPublishers;
+            }
+            else
+            {
+                var friendsResponse = await accounts.ListFriendsAsync(
+                    new DyListRelationshipSimpleRequest { AccountId = currentUser.Id }
+                );
+                userFriends = friendsResponse.AccountsId.Select(Guid.Parse).ToList();
+                publishers = await ps.GetUserPublishers(Guid.Parse(currentUser.Id));
+            }
         }
 
         foreach (var post in posts)
@@ -3007,7 +3017,9 @@ public partial class PostService(
     private async Task<List<SnPost>> LoadInteractive(
         List<SnPost> posts,
         DyAccount? currentUser = null,
-        bool trackViews = true
+        bool trackViews = true,
+        List<Guid>? preloadedFriendIds = null,
+        List<SnPublisher>? preloadedPublishers = null
     )
     {
         if (posts.Count == 0)
@@ -3030,11 +3042,19 @@ public partial class PostService(
         List<Guid> userFriends = [];
         if (currentUser is not null)
         {
-            var friendsResponse = await accounts.ListFriendsAsync(
-                new DyListRelationshipSimpleRequest { AccountId = currentUser.Id }
-            );
-            userFriends = friendsResponse.AccountsId.Select(Guid.Parse).ToList();
-            publishers = await ps.GetUserPublishers(Guid.Parse(currentUser.Id));
+            if (preloadedFriendIds is not null && preloadedPublishers is not null)
+            {
+                userFriends = preloadedFriendIds;
+                publishers = preloadedPublishers;
+            }
+            else
+            {
+                var friendsResponse = await accounts.ListFriendsAsync(
+                    new DyListRelationshipSimpleRequest { AccountId = currentUser.Id }
+                );
+                userFriends = friendsResponse.AccountsId.Select(Guid.Parse).ToList();
+                publishers = await ps.GetUserPublishers(Guid.Parse(currentUser.Id));
+            }
         }
 
         foreach (var post in posts)
@@ -3177,15 +3197,17 @@ public partial class PostService(
         List<SnPost> posts,
         DyAccount? currentUser = null,
         bool truncate = false,
-        bool trackViews = true
+        bool trackViews = true,
+        List<Guid>? preloadedFriendIds = null,
+        List<SnPublisher>? preloadedPublishers = null
     )
     {
         if (posts.Count == 0)
             return posts;
 
         posts = await LoadPubsAndActors(posts);
-        posts = await LoadInteractive(posts, currentUser, trackViews);
-        posts = await LoadChainedChildrenAsync(posts, currentUser, truncate);
+        posts = await LoadInteractive(posts, currentUser, trackViews, preloadedFriendIds, preloadedPublishers);
+        posts = await LoadChainedChildrenAsync(posts, currentUser, truncate, preloadedFriendIds, preloadedPublishers);
 
         if (truncate)
             posts = TruncatePostContent(posts);
@@ -3199,11 +3221,13 @@ public partial class PostService(
         SnPost post,
         DyAccount? currentUser = null,
         bool truncate = false,
-        bool trackViews = true
+        bool trackViews = true,
+        List<Guid>? preloadedFriendIds = null,
+        List<SnPublisher>? preloadedPublishers = null
     )
     {
         // Convert single post to list, process it, then return the single post
-        var posts = await LoadPostInfo([post], currentUser, truncate, trackViews);
+        var posts = await LoadPostInfo([post], currentUser, truncate, trackViews, preloadedFriendIds, preloadedPublishers);
         return posts.First();
     }
 

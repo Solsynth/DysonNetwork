@@ -60,6 +60,8 @@ public class TimelineService(
     private static readonly TimeSpan FriendStatusCacheTtl = TimeSpan.FromSeconds(30);
     private static readonly TimeSpan UserRealmsCacheTtl = TimeSpan.FromMinutes(2);
     private static readonly TimeSpan SoftCursorCacheTtl = TimeSpan.FromMinutes(5);
+    private static readonly TimeSpan FediverseVisibilityCacheTtl = TimeSpan.FromSeconds(60);
+    private static readonly TimeSpan BoostedPostsCacheTtl = TimeSpan.FromSeconds(30);
     private static readonly Duration DiscoveryLookback = Duration.FromDays(45);
 
     private static double CalculateBaseRank(SnPost post, Instant now)
@@ -220,7 +222,7 @@ public class TimelineService(
             )
             .Take(take * TimelineCandidateMultiplier);
 
-        var posts = await GetAndProcessPosts(postsQuery, currentUser, trackViews: false);
+        var posts = await GetAndProcessPosts(postsQuery, currentUser, trackViews: false, userFriends, userPublishers);
 
         logger.LogInformation("ListEvents: fetched {PostCount} posts before ranking", posts.Count);
 
@@ -239,7 +241,7 @@ public class TimelineService(
                 .Where(p => p.DraftedAt == null)
                 .Where(p => cursor == null || p.PublishedAt < cursor);
 
-            var boostedPosts = await GetAndProcessPosts(boostedPostsQuery, currentUser, trackViews: false);
+            var boostedPosts = await GetAndProcessPosts(boostedPostsQuery, currentUser, trackViews: false, userFriends, userPublishers);
             posts.AddRange(boostedPosts);
             logger.LogInformation("ListEvents: added {BoostedCount} boosted posts to timeline", boostedPosts.Count);
         }
@@ -310,6 +312,14 @@ public class TimelineService(
     {
         var publisherIds = userPublishers.Select(p => p.Id).ToList();
 
+        if (cursor is null)
+        {
+            var cacheKey = $"timeline:boosted-posts:{accountId}";
+            var cached = await cache.GetAsync<List<Guid>>(cacheKey);
+            if (cached is not null)
+                return cached;
+        }
+
         var localActorIds = await db.FediverseActors
             .Where(a => a.PublisherId != null && publisherIds.Contains(a.PublisherId.Value))
             .Select(a => a.Id)
@@ -332,7 +342,15 @@ public class TimelineService(
             .OrderByDescending(b => b.BoostedAt)
             .Select(b => b.PostId);
 
-        return await query.Distinct().ToListAsync();
+        var boostedPostIds = await query.Distinct().ToListAsync();
+
+        if (cursor is null)
+        {
+            var cacheKey = $"timeline:boosted-posts:{accountId}";
+            await cache.SetAsync(cacheKey, boostedPostIds, BoostedPostsCacheTtl);
+        }
+
+        return boostedPostIds;
     }
 
     private async Task<HashSet<Guid>> GetVisibleFediverseActorIdsAsync(
@@ -340,6 +358,11 @@ public class TimelineService(
         List<Guid> userFriendIds
     )
     {
+        var cacheKey = $"timeline:visible-fediverse-actors:{accountId}";
+        var cached = await cache.GetAsync<HashSet<Guid>>(cacheKey);
+        if (cached is not null)
+            return cached;
+
         var visibleActorIds = new HashSet<Guid>();
 
         // 1. Get local actors for the current user's publishers
@@ -386,6 +409,7 @@ public class TimelineService(
                 visibleActorIds.Add(id);
         }
 
+        await cache.SetAsync(cacheKey, visibleActorIds, FediverseVisibilityCacheTtl);
         return visibleActorIds;
     }
 
@@ -478,12 +502,12 @@ public class TimelineService(
         var personalizationBonus = mode != SnTimelineMode.Personalized || currentUser is null
             ? new Dictionary<Guid, double>()
             : await GetPersonalizationBonusMap(posts, Guid.Parse(currentUser.Id), now);
-        var publisherRatingBonus = await GetPublisherRatingBonusMap(posts);
+        var publisherRatingBonus = GetPublisherRatingBonusMap(posts);
         var automatedPenalty = await GetAutomatedPenaltyMap(posts);
         var subscriptionBoost = currentUser is null
             ? new Dictionary<Guid, double>()
             : await GetSubscriptionBoostMap(posts, Guid.Parse(currentUser.Id));
-        var shadowbanStatus = await GetShadowbanStatusMap(posts);
+        var shadowbanStatus = GetShadowbanStatusMap(posts);
         var automodPenalties = await automodService.GetAutomodPenaltiesAsync(posts);
 
         const double PersonalizationBoostMultiplier = 3.0d;
@@ -644,32 +668,16 @@ public class TimelineService(
         return profile.Score * decay;
     }
 
-    private async Task<Dictionary<Guid, double>> GetPublisherRatingBonusMap(List<SnPost> posts)
+    private static Dictionary<Guid, double> GetPublisherRatingBonusMap(List<SnPost> posts)
     {
-        var publisherIds = posts
-            .Where(p => p.PublisherId.HasValue)
-            .Select(p => p.PublisherId!.Value)
-            .Distinct()
-            .ToList();
-
-        if (publisherIds.Count == 0)
-            return [];
-
-        var publishers = await db.Publishers
-            .Where(p => publisherIds.Contains(p.Id))
-            .Select(p => new { p.Id, p.Rating })
-            .ToDictionaryAsync(p => p.Id, p => p.Rating);
-
         return posts.ToDictionary(
             p => p.Id,
             p =>
             {
-                if (!p.PublisherId.HasValue)
+                if (p.Publisher is null)
                     return 0d;
 
-                var rating = publishers.GetValueOrDefault(p.PublisherId.Value, 100);
-                var ratingLevel = rating < 100 ? -1 : rating < 200 ? 0 : rating < 300 ? 1 : 2;
-                return Math.Min(3d, ratingLevel * 0.05d);
+                return Math.Min(3d, p.Publisher.RatingLevel * 0.05d);
             }
         );
     }
@@ -717,53 +725,21 @@ public class TimelineService(
         );
     }
 
-    private async Task<Dictionary<Guid, (bool IsShadowbanned, bool IsShadowbannedForListing)>> GetShadowbanStatusMap(
+    private static Dictionary<Guid, (bool IsShadowbanned, bool IsShadowbannedForListing)> GetShadowbanStatusMap(
         List<SnPost> posts
     )
     {
-        var publisherIds = posts
-            .Where(p => p.PublisherId.HasValue)
-            .Select(p => p.PublisherId!.Value)
-            .Distinct()
-            .ToList();
-
-        Dictionary<Guid, bool> publisherShadowbanStatus;
-        if (publisherIds.Count == 0)
-        {
-            publisherShadowbanStatus = [];
-        }
-        else
-        {
-            var shadowbanData = await db.Publishers
-                .Where(p => publisherIds.Contains(p.Id))
-                .Select(p => new { p.Id, p.ShadowbanReason })
-                .ToListAsync();
-            publisherShadowbanStatus = shadowbanData.ToDictionary(
-                x => x.Id,
-                x => x.ShadowbanReason.HasValue && x.ShadowbanReason != PublisherShadowbanReason.None
-            );
-        }
-
-        var result = posts.ToDictionary(
+        return posts.ToDictionary(
             p => p.Id,
             p =>
             {
-                var isPublisherShadowbanned = p.PublisherId.HasValue &&
-                    publisherShadowbanStatus.GetValueOrDefault(p.PublisherId.Value, false);
+                var isPublisherShadowbanned = p.Publisher is { ShadowbanReason: not null } publisher
+                    && publisher.ShadowbanReason != PublisherShadowbanReason.None;
                 var isPostShadowbanned = p.IsShadowbanned;
                 var isShadowbannedForListing = isPublisherShadowbanned || isPostShadowbanned;
                 return (isShadowbanned: isPublisherShadowbanned || isPostShadowbanned, isShadowbannedForListing);
             }
         );
-
-        logger.LogDebug(
-            "GetShadowbanStatusMap: posts={PostCount}, shadowbannedPublishers={ShadowbannedPubCount}, shadowbannedPosts={ShadowbannedPostCount}",
-            posts.Count,
-            publisherShadowbanStatus.Count(x => x.Value),
-            result.Count(x => x.Value.Item1)
-        );
-
-        return result;
     }
 
     public async Task<SnDiscoveryProfile> GetDiscoveryProfile(DyAccount currentUser)
@@ -1781,34 +1757,25 @@ public class TimelineService(
     )
     {
         var selected = new List<SnPost>();
-        var remaining = candidates.ToList();
         var publisherCounts = new Dictionary<Guid, int>();
 
-        while (selected.Count < take && remaining.Count > 0)
+        foreach (var candidate in candidates.OrderByDescending(c => c.Rank))
         {
-            var next = remaining
-                .Select(candidate =>
-                {
-                    var penalty = 0d;
-                    if (candidate.Post.PublisherId.HasValue)
-                        penalty = publisherCounts.GetValueOrDefault(candidate.Post.PublisherId.Value, 0)
-                            * PublisherRepeatPenalty;
-                    return new
-                    {
-                        Candidate = candidate,
-                        FinalRank = candidate.Rank - penalty,
-                    };
-                })
-                .OrderByDescending(x => x.FinalRank)
-                .First();
+            if (selected.Count >= take)
+                break;
 
-            next.Candidate.Post.DebugRank = next.FinalRank;
-            selected.Add(next.Candidate.Post);
-            remaining.Remove(next.Candidate);
+            var penalty = 0d;
+            if (candidate.Post.PublisherId.HasValue)
+                penalty = publisherCounts.GetValueOrDefault(candidate.Post.PublisherId.Value, 0)
+                    * PublisherRepeatPenalty;
 
-            if (next.Candidate.Post.PublisherId.HasValue)
-                publisherCounts[next.Candidate.Post.PublisherId.Value] =
-                    publisherCounts.GetValueOrDefault(next.Candidate.Post.PublisherId.Value, 0) + 1;
+            var finalRank = candidate.Rank - penalty;
+            candidate.Post.DebugRank = finalRank;
+            selected.Add(candidate.Post);
+
+            if (candidate.Post.PublisherId.HasValue)
+                publisherCounts[candidate.Post.PublisherId.Value] =
+                    publisherCounts.GetValueOrDefault(candidate.Post.PublisherId.Value, 0) + 1;
         }
 
         return selected;
@@ -1976,11 +1943,13 @@ public class TimelineService(
     private async Task<List<SnPost>> GetAndProcessPosts(
         IQueryable<SnPost> baseQuery,
         DyAccount? currentUser = null,
-        bool trackViews = true
+        bool trackViews = true,
+        List<Guid>? preloadedFriendIds = null,
+        List<SnPublisher>? preloadedPublishers = null
     )
     {
         var posts = await baseQuery.ToListAsync();
-        return await ps.LoadPostInfo(posts, currentUser, true, trackViews);
+        return await ps.LoadPostInfo(posts, currentUser, true, trackViews, preloadedFriendIds, preloadedPublishers);
     }
 
 
