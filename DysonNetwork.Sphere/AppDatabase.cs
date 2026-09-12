@@ -156,6 +156,11 @@ public class AppDatabase(
             .HasForeignKey(p => p.ForwardedPostId)
             .OnDelete(DeleteBehavior.Restrict);
         modelBuilder.Entity<SnPost>()
+            .HasOne(p => p.ChainedPost)
+            .WithMany()
+            .HasForeignKey(p => p.ChainedPostId)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<SnPost>()
             .HasOne(p => p.QuoteAuthorization)
             .WithMany()
             .HasForeignKey(p => p.QuoteAuthorizationId)
