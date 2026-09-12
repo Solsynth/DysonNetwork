@@ -237,6 +237,7 @@ public class TimelineService(
                 .Include(p => p.Categories)
                 .Include(p => p.Tags)
                 .Include(p => p.FeaturedRecords)
+                .AsNoTracking()
                 .Where(p => newBoostedPostIds.Contains(p.Id))
                 .Where(p => p.DraftedAt == null)
                 .Where(p => cursor == null || p.PublishedAt < cursor);
