@@ -346,7 +346,27 @@ public class AccountEventService(
     private static bool IsInvisibleStatus(SnAccountStatus status) =>
         status.Type == StatusType.Invisible;
 
-    public async Task<SnAccountStatus> GetStatus(Guid userId)
+    private async Task<bool> CanViewDevicePresence(Guid ownerId, Guid? viewerId, bool includeDevicePresence)
+    {
+        if (includeDevicePresence)
+            return true;
+        if (viewerId == ownerId)
+            return true;
+        if (viewerId is null)
+            return false;
+        var friends = await relationships.ListAccountFriends(viewerId.Value);
+        return friends.Contains(ownerId);
+    }
+
+    /// <summary>
+    /// Assembles the account's status. Device presence (OnlineDevices) is only
+    /// included when <paramref name="viewerId"/> is the account itself or one of
+    /// its friends, or when <paramref name="includeDevicePresence"/> is set by a
+    /// caller whose audience is already known-allowed (the admin panel, the
+    /// friends-only websocket broadcast). Otherwise OnlineDevices is null and
+    /// the JSON serializer omits the field entirely.
+    /// </summary>
+    public async Task<SnAccountStatus> GetStatus(Guid userId, Guid? viewerId = null, bool includeDevicePresence = false)
     {
         var cacheKey = $"{StatusCacheKey}{userId}";
         var cachedStatus = await cache.GetAsync<SnAccountStatus>(cacheKey);
@@ -426,10 +446,18 @@ public class AccountEventService(
 
         await cache.SetAsync($"{PreviousStatusCacheKey}{userId}", status, TimeSpan.FromMinutes(5));
 
+        if (!await CanViewDevicePresence(userId, viewerId, includeDevicePresence))
+            status.OnlineDevices = null;
+
         return status;
     }
 
-    public async Task<Dictionary<Guid, SnAccountStatus>> GetStatuses(List<Guid> userIds)
+    /// <summary>
+    /// Same device-presence rule as <see cref="GetStatus"/> per account:
+    /// OnlineDevices is only included for the owner, the viewer's friends, or
+    /// callers with an already-allowed audience (admin, broadcast).
+    /// </summary>
+    public async Task<Dictionary<Guid, SnAccountStatus>> GetStatuses(List<Guid> userIds, Guid? viewerId = null, bool includeDevicePresence = false)
     {
         var results = new Dictionary<Guid, SnAccountStatus>();
         var cacheMissUserIds = new List<Guid>();
@@ -446,6 +474,15 @@ public class AccountEventService(
             var devices = presence.TryGetValue(userId, out var found) ? found : [];
             return (devices.Count > 0, devices);
         }
+
+        // Device presence is only included for the owner, the viewer's friends,
+        // or callers whose audience is already known-allowed. The viewer's
+        // friend list is fetched once for the whole batch.
+        HashSet<Guid>? viewerFriendIds = null;
+        if (!includeDevicePresence && viewerId is not null)
+            viewerFriendIds = (await relationships.ListAccountFriends(viewerId.Value)).ToHashSet();
+        bool CanView(Guid ownerId) =>
+            includeDevicePresence || ownerId == viewerId || (viewerFriendIds?.Contains(ownerId) ?? false);
 
         foreach (var userId in userIds)
         {
@@ -464,6 +501,8 @@ public class AccountEventService(
                 cachedStatus.IdleSince = cachedStatus.IsIdle ? idleState.IdleSince : null;
                 if (!isOnline)
                     await ClearWebSocketConnectionStates(userId);
+                if (!CanView(userId))
+                    cachedStatus.OnlineDevices = null;
                 results[userId] = cachedStatus;
             }
             else
@@ -496,10 +535,14 @@ public class AccountEventService(
                 status.OnlineDevices = status.IsOnline ? onlineDevices : [];
                 status.IsIdle = status.IsOnline && idleState.IsIdle;
                 status.IdleSince = status.IsIdle ? idleState.IdleSince : null;
-                results[status.AccountId] = status;
                 var cacheKey = $"{StatusCacheKey}{status.AccountId}";
                 await cache.SetAsync(cacheKey, status, TimeSpan.FromMinutes(5));
                 foundUserIds.Add(status.AccountId);
+                // Filter after the cache write so the cache keeps the full
+                // device list for the owner/friends on later reads.
+                if (!CanView(status.AccountId))
+                    status.OnlineDevices = null;
+                results[status.AccountId] = status;
             }
 
             var usersWithoutStatus = cacheMissUserIds.Except(foundUserIds).ToList();
@@ -525,6 +568,8 @@ public class AccountEventService(
                         Label = isOnline ? "Online" : "Offline",
                         AccountId = userId,
                     };
+                    if (!CanView(userId))
+                        defaultStatus.OnlineDevices = null;
                     results[userId] = defaultStatus;
                 }
             }

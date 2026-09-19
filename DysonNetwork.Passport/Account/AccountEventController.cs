@@ -37,7 +37,7 @@ public class AccountEventController(
     public async Task<ActionResult<SnAccountStatus>> GetCurrentStatus()
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
-        var status = await events.GetStatus(currentUser.Id);
+        var status = await events.GetStatus(currentUser.Id, currentUser.Id);
         return Ok(status);
     }
 

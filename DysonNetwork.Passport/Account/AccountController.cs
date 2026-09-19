@@ -132,7 +132,10 @@ public class AccountController(
                     TraceId = HttpContext.TraceIdentifier,
                 }
             );
-        var status = await events.GetStatus(account.Id);
+        var status = await events.GetStatus(
+            account.Id,
+            (HttpContext.Items["CurrentUser"] as SnAccount)?.Id
+        );
         if (status.Type == StatusType.Invisible)
             status.Type = StatusType.Default;
         return Ok(status);

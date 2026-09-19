@@ -179,6 +179,22 @@ public class AccountProtoMappingTests
         Assert.Empty(roundTripped.OnlineDevices);
     }
 
+    // Device presence is null when the requester is neither the owner nor a
+    // friend; the proto mapping must not throw on it (proto3 has no null).
+    [Fact]
+    public void ToProtoValue_NullOnlineDevices_EmitsEmptyList()
+    {
+        var status = new SnAccountStatus
+        {
+            AccountId = Guid.Parse(AccountId),
+            OnlineDevices = null,
+        };
+
+        var proto = status.ToProtoValue();
+
+        Assert.Empty(proto.OnlineDevices);
+    }
+
     // An omitted device_label must stay null rather than degrade to "".
     [Fact]
     public void OnlineDevices_AbsentLabelStaysNull()

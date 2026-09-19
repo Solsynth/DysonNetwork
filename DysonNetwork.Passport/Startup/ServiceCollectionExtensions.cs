@@ -508,7 +508,9 @@ public static class ServiceCollectionExtensions
 
         var previousStatus = await accountEvents.GetPreviousStatus(accountId);
         accountEvents.PurgeStatusCache(accountId);
-        var currentStatus = await accountEvents.GetStatus(accountId);
+        // The broadcast audience is the account's own friends, who are allowed
+        // to see device presence, so skip the viewer relationship check.
+        var currentStatus = await accountEvents.GetStatus(accountId, includeDevicePresence: true);
 
         if (previousStatus is not null && BroadcastEventHandler.StatusesEqual(previousStatus, currentStatus))
             return;

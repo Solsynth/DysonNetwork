@@ -170,7 +170,7 @@ public class AccountAdminController(
             return Ok(new List<AdminAccountSummaryResponse>());
 
         var accountIds = accounts.Select(a => a.Id).ToList();
-        var statuses = await accountEventService.GetStatuses(accountIds);
+        var statuses = await accountEventService.GetStatuses(accountIds, includeDevicePresence: true);
         var activities = await accountEventService.GetActiveActivitiesBatch(accountIds);
         var badgeCounts = await db.Badges
             .AsNoTracking()
@@ -198,7 +198,7 @@ public class AccountAdminController(
         if (account is null)
             return NotFound(new ApiError { Code = "PASSPORT_ACCOUNT_NOT_FOUND", Message = "Account not found.", Status = 404, TraceId = HttpContext.TraceIdentifier });
 
-        var status = await accountEventService.GetStatus(account.Id);
+        var status = await accountEventService.GetStatus(account.Id, includeDevicePresence: true);
         var activities = await accountEventService.GetActiveActivities(account.Id);
         var badges = await db.Badges
             .AsNoTracking()

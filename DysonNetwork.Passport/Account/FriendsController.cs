@@ -39,7 +39,7 @@ public class FriendsController(
             Id = { friendIds.Select(x => x.ToString()) }
         }).ResponseAsync;
 
-        var statuses = await events.GetStatuses(friendIds);
+        var statuses = await events.GetStatuses(friendIds, currentUser.Id);
         var activities = await events.GetActiveActivitiesBatch(friendIds);
 
         var accountsList = accounts.Accounts
