@@ -30,6 +30,7 @@ public class AccountEventService(
     CheckInFortuneScheduler checkInFortuneScheduler,
     DyAccountService.DyAccountServiceClient accountGrpc,
     DyPersonalityService.DyPersonalityServiceClient personality,
+    DyAuthService.DyAuthServiceClient auth,
     NotableDaysService notableDaysService,
     IEventBus eventBus,
     IConfiguration configuration,
@@ -70,6 +71,80 @@ public class AccountEventService(
         return await ws.GetWebsocketConnectionStatusBatch(
             userIds.Select(x => x.ToString()).ToList()
         );
+    }
+
+    /// <summary>
+    /// Resolves the account's live devices from Stargate, which joins the
+    /// authoritative device identity (auth_clients) with Blade's live
+    /// connections. When Stargate is unreachable the coarser Blade connection
+    /// check is used instead and no device details are reported.
+    /// </summary>
+    private async Task<(bool IsOnline, List<SnOnlineDevice> Devices)> ResolveOnlineDevices(Guid userId)
+    {
+        try
+        {
+            var response = await auth.GetOnlineDevicesAsync(
+                new DyGetOnlineDevicesRequest
+                {
+                    AccountId = userId.ToString(),
+                    Namespace = WebSocketNamespaces.Solian,
+                }
+            );
+            var devices = response.Devices.Select(SnOnlineDevice.FromProtoValue).ToList();
+            return (devices.Count > 0, devices);
+        }
+        catch (RpcException ex)
+        {
+            logger.LogWarning(
+                ex,
+                "Failed to resolve online devices for account {AccountId} from Stargate; falling back to Blade presence",
+                userId
+            );
+            return (await GetAccountIsConnected(userId), []);
+        }
+    }
+
+    /// <summary>
+    /// One Stargate device-presence lookup for a whole batch. Returns null when
+    /// the lookup failed, signalling callers to fall back to Blade.
+    /// </summary>
+    private async Task<Dictionary<Guid, List<SnOnlineDevice>>?> ResolveOnlineDevicesBatch(
+        List<Guid> userIds
+    )
+    {
+        // Stargate rejects empty batches; nobody is online either way.
+        if (userIds.Count == 0)
+            return [];
+
+        try
+        {
+            var response = await auth.GetOnlineDevicesBatchAsync(
+                new DyGetOnlineDevicesBatchRequest
+                {
+                    Namespace = WebSocketNamespaces.Solian,
+                    AccountIds = { userIds.Select(x => x.ToString()) },
+                }
+            );
+
+            return userIds
+                .Distinct()
+                .ToDictionary(
+                    id => id,
+                    id =>
+                        response.Devices.TryGetValue(id.ToString(), out var list)
+                            ? list.Devices.Select(SnOnlineDevice.FromProtoValue).ToList()
+                            : []
+                );
+        }
+        catch (RpcException ex)
+        {
+            logger.LogWarning(
+                ex,
+                "Failed to resolve online devices for {Count} accounts from Stargate; falling back to Blade presence",
+                userIds.Count
+            );
+            return null;
+        }
     }
 
     public void PurgeStatusCache(Guid userId)
@@ -275,11 +350,13 @@ public class AccountEventService(
     {
         var cacheKey = $"{StatusCacheKey}{userId}";
         var cachedStatus = await cache.GetAsync<SnAccountStatus>(cacheKey);
+        var (deviceOnline, onlineDevices) = await ResolveOnlineDevices(userId);
         SnAccountStatus? status;
         if (cachedStatus is not null)
         {
-            var isOnline = !IsInvisibleStatus(cachedStatus) && await GetAccountIsConnected(userId);
+            var isOnline = !IsInvisibleStatus(cachedStatus) && deviceOnline;
             cachedStatus!.IsOnline = isOnline;
+            cachedStatus.OnlineDevices = isOnline ? onlineDevices : [];
             var idleState = isOnline
                 ? await GetAccountIdleState(userId)
                 : (IsIdle: false, IdleSince: null as Instant?);
@@ -297,13 +374,14 @@ public class AccountEventService(
                 .Where(e => e.ClearedAt == null || e.ClearedAt > now)
                 .OrderByDescending(e => e.CreatedAt)
                 .FirstOrDefaultAsync();
-            var isOnline = await GetAccountIsConnected(userId);
+            var isOnline = deviceOnline;
             var idleState = isOnline
                 ? await GetAccountIdleState(userId)
                 : (IsIdle: false, IdleSince: null as Instant?);
             if (status is not null)
             {
                 status.IsOnline = !IsInvisibleStatus(status) && isOnline;
+                status.OnlineDevices = status.IsOnline ? onlineDevices : [];
                 status.IsIdle = status.IsOnline && idleState.IsIdle;
                 status.IdleSince = status.IsIdle ? idleState.IdleSince : null;
                 await cache.SetWithGroupsAsync(
@@ -321,6 +399,7 @@ public class AccountEventService(
                     {
                         Attitude = Shared.Models.StatusAttitude.Neutral,
                         IsOnline = true,
+                        OnlineDevices = onlineDevices,
                         IsIdle = idleState.IsIdle,
                         IdleSince = idleState.IsIdle ? idleState.IdleSince : null,
                         IsCustomized = false,
@@ -355,14 +434,29 @@ public class AccountEventService(
         var results = new Dictionary<Guid, SnAccountStatus>();
         var cacheMissUserIds = new List<Guid>();
 
+        // One Stargate lookup covers the whole batch. A null map means Stargate
+        // was unreachable, so every account degrades to the Blade check.
+        var presence = await ResolveOnlineDevicesBatch(userIds);
+
+        async Task<(bool IsOnline, List<SnOnlineDevice> Devices)> ResolvePresence(Guid userId)
+        {
+            if (presence is null)
+                return (await GetAccountIsConnected(userId), []);
+
+            var devices = presence.TryGetValue(userId, out var found) ? found : [];
+            return (devices.Count > 0, devices);
+        }
+
         foreach (var userId in userIds)
         {
             var cacheKey = $"{StatusCacheKey}{userId}";
             var cachedStatus = await cache.GetAsync<SnAccountStatus>(cacheKey);
             if (cachedStatus != null)
             {
-                var isOnline = !IsInvisibleStatus(cachedStatus) && await GetAccountIsConnected(userId);
+                var (deviceOnline, onlineDevices) = await ResolvePresence(userId);
+                var isOnline = !IsInvisibleStatus(cachedStatus) && deviceOnline;
                 cachedStatus.IsOnline = isOnline;
+                cachedStatus.OnlineDevices = isOnline ? onlineDevices : [];
                 var idleState = isOnline
                     ? await GetAccountIdleState(userId)
                     : (IsIdle: false, IdleSince: null as Instant?);
@@ -393,11 +487,13 @@ public class AccountEventService(
 
             foreach (var status in statusesFromDb)
             {
-                var isOnline = await GetAccountIsConnected(status.AccountId);
+                var (deviceOnline, onlineDevices) = await ResolvePresence(status.AccountId);
+                var isOnline = deviceOnline;
                 var idleState = isOnline
                     ? await GetAccountIdleState(status.AccountId)
                     : (IsIdle: false, IdleSince: null as Instant?);
                 status.IsOnline = !IsInvisibleStatus(status) && isOnline;
+                status.OnlineDevices = status.IsOnline ? onlineDevices : [];
                 status.IsIdle = status.IsOnline && idleState.IsIdle;
                 status.IdleSince = status.IsIdle ? idleState.IdleSince : null;
                 results[status.AccountId] = status;
@@ -412,7 +508,7 @@ public class AccountEventService(
             {
                 foreach (var userId in usersWithoutStatus)
                 {
-                    var isOnline = await GetAccountIsConnected(userId);
+                    var (isOnline, onlineDevices) = await ResolvePresence(userId);
                     var idleState = isOnline
                         ? await GetAccountIdleState(userId)
                         : (IsIdle: false, IdleSince: null as Instant?);
@@ -422,6 +518,7 @@ public class AccountEventService(
                     {
                         Attitude = Shared.Models.StatusAttitude.Neutral,
                         IsOnline = isOnline,
+                        OnlineDevices = isOnline ? onlineDevices : [],
                         IsIdle = isOnline && idleState.IsIdle,
                         IdleSince = isOnline && idleState.IsIdle ? idleState.IdleSince : null,
                         IsCustomized = false,

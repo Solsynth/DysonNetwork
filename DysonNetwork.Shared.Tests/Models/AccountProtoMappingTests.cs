@@ -130,4 +130,70 @@ public class AccountProtoMappingTests
         Assert.NotNull(account.Profile);
         Assert.True(account.Profile!.IsBare);
     }
+
+    // Account presence carries the live device list. The platform must survive
+    // the round-trip through the proto enum, which is shifted by one relative
+    // to ClientPlatform — an unchecked cast would silently report the wrong
+    // platform.
+    [Fact]
+    public void OnlineDevices_RoundTripPreservesDeviceDetails()
+    {
+        var deviceId = Guid.Parse("22222222-2222-2222-2222-222222222222");
+        var lastGrantedAt = Instant.FromUtc(2026, 9, 19, 12, 0, 0);
+        var status = new SnAccountStatus
+        {
+            AccountId = Guid.Parse(AccountId),
+            IsOnline = true,
+            OnlineDevices =
+            [
+                new SnOnlineDevice
+                {
+                    Id = deviceId,
+                    DeviceId = "auth-client-device-id",
+                    DeviceName = "iPhone 15 Pro",
+                    DeviceLabel = "Living room",
+                    Platform = ClientPlatform.Ios,
+                    LastGrantedAt = lastGrantedAt,
+                }
+            ]
+        };
+
+        var roundTripped = SnAccountStatus.FromProtoValue(status.ToProtoValue());
+
+        var device = Assert.Single(roundTripped.OnlineDevices);
+        Assert.Equal(deviceId, device.Id);
+        Assert.Equal("auth-client-device-id", device.DeviceId);
+        Assert.Equal("iPhone 15 Pro", device.DeviceName);
+        Assert.Equal("Living room", device.DeviceLabel);
+        Assert.Equal(ClientPlatform.Ios, device.Platform);
+        Assert.Equal(lastGrantedAt, device.LastGrantedAt);
+    }
+
+    [Fact]
+    public void OnlineDevices_EmptyStaysEmpty()
+    {
+        var status = new SnAccountStatus { AccountId = Guid.Parse(AccountId) };
+
+        var roundTripped = SnAccountStatus.FromProtoValue(status.ToProtoValue());
+
+        Assert.Empty(roundTripped.OnlineDevices);
+    }
+
+    // An omitted device_label must stay null rather than degrade to "".
+    [Fact]
+    public void OnlineDevices_AbsentLabelStaysNull()
+    {
+        var proto = new DyOnlineDevice
+        {
+            Id = "22222222-2222-2222-2222-222222222222",
+            DeviceId = "auth-client-device-id",
+            DeviceName = "iPhone 15 Pro",
+            Platform = DyClientPlatform.DyIos,
+        };
+
+        var device = SnOnlineDevice.FromProtoValue(proto);
+
+        Assert.Null(device.DeviceLabel);
+        Assert.False(device.ToProtoValue().HasDeviceLabel);
+    }
 }
