@@ -1926,6 +1926,68 @@ public class PostController(
         });
     }
 
+    /// <summary>
+    /// The chain a post belongs to: the chain head first, then every member in
+    /// publication order. Chaining is flat, so a chained post only stores its
+    /// head; this read resolves the rest of the chain around it, letting a
+    /// client that opened a chained post render the context it sits in.
+    /// </summary>
+    [HttpGet("{id:guid}/chain")]
+    [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(List<SnPost>))]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<List<SnPost>>> GetChain(Guid id)
+    {
+        HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
+        var currentUser = currentUserValue as DyAccount;
+        List<Guid> userFriends = [];
+        if (currentUser != null)
+        {
+            var friendsResponse = await accounts.ListFriendsAsync(
+                new DyListRelationshipSimpleRequest { RelatedId = currentUser.Id }
+            );
+            userFriends = friendsResponse.AccountsId.Select(Guid.Parse).ToList();
+        }
+
+        var userPublishers = currentUser is null
+            ? []
+            : await pub.GetUserPublishers(Guid.Parse(currentUser.Id));
+
+        var headId = await db
+            .Posts.Where(e => e.Id == id)
+            .Select(e => e.ChainedPostId ?? e.Id)
+            .FirstOrDefaultAsync();
+        if (headId == Guid.Empty)
+            return NotFound();
+
+        var head = await db
+            .Posts.Where(e => e.Id == headId)
+            .Include(e => e.Publisher)
+            .Include(e => e.Tags)
+            .Include(e => e.Categories)
+            .Include(e => e.RepliedPost)
+            .Include(e => e.ForwardedPost)
+            .Include(e => e.FeaturedRecords)
+            .FilterWithVisibility(currentUser, userFriends, userPublishers)
+            .FirstOrDefaultAsync();
+        if (head is null)
+            return NotFound();
+
+        // Chain members are hydrated by the same path the head's own detail read
+        // uses, so the chain is visible, ordered and gated exactly as there.
+        // Context members are never counted as views; the anchor already was.
+        head = await ps.LoadPostInfo(head, currentUser, trackViews: false);
+
+        var chain = new List<SnPost> { head };
+        chain.AddRange(head.ChainedPosts);
+
+        // The response is the chain: nesting the same members under the head
+        // would only duplicate the payload.
+        head.ChainedPosts = [];
+        head.ChainedCount = 0;
+
+        return Ok(chain);
+    }
+
     [HttpGet("{id:guid}/forwards")]
     public async Task<ActionResult<List<SnPost>>> ListForwards(
         Guid id,

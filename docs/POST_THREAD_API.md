@@ -1,6 +1,7 @@
 # Post Thread API
 
-This document covers the thread endpoint that returns the full conversation context around a post — ancestors (reply chain going up) and descendants (replies going down).
+This document covers the endpoints that return the context around a post:
+`/thread` for the conversation (ancestors going up the reply chain, descendants coming down) and `/chain` for the post chain the post is part of.
 
 ## Get Thread
 
@@ -98,3 +99,35 @@ Skipping ancestors avoids re-fetching data already on the client.
 - Gatekept publisher checks apply — subscriber-only posts require an active subscription.
 - View count is incremented for the current post on each call.
 - `depth` and `parent_id` allow the client to reconstruct the tree structure without additional logic.
+
+## Get Chain
+
+Returns the chain a post belongs to, head first, in publication order. Chaining
+is flat (every chained post stores the chain head in `chained_post_id`), so a
+chained post read on its own only carries its head id — this endpoint resolves
+the rest of the chain around it.
+
+```http
+GET /api/posts/{id}/chain
+```
+
+The anchor may be any member of the chain, including the head itself.
+
+### Response Shape
+
+```json
+[
+  { "id": "chain-head", "chained_post_id": null },
+  { "id": "chain-member-1", "chained_post_id": "chain-head" },
+  { "id": "chain-member-2", "chained_post_id": "chain-head" }
+]
+```
+
+### Notes
+
+- Members are the chain head plus its `chained_posts`, so visibility, ordering
+  (`published_at` ascending) and gating match the head's own detail read.
+- Members carry empty `chained_posts` / `chained_count`; the list itself is the
+  chain.
+- View counts are not affected — the anchor's detail read already counts one.
+- `404` when the anchor or the chain head is not visible to the caller.
