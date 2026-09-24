@@ -45,7 +45,7 @@ The Notable Days system provides a local database-driven approach to managing ho
 | `is_recurring` | bool | Whether this recurs annually |
 | `recurrence_pattern` | string | MM-DD format for solar, or lunar pattern |
 | `is_period` | bool | Whether this spans multiple days |
-| `holiday_days` | JSON array | Which days in period are actual holidays (MM-DD) |
+| `holiday_days` | JSON array | Which days in a non-recurring period are actual holidays (MM-DD); ignored for recurring days (whole period is the holiday) |
 | `display_order` | int | Sort order |
 
 ### NotableDayTag Enum
@@ -72,6 +72,7 @@ GET /api/notable-days?year=2026&region=CN&tag=Holiday
 - `year` (int, optional) - Year, defaults to current
 - `region` (string, optional) - Region code, defaults to "CN"
 - `tag` (string, optional) - Filter by tag
+- `layer` (int, optional) - Only include days with `meta.priority <= layer` (1 = statutory holidays, 2 = + major festivals, 3 = everything)
 - `offset` (int, optional) - Pagination offset
 - `take` (int, optional) - Number of results, defaults to 50
 
@@ -83,11 +84,11 @@ GET /api/notable-days?year=2026&region=CN&tag=Holiday
     "name": "Spring Festival",
     "local_name": "春节",
     "localizable_key": "SpringFestival",
-    "start_date": "2026-01-28T00:00:00Z",
-    "end_date": "2026-02-04T00:00:00Z",
+    "start_date": "2024-02-10T00:00:00Z",
+    "end_date": "2024-02-17T00:00:00Z",
     "is_period": true,
-    "holiday_days": ["01-28", "01-29", "01-30", "01-31", "02-01", "02-02", "02-03"],
     "tags": ["Holiday", "Festival"],
+    "meta": { "calendar": "lunar", "priority": 1 },
     "region": "CN"
   }
 ]
@@ -112,14 +113,14 @@ POST /api/notable-days
   "local_name": "春节",
   "localizable_key": "SpringFestival",
   "description": "Chinese New Year",
-  "start_date": "2026-01-28T00:00:00Z",
-  "end_date": "2026-02-04T00:00:00Z",
+  "start_date": "2024-02-10T00:00:00Z",
+  "end_date": "2024-02-17T00:00:00Z",
   "region": "CN",
   "tags": ["Holiday", "Festival"],
+  "meta": { "calendar": "lunar", "priority": 1 },
   "is_recurring": true,
   "recurrence_pattern": "01-01",
   "is_period": true,
-  "holiday_days": ["01-28", "01-29", "01-30", "01-31", "02-01", "02-02", "02-03"],
   "display_order": 1
 }
 ```
@@ -170,8 +171,8 @@ GET /api/accounts/me/calendar/countdown?take=10&tag=Holiday
     "event_id": "uuid",
     "type": "NotableDay",
     "title": "Spring Festival",
-    "start_time": "2026-01-28T00:00:00Z",
-    "end_time": "2026-02-04T00:00:00Z",
+    "start_time": "2026-02-17T00:00:00Z",
+    "end_time": "2026-02-24T00:00:00Z",
     "is_all_day": true,
     "days_remaining": 120,
     "hours_remaining": 0,
@@ -241,21 +242,29 @@ Used in posts and chat messages to reference user calendar events.
 
 ## Pre-seeded Chinese Holidays
 
-| Holiday | Local Name | Period | Lunar/Solar | Tags |
-|---------|-----------|--------|-------------|------|
-| Spring Festival | 春节 | 7 days | Lunar 01-01 | Holiday, Festival |
-| Qingming Festival | 清明节 | 3 days | Solar 04-04 | Holiday, Festival |
-| Labour Day | 劳动节 | 5 days | Solar 05-01 | Holiday |
-| Dragon Boat Festival | 端午节 | 3 days | Lunar 05-05 | Holiday, Festival |
-| Mid-Autumn Festival | 中秋节 | 3 days | Lunar 08-15 | Holiday, Festival |
-| National Day | 国庆节 | 7 days | Solar 10-01 | Holiday |
-| New Year's Day | 元旦 | 3 days | Solar 01-01 | Holiday |
-| Arbor Day | 植树节 | 1 day | Solar 03-12 | Event |
-| Youth Day | 五四青年节 | 1 day | Solar 05-04 | Event, Memorial |
-| Children's Day | 儿童节 | 1 day | Solar 06-01 | Event |
-| Teachers' Day | 教师节 | 1 day | Solar 09-10 | Event |
-| Qixi Festival | 七夕节 | 1 day | Lunar 07-07 | Festival |
-| Double Ninth Festival | 重阳节 | 1 day | Lunar 09-09 | Festival |
+Each seeded day carries `meta`:
+- `priority`: display layer. `1` = statutory holiday (days off), `2` = major traditional festival, `3` = minor observance/event.
+- `calendar`: `"lunar"` when `recurrence_pattern` is a lunar calendar month-day (converted to solar per year); absent for solar patterns.
+
+| Holiday | Local Name | Period | Lunar/Solar | Priority | Tags |
+|---------|-----------|--------|-------------|----------|------|
+| Spring Festival | 春节 | 7 days | Lunar 01-01 | 1 | Holiday, Festival |
+| Qingming Festival | 清明节 | 3 days | Solar 04-04 | 1 | Holiday, Festival |
+| Labour Day | 劳动节 | 5 days | Solar 05-01 | 1 | Holiday |
+| Dragon Boat Festival | 端午节 | 3 days | Lunar 05-05 | 1 | Holiday, Festival |
+| Mid-Autumn Festival | 中秋节 | 3 days | Lunar 08-15 | 1 | Holiday, Festival |
+| National Day | 国庆节 | 7 days | Solar 10-01 | 1 | Holiday |
+| New Year's Day | 元旦 | 3 days | Solar 01-01 | 1 | Holiday |
+| Lunar New Year's Eve | 除夕 | 1 day | Lunar 12-30 | 2 | Festival |
+| Lantern Festival | 元宵节 | 1 day | Lunar 01-15 | 2 | Festival |
+| Qixi Festival | 七夕节 | 1 day | Lunar 07-07 | 2 | Festival |
+| Double Ninth Festival | 重阳节 | 1 day | Lunar 09-09 | 2 | Festival |
+| Arbor Day | 植树节 | 1 day | Solar 03-12 | 3 | Event |
+| Youth Day | 五四青年节 | 1 day | Solar 05-04 | 3 | Event, Memorial |
+| Children's Day | 儿童节 | 1 day | Solar 06-01 | 3 | Event |
+| Teachers' Day | 教师节 | 1 day | Solar 09-10 | 3 | Event |
+
+Lunar holidays (Spring Festival, Dragon Boat, Mid-Autumn, and the lunar festivals) are resolved against the Chinese lunisolar calendar, so their dates shift year to year instead of being pinned to the reference year stored in `start_date`.
 
 ---
 
@@ -301,8 +310,7 @@ The seed data is automatically loaded on application startup via `NotableDaysSee
 ## Implementation Notes
 
 - Multi-day holidays generate individual `NotableDay` entries for each day in the period
-- The `holiday_days` field specifies which days are actual holidays (for proper marking)
 - Recurring events use `recurrence_pattern` in MM-DD format
-- Lunar calendar dates are approximate (fixed solar dates for each year)
+- Lunar calendar dates are resolved per year against the Chinese lunisolar calendar (`meta.calendar == "lunar"`)
 - Cache is invalidated when notable days are modified
 - The gRPC service is registered as `CalendarServiceGrpc` in Passport

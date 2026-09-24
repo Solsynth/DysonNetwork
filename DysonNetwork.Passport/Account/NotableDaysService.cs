@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Text.Json;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Models;
@@ -11,7 +13,12 @@ public class NotableDaysService(AppDatabase db, ICacheService cache)
 {
     private const string NotableDaysCacheKeyPrefix = "notable:";
 
-    public async Task<List<NotableDay>> GetNotableDays(int? year, string regionCode, NotableDayTag? tag = null)
+    public async Task<List<NotableDay>> GetNotableDays(
+        int? year,
+        string regionCode,
+        NotableDayTag? tag = null,
+        int? maxPriority = null
+    )
     {
         year ??= DateTime.UtcNow.Year;
         regionCode = NormalizeRegionCode(regionCode);
@@ -20,18 +27,19 @@ public class NotableDaysService(AppDatabase db, ICacheService cache)
         var (found, cachedDays) = await cache.GetAsyncWithStatus<List<NotableDay>>(cacheKey);
         if (found && cachedDays != null)
         {
-            return cachedDays;
+            return ApplyPriorityFilter(cachedDays, maxPriority);
         }
 
         var startOfYear = Instant.FromDateTimeUtc(new DateTime(year.Value, 1, 1, 0, 0, 0, DateTimeKind.Utc));
         var endOfYear = Instant.FromDateTimeUtc(new DateTime(year.Value + 1, 1, 1, 0, 0, 0, DateTimeKind.Utc));
 
+        // Recurring days have anchor dates (start/end) fixed to a reference year, so
+        // they must not be filtered by the requested year range.
         var query = db.NotableDays
             .AsNoTracking()
             .Where(n => n.DeletedAt == null
                 && n.Region == regionCode
-                && n.StartDate < endOfYear
-                && n.EndDate >= startOfYear);
+                && (n.IsRecurring || (n.StartDate < endOfYear && n.EndDate >= startOfYear)));
 
         if (tag.HasValue)
         {
@@ -81,7 +89,31 @@ public class NotableDaysService(AppDatabase db, ICacheService cache)
             .ToList();
 
         await cache.SetAsync(cacheKey, days, TimeSpan.FromHours(12));
-        return days;
+        return ApplyPriorityFilter(days, maxPriority);
+    }
+
+    private static List<NotableDay> ApplyPriorityFilter(List<NotableDay> days, int? maxPriority)
+    {
+        if (!maxPriority.HasValue)
+            return days;
+
+        return days
+            .Where(d => GetMetaPriority(d.Meta) <= maxPriority.Value)
+            .ToList();
+    }
+
+    public static int GetMetaPriority(Dictionary<string, object>? meta)
+    {
+        if (meta is null || !meta.TryGetValue("priority", out var value))
+            return 3; // Unknown priority sorts below everything
+
+        return value switch
+        {
+            int i => i,
+            long l => (int)l,
+            JsonElement { ValueKind: JsonValueKind.Number } element when element.TryGetInt32(out var n) => n,
+            _ => 3
+        };
     }
 
     public async Task<NotableDay?> GetGeneratedNotableDayAsync(string occurrenceKey)
@@ -131,26 +163,35 @@ public class NotableDaysService(AppDatabase db, ICacheService cache)
     private List<NotableDay> GeneratePeriodDays(SnNotableDay notableDay, int year)
     {
         var days = new List<NotableDay>();
-        var startDate = notableDay.StartDate.InUtc();
-        var endDate = notableDay.EndDate.InUtc();
 
-        var adjustedStart = new LocalDateTime(year, startDate.Month, startDate.Day, 0, 0, 0)
-            .InZoneLeniently(DateTimeZone.Utc).ToInstant();
-        var adjustedEnd = new LocalDateTime(year, endDate.Month, endDate.Day, 0, 0, 0)
-            .InZoneLeniently(DateTimeZone.Utc).ToInstant();
+        // Resolve the festival date for this year. For lunar-calendar days this
+        // is the actual lunar → solar conversion; for solar it is the pattern date.
+        if (ResolveRecurrenceDate(notableDay, year) is not { } festivalDate)
+            return days;
 
-        if (adjustedEnd < adjustedStart)
-        {
-            adjustedEnd = new LocalDateTime(year + 1, endDate.Month, endDate.Day, 0, 0, 0)
-                .InZoneLeniently(DateTimeZone.Utc).ToInstant();
-        }
+        // The seed stores StartDate/EndDate as a reference occurrence. Compute the
+        // period offsets from the festival date so the period shifts with the year.
+        var referenceYear = notableDay.StartDate.InUtc().Year;
+        var referenceFestival = ResolveRecurrenceDate(notableDay, referenceYear)
+            ?? LocalDate.FromDateTime(notableDay.StartDate.ToDateTimeUtc());
+        var startOffset = Period.Between(referenceFestival, notableDay.StartDate.InUtc().Date, PeriodUnits.Days).Days;
+        var endOffset = Period.Between(referenceFestival, notableDay.EndDate.InUtc().Date, PeriodUnits.Days).Days;
+
+        var adjustedStart = festivalDate
+            .PlusDays(startOffset)
+            .AtStartOfDayInZone(DateTimeZone.Utc)
+            .ToInstant();
+        var adjustedEnd = festivalDate
+            .PlusDays(endOffset)
+            .AtStartOfDayInZone(DateTimeZone.Utc)
+            .ToInstant();
+        if (adjustedEnd <= adjustedStart)
+            adjustedEnd = adjustedStart.Plus(Duration.FromDays(1));
 
         var current = adjustedStart;
         while (current < adjustedEnd)
         {
-            var isHolidayDay = notableDay.HolidayDays == null
-                || notableDay.HolidayDays.Count == 0
-                || notableDay.HolidayDays.Contains(current.InUtc().Date.ToString("MM-dd", null));
+            var isHolidayDay = notableDay.Tags.Contains(NotableDayTag.Holiday);
 
             days.Add(AttachOccurrenceKey(new NotableDay
             {
@@ -173,9 +214,12 @@ public class NotableDaysService(AppDatabase db, ICacheService cache)
 
     private NotableDay? GenerateRecurringDay(SnNotableDay notableDay, int year)
     {
-        var originalDate = notableDay.StartDate.InUtc();
-        var adjustedDate = new LocalDateTime(year, originalDate.Month, originalDate.Day, 0, 0, 0)
-            .InZoneLeniently(DateTimeZone.Utc).ToInstant();
+        if (ResolveRecurrenceDate(notableDay, year) is not { } resolvedDate)
+            return null;
+
+        var adjustedDate = resolvedDate
+            .AtStartOfDayInZone(DateTimeZone.Utc)
+            .ToInstant();
 
         return AttachOccurrenceKey(new NotableDay
         {
@@ -191,6 +235,88 @@ public class NotableDaysService(AppDatabase db, ICacheService cache)
                 : [],
             Tags = notableDay.Tags,
         }, notableDay.Region);
+    }
+
+    /// <summary>
+    /// Resolves the concrete date for a recurring day in the given year from its
+    /// recurrence pattern. Lunar patterns are converted via the Chinese lunisolar
+    /// calendar; solar patterns map to the pattern month/day directly.
+    /// </summary>
+    private static LocalDate? ResolveRecurrenceDate(SnNotableDay notableDay, int year)
+    {
+        var pattern = notableDay.RecurrencePattern;
+        if (string.IsNullOrWhiteSpace(pattern))
+            return null;
+
+        var parts = pattern.Split('-');
+        if (parts.Length != 2
+            || !int.TryParse(parts[0], out var month)
+            || !int.TryParse(parts[1], out var day)
+            || month is < 1 or > 12
+            || day is < 1 or > 31)
+            return null;
+
+        if (IsLunarPattern(notableDay))
+            return ResolveLunarDate(year, month, day);
+
+        var daysInMonth = DateTime.DaysInMonth(year, month);
+        if (day > daysInMonth)
+            return null;
+        return new LocalDate(year, month, day);
+    }
+
+    private static bool IsLunarPattern(SnNotableDay notableDay)
+    {
+        if (notableDay.Meta is null
+            || !notableDay.Meta.TryGetValue("calendar", out var value))
+            return false;
+
+        return value switch
+        {
+            string s => s.Equals("lunar", StringComparison.OrdinalIgnoreCase),
+            JsonElement { ValueKind: JsonValueKind.String } element =>
+                element.GetString()?.Equals("lunar", StringComparison.OrdinalIgnoreCase) ?? false,
+            _ => false
+        };
+    }
+
+    /// <summary>
+    /// Converts a lunar calendar (month, day) to the solar date within the given
+    /// solar year. Lunar years are self-numbered; a lunar festival near the year
+    /// boundary may belong to the previous lunar year, so both are tried.
+    /// </summary>
+    private static LocalDate? ResolveLunarDate(int year, int lunarMonth, int lunarDay)
+    {
+        var calendar = new ChineseLunisolarCalendar();
+
+        foreach (var lunarYear in new[] { year, year - 1 })
+        {
+            try
+            {
+                // The leap month occupies slot (month + 1) in ChineseLunisolarCalendar,
+                // so regular months after it shift by one.
+                var leapMonth = calendar.GetLeapMonth(lunarYear, 1);
+                var slot = leapMonth > 0 && lunarMonth >= leapMonth ? lunarMonth + 1 : lunarMonth;
+
+                var solar = calendar.ToDateTime(lunarYear, slot, lunarDay, 0, 0, 0, 0);
+                if (solar.Year == year)
+                    return LocalDate.FromDateTime(solar);
+            }
+            catch (ArgumentOutOfRangeException)
+            {
+                // The last lunar month (腊月) can have 29 days; day 30 falls back to 29.
+                if (lunarMonth == 12 && lunarDay == 30)
+                {
+                    var leapMonth = calendar.GetLeapMonth(lunarYear, 1);
+                    var slot = leapMonth > 0 && lunarMonth >= leapMonth ? lunarMonth + 1 : lunarMonth;
+                    var solar = calendar.ToDateTime(lunarYear, slot, 29, 0, 0, 0, 0);
+                    if (solar.Year == year)
+                        return LocalDate.FromDateTime(solar);
+                }
+            }
+        }
+
+        return null;
     }
 
     private static List<NotableDay> GetGlobalHolidays(int year, string regionCode)

@@ -146,7 +146,8 @@ public class AccountController(
         string name,
         [FromQuery] int? month,
         [FromQuery] int? year,
-        [FromQuery] bool includeNotableDays = false
+        [FromQuery] bool includeNotableDays = false,
+        [FromQuery] int? layer = null
     )
     {
         var currentDate = SystemClock.Instance.GetCurrentInstant().InUtc().Date;
@@ -211,7 +212,7 @@ public class AccountController(
         // Add notable days if requested
         if (includeNotableDays)
         {
-            var notableDays = await notableDaysService.GetNotableDays(year.Value, regionCode);
+            var notableDays = await notableDaysService.GetNotableDays(year.Value, regionCode, maxPriority: layer);
             var notableDaysByDate = notableDays
                 .Where(d =>
                     d.Date.InUtc().Month == month.Value && d.Date.InUtc().Year == year.Value
@@ -236,7 +237,8 @@ public class AccountController(
     public async Task<ActionResult<MergedDailyEventResponse>> GetOtherMergedEventCalendar(
         string name,
         [FromQuery] int? month,
-        [FromQuery] int? year
+        [FromQuery] int? year,
+        [FromQuery] int? layer = null
     )
     {
         var currentDate = SystemClock.Instance.GetCurrentInstant().InUtc().Date;
@@ -296,7 +298,8 @@ public class AccountController(
             replaceInvisible: true,
             viewerId,
             regionCode,
-            notableDaysService
+            notableDaysService,
+            layer
         );
 
         return Ok(calendar);
@@ -308,7 +311,8 @@ public class AccountController(
         [FromQuery] int take = 5,
         [FromQuery] int offset = 0,
         [FromQuery] bool includeNotableDays = true,
-        [FromQuery] string? tag = null
+        [FromQuery] string? tag = null,
+        [FromQuery] int? layer = null
     )
     {
         var account = await accounts.LookupAccount(name);
@@ -353,7 +357,8 @@ public class AccountController(
             includeNotableDays,
             tagFilter,
             take,
-            offset
+            offset,
+            layer
         );
 
         Response.Headers.Append("X-Total", totalCount.ToString());

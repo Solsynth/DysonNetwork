@@ -314,6 +314,7 @@ public class AccountEventController(
         [FromQuery] int? month,
         [FromQuery] int? year,
         [FromQuery] bool includeNotableDays = false,
+        [FromQuery] int? layer = null,
         [FromServices] NotableDaysService? notableDaysService = null
     )
     {
@@ -349,7 +350,7 @@ public class AccountEventController(
         // If notable days were requested and we have a region code, fetch them
         if (includeNotableDays && notableDaysService != null)
         {
-            var notableDays = await notableDaysService.GetNotableDays(year.Value, regionCode);
+            var notableDays = await notableDaysService.GetNotableDays(year.Value, regionCode, maxPriority: layer);
             var notableDaysByDate = notableDays
                 .Where(d => d.Date.InUtc().Month == month.Value && d.Date.InUtc().Year == year.Value)
                 .GroupBy(d => d.Date.InUtc().Date)
@@ -372,6 +373,7 @@ public class AccountEventController(
     public async Task<ActionResult<MergedDailyEventResponse>> GetMergedEventCalendar(
         [FromQuery] int? month,
         [FromQuery] int? year,
+        [FromQuery] int? layer = null,
         [FromServices] NotableDaysService? notableDaysService = null)
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
@@ -402,7 +404,8 @@ public class AccountEventController(
             false,
             currentUser.Id,
             regionCode,
-            notableDaysService);
+            notableDaysService,
+            layer);
 
         return Ok(calendar);
     }
@@ -631,6 +634,7 @@ public class AccountEventController(
         [FromQuery] int offset = 0,
         [FromQuery] bool includeNotableDays = true,
         [FromQuery] string? tag = null,
+        [FromQuery] int? layer = null,
         [FromServices] NotableDaysService? notableDaysService = null)
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
@@ -653,7 +657,8 @@ public class AccountEventController(
             includeNotableDays,
             tagFilter,
             take,
-            offset);
+            offset,
+            layer);
 
         Response.Headers.Append("X-Total", totalCount.ToString());
         return Ok(countdownItems);

@@ -1021,6 +1021,7 @@ Manage system-wide notable days (holidays, events, festivals). These appear in c
 - `year` (int, optional) - Year, defaults to current
 - `region` (string, optional) - Region code, defaults to "CN"
 - `tag` (string, optional) - Filter by tag: "Holiday", "Event", "Anniversary", "Memorial", "Festival"
+- `layer` (int, optional) - Only include days with `meta.priority <= layer` (1 = statutory holidays, 2 = + major festivals, 3 = everything)
 - `offset` (int, optional) - Pagination offset
 - `take` (int, optional) - Number of results, defaults to 50
 
@@ -1033,22 +1034,23 @@ Manage system-wide notable days (holidays, events, festivals). These appear in c
     "description": "Chinese New Year, the most important traditional festival in China",
     "local_name": "春节",
     "localizable_key": "SpringFestival",
-    "start_date": "2026-01-28T00:00:00Z",
-    "end_date": "2026-02-04T00:00:00Z",
+    "start_date": "2024-02-10T00:00:00Z",
+    "end_date": "2024-02-17T00:00:00Z",
     "is_all_day": true,
     "region": "CN",
     "tags": ["Holiday", "Festival"],
-    "meta": null,
+    "meta": { "calendar": "lunar", "priority": 1 },
     "is_recurring": true,
     "recurrence_pattern": "01-01",
     "is_period": true,
-    "holiday_days": ["01-28", "01-29", "01-30", "01-31", "02-01", "02-02", "02-03"],
     "display_order": 1,
-    "created_at": "2026-01-01T00:00:00Z",
-    "updated_at": "2026-01-01T00:00:00Z"
+    "created_at": "2024-01-01T00:00:00Z",
+    "updated_at": "2024-01-01T00:00:00Z"
   }
 ]
 ```
+
+> **Lunar holidays:** days with `meta.calendar == "lunar"` (Spring Festival, Dragon Boat, Mid-Autumn, Qixi, Double Ninth, Lunar New Year's Eve, Lantern Festival) are resolved per year against the Chinese lunisolar calendar. `start_date`/`end_date` are the reference-year anchors only; actual calendar days shift year to year.
 
 **Response Headers:**
 - `X-Total` - Total number of notable days matching the query
@@ -1064,15 +1066,15 @@ Manage system-wide notable days (holidays, events, festivals). These appear in c
   "description": "Chinese New Year",
   "local_name": "春节",
   "localizable_key": "SpringFestival",
-  "start_date": "2026-01-28T00:00:00Z",
-  "end_date": "2026-02-04T00:00:00Z",
+  "start_date": "2024-02-10T00:00:00Z",
+  "end_date": "2024-02-17T00:00:00Z",
   "is_all_day": true,
   "region": "CN",
   "tags": ["Holiday", "Festival"],
+  "meta": { "calendar": "lunar", "priority": 1 },
   "is_recurring": true,
   "recurrence_pattern": "01-01",
   "is_period": true,
-  "holiday_days": ["01-28", "01-29", "01-30", "01-31", "02-01", "02-02", "02-03"],
   "display_order": 1
 }
 ```
@@ -1118,20 +1120,22 @@ Manage system-wide notable days (holidays, events, festivals). These appear in c
 
 The system automatically seeds the following Chinese holidays on startup:
 
-| Holiday | Local Name | Period | Tags |
-|---------|-----------|--------|------|
-| Spring Festival | 春节 | 7 days | Holiday, Festival |
-| Qingming Festival | 清明节 | 3 days | Holiday, Festival |
-| Labour Day | 劳动节 | 5 days | Holiday |
-| Dragon Boat Festival | 端午节 | 3 days | Holiday, Festival |
-| Mid-Autumn Festival | 中秋节 | 3 days | Holiday, Festival |
-| National Day | 国庆节 | 7 days | Holiday |
-| New Year's Day | 元旦 | 3 days | Holiday |
-| Arbor Day | 植树节 | 1 day | Event |
-| Youth Day | 五四青年节 | 1 day | Event, Memorial |
-| Children's Day | 儿童节 | 1 day | Event |
-| Teachers' Day | 教师节 | 1 day | Event |
-| Qixi Festival | 七夕节 | 1 day | Festival |
-| Double Ninth Festival | 重阳节 | 1 day | Festival |
+| Holiday | Local Name | Period | Priority | Tags |
+|---------|-----------|--------|----------|------|
+| Spring Festival | 春节 | 7 days | 1 | Holiday, Festival |
+| Qingming Festival | 清明节 | 3 days | 1 | Holiday, Festival |
+| Labour Day | 劳动节 | 5 days | 1 | Holiday |
+| Dragon Boat Festival | 端午节 | 3 days | 1 | Holiday, Festival |
+| Mid-Autumn Festival | 中秋节 | 3 days | 1 | Holiday, Festival |
+| National Day | 国庆节 | 7 days | 1 | Holiday |
+| New Year's Day | 元旦 | 3 days | 1 | Holiday |
+| Lunar New Year's Eve | 除夕 | 1 day | 2 | Festival |
+| Lantern Festival | 元宵节 | 1 day | 2 | Festival |
+| Qixi Festival | 七夕节 | 1 day | 2 | Festival |
+| Double Ninth Festival | 重阳节 | 1 day | 2 | Festival |
+| Arbor Day | 植树节 | 1 day | 3 | Event |
+| Youth Day | 五四青年节 | 1 day | 3 | Event, Memorial |
+| Children's Day | 儿童节 | 1 day | 3 | Event |
+| Teachers' Day | 教师节 | 1 day | 3 | Event |
 
-**Note:** Holiday days within multi-day periods are specified using `holiday_days` field (e.g., Labour Day has 5 holiday days from 05-01 to 05-05). Non-holiday days within a period (like weekends that are part of the extended break but not official holidays) are marked accordingly.
+**Note:** For recurring holiday periods every day in the period is treated as a public holiday. `holiday_days` is only consulted for non-recurring periods. Days with `meta.calendar == "lunar"` are resolved per year against the Chinese lunisolar calendar. The `layer` query parameter filters by `meta.priority` (1 = statutory holidays only, 2 = + major festivals, 3 = everything).

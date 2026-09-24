@@ -67,6 +67,7 @@ public class NotableDaysController(
         [FromQuery] int? year,
         [FromQuery] string region = "CN",
         [FromQuery] string? tag = null,
+        [FromQuery] int? layer = null,
         [FromQuery] int offset = 0,
         [FromQuery] int take = 50)
     {
@@ -75,27 +76,35 @@ public class NotableDaysController(
         var startOfYear = Instant.FromDateTimeUtc(new DateTime(year.Value, 1, 1, 0, 0, 0, DateTimeKind.Utc));
         var endOfYear = Instant.FromDateTimeUtc(new DateTime(year.Value + 1, 1, 1, 0, 0, 0, DateTimeKind.Utc));
 
+        // Recurring days have anchor dates fixed to a reference year; only
+        // non-recurring days are constrained to the requested year range.
         var query = db.NotableDays
             .AsNoTracking()
             .Where(n => n.DeletedAt == null
                 && n.Region == region
-                && n.StartDate < endOfYear
-                && n.EndDate >= startOfYear);
+                && (n.IsRecurring || (n.StartDate < endOfYear && n.EndDate >= startOfYear)));
 
         if (!string.IsNullOrWhiteSpace(tag) && Enum.TryParse<NotableDayTag>(tag, true, out var tagEnum))
         {
             query = query.Where(n => n.Tags.Contains(tagEnum));
         }
 
-        var totalCount = await query.CountAsync();
-        Response.Headers.Append("X-Total", totalCount.ToString());
-
         var days = await query
             .OrderBy(n => n.DisplayOrder ?? 999)
             .ThenBy(n => n.StartDate)
-            .Skip(offset)
-            .Take(take)
             .ToListAsync();
+
+        if (layer.HasValue)
+        {
+            days = days
+                .Where(n => NotableDaysService.GetMetaPriority(n.Meta) <= layer.Value)
+                .ToList();
+        }
+
+        var totalCount = days.Count;
+        Response.Headers.Append("X-Total", totalCount.ToString());
+
+        days = days.Skip(offset).Take(take).ToList();
 
         return Ok(days);
     }

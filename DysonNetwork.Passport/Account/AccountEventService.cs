@@ -3581,7 +3581,8 @@ TIP-: 忌提示标题 | 具体提醒，要写清今天不适合怎么做、容�
         bool replaceInvisible = false,
         Guid? viewerId = null,
         string? regionCode = null,
-        NotableDaysService? notableDaysService = null
+        NotableDaysService? notableDaysService = null,
+        int? layer = null
     )
     {
         if (year == 0)
@@ -3601,7 +3602,7 @@ TIP-: 忌提示标题 | 具体提醒，要写清今天不适合怎么做、容�
         var notableDays = new List<Shared.Models.NotableDay>();
         if (!string.IsNullOrWhiteSpace(regionCode) && notableDaysService != null)
         {
-            var fetchedDays = await notableDaysService.GetNotableDays(year, regionCode);
+            var fetchedDays = await notableDaysService.GetNotableDays(year, regionCode, maxPriority: layer);
             // Filter to current month
             notableDays = fetchedDays
                 .Where(d => d.Date.InUtc().Month == month && d.Date.InUtc().Year == year)
@@ -3745,7 +3746,8 @@ TIP-: 忌提示标题 | 具体提醒，要写清今天不适合怎么做、容�
         bool includeNotableDays = true,
         NotableDayTag? tag = null,
         int take = 5,
-        int offset = 0
+        int offset = 0,
+        int? layer = null
     )
     {
         var now = SystemClock.Instance.GetCurrentInstant();
@@ -3833,10 +3835,10 @@ TIP-: 忌提示标题 | 具体提醒，要写清今天不适合怎么做、容�
         {
             var currentYear = now.InUtc().Year;
             // Get holidays for current year and adjacent years
-            var holidays = await notableDaysService.GetNotableDays(currentYear - 1, regionCode, tag);
-            holidays.AddRange(await notableDaysService.GetNotableDays(currentYear, regionCode, tag));
-            holidays.AddRange(await notableDaysService.GetNotableDays(currentYear + 1, regionCode, tag));
-            holidays.AddRange(await notableDaysService.GetNotableDays(currentYear + 2, regionCode, tag));
+            var holidays = await notableDaysService.GetNotableDays(currentYear - 1, regionCode, tag, layer);
+            holidays.AddRange(await notableDaysService.GetNotableDays(currentYear, regionCode, tag, layer));
+            holidays.AddRange(await notableDaysService.GetNotableDays(currentYear + 1, regionCode, tag, layer));
+            holidays.AddRange(await notableDaysService.GetNotableDays(currentYear + 2, regionCode, tag, layer));
 
             notableDayItems = holidays
                 .Select(h => CreateCountdownItemFromNotableDay(h, now))

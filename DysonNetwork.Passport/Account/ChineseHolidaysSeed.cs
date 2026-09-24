@@ -5,6 +5,8 @@ namespace DysonNetwork.Passport.Account;
 
 public static class ChineseHolidaysSeed
 {
+    // Priority: 1 = statutory holiday (days off), 2 = major traditional festival, 3 = minor observance/event.
+    // Meta["calendar"] = "lunar" marks RecurrencePattern as a lunar calendar month-day.
     public static List<SnNotableDay> GetChineseHolidays()
     {
         return
@@ -16,14 +18,14 @@ public static class ChineseHolidaysSeed
                 LocalName = "春节",
                 LocalizableKey = "SpringFestival",
                 Description = "Chinese New Year, the most important traditional festival in China",
-                StartDate = Instant.FromDateTimeUtc(new DateTime(2024, 1, 28, 0, 0, 0, DateTimeKind.Utc)),
-                EndDate = Instant.FromDateTimeUtc(new DateTime(2024, 2, 4, 0, 0, 0, DateTimeKind.Utc)),
+                StartDate = Instant.FromDateTimeUtc(new DateTime(2024, 2, 10, 0, 0, 0, DateTimeKind.Utc)),
+                EndDate = Instant.FromDateTimeUtc(new DateTime(2024, 2, 17, 0, 0, 0, DateTimeKind.Utc)),
                 Region = "CN",
                 Tags = [NotableDayTag.Holiday, NotableDayTag.Festival],
+                Meta = new Dictionary<string, object> { ["calendar"] = "lunar", ["priority"] = 1 },
                 IsRecurring = true,
                 RecurrencePattern = "01-01", // Lunar calendar
                 IsPeriod = true,
-                HolidayDays = ["01-28", "01-29", "01-30", "01-31", "02-01", "02-02", "02-03"],
                 DisplayOrder = 1,
             },
 
@@ -38,10 +40,10 @@ public static class ChineseHolidaysSeed
                 EndDate = Instant.FromDateTimeUtc(new DateTime(2024, 4, 7, 0, 0, 0, DateTimeKind.Utc)),
                 Region = "CN",
                 Tags = [NotableDayTag.Holiday, NotableDayTag.Festival],
+                Meta = new Dictionary<string, object> { ["priority"] = 1 },
                 IsRecurring = true,
                 RecurrencePattern = "04-04", // Approximate solar date
                 IsPeriod = true,
-                HolidayDays = ["04-04", "04-05", "04-06"],
                 DisplayOrder = 2,
             },
 
@@ -56,10 +58,10 @@ public static class ChineseHolidaysSeed
                 EndDate = Instant.FromDateTimeUtc(new DateTime(2024, 5, 6, 0, 0, 0, DateTimeKind.Utc)),
                 Region = "CN",
                 Tags = [NotableDayTag.Holiday],
+                Meta = new Dictionary<string, object> { ["priority"] = 1 },
                 IsRecurring = true,
                 RecurrencePattern = "05-01",
                 IsPeriod = true,
-                HolidayDays = ["05-01", "05-02", "05-03", "05-04", "05-05"],
                 DisplayOrder = 3,
             },
 
@@ -74,10 +76,10 @@ public static class ChineseHolidaysSeed
                 EndDate = Instant.FromDateTimeUtc(new DateTime(2024, 6, 11, 0, 0, 0, DateTimeKind.Utc)),
                 Region = "CN",
                 Tags = [NotableDayTag.Holiday, NotableDayTag.Festival],
+                Meta = new Dictionary<string, object> { ["calendar"] = "lunar", ["priority"] = 1 },
                 IsRecurring = true,
                 RecurrencePattern = "05-05", // Lunar calendar
                 IsPeriod = true,
-                HolidayDays = ["06-08", "06-09", "06-10"],
                 DisplayOrder = 4,
             },
 
@@ -92,10 +94,10 @@ public static class ChineseHolidaysSeed
                 EndDate = Instant.FromDateTimeUtc(new DateTime(2024, 9, 18, 0, 0, 0, DateTimeKind.Utc)),
                 Region = "CN",
                 Tags = [NotableDayTag.Holiday, NotableDayTag.Festival],
+                Meta = new Dictionary<string, object> { ["calendar"] = "lunar", ["priority"] = 1 },
                 IsRecurring = true,
                 RecurrencePattern = "08-15", // Lunar calendar
                 IsPeriod = true,
-                HolidayDays = ["09-15", "09-16", "09-17"],
                 DisplayOrder = 5,
             },
 
@@ -110,10 +112,10 @@ public static class ChineseHolidaysSeed
                 EndDate = Instant.FromDateTimeUtc(new DateTime(2024, 10, 8, 0, 0, 0, DateTimeKind.Utc)),
                 Region = "CN",
                 Tags = [NotableDayTag.Holiday],
+                Meta = new Dictionary<string, object> { ["priority"] = 1 },
                 IsRecurring = true,
                 RecurrencePattern = "10-01",
                 IsPeriod = true,
-                HolidayDays = ["10-01", "10-02", "10-03", "10-04", "10-05", "10-06", "10-07"],
                 DisplayOrder = 6,
             },
 
@@ -128,14 +130,48 @@ public static class ChineseHolidaysSeed
                 EndDate = Instant.FromDateTimeUtc(new DateTime(2024, 1, 4, 0, 0, 0, DateTimeKind.Utc)),
                 Region = "CN",
                 Tags = [NotableDayTag.Holiday],
+                Meta = new Dictionary<string, object> { ["priority"] = 1 },
                 IsRecurring = true,
                 RecurrencePattern = "01-01",
                 IsPeriod = true,
-                HolidayDays = ["01-01", "01-02", "01-03"],
                 DisplayOrder = 7,
             },
 
-            // Non-holiday events below
+            // 除夕 (Lunar New Year's Eve) - 1 day, major traditional festival
+            new()
+            {
+                Name = "Lunar New Year's Eve",
+                LocalName = "除夕",
+                LocalizableKey = "LunarNewYearEve",
+                Description = "The evening before Chinese New Year, family reunion dinner",
+                StartDate = Instant.FromDateTimeUtc(new DateTime(2024, 2, 9, 0, 0, 0, DateTimeKind.Utc)),
+                EndDate = Instant.FromDateTimeUtc(new DateTime(2024, 2, 10, 0, 0, 0, DateTimeKind.Utc)),
+                Region = "CN",
+                Tags = [NotableDayTag.Festival],
+                Meta = new Dictionary<string, object> { ["calendar"] = "lunar", ["priority"] = 2 },
+                IsRecurring = true,
+                RecurrencePattern = "12-30", // Lunar calendar (last day of lunar year, 29 or 30)
+                IsPeriod = false,
+                DisplayOrder = 8,
+            },
+
+            // 元宵节 (Lantern Festival) - 1 day, major traditional festival
+            new()
+            {
+                Name = "Lantern Festival",
+                LocalName = "元宵节",
+                LocalizableKey = "LanternFestival",
+                Description = "End of Chinese New Year celebrations, lanterns and tangyuan",
+                StartDate = Instant.FromDateTimeUtc(new DateTime(2024, 2, 24, 0, 0, 0, DateTimeKind.Utc)),
+                EndDate = Instant.FromDateTimeUtc(new DateTime(2024, 2, 25, 0, 0, 0, DateTimeKind.Utc)),
+                Region = "CN",
+                Tags = [NotableDayTag.Festival],
+                Meta = new Dictionary<string, object> { ["calendar"] = "lunar", ["priority"] = 2 },
+                IsRecurring = true,
+                RecurrencePattern = "01-15", // Lunar calendar
+                IsPeriod = false,
+                DisplayOrder = 9,
+            },
 
             // 植树节 (Arbor Day / Tree Planting Day)
             new()
@@ -148,6 +184,7 @@ public static class ChineseHolidaysSeed
                 EndDate = Instant.FromDateTimeUtc(new DateTime(2024, 3, 13, 0, 0, 0, DateTimeKind.Utc)),
                 Region = "CN",
                 Tags = [NotableDayTag.Event],
+                Meta = new Dictionary<string, object> { ["priority"] = 3 },
                 IsRecurring = true,
                 RecurrencePattern = "03-12",
                 IsPeriod = false,
@@ -165,6 +202,7 @@ public static class ChineseHolidaysSeed
                 EndDate = Instant.FromDateTimeUtc(new DateTime(2024, 5, 5, 0, 0, 0, DateTimeKind.Utc)),
                 Region = "CN",
                 Tags = [NotableDayTag.Event, NotableDayTag.Memorial],
+                Meta = new Dictionary<string, object> { ["priority"] = 3 },
                 IsRecurring = true,
                 RecurrencePattern = "05-04",
                 IsPeriod = false,
@@ -182,6 +220,7 @@ public static class ChineseHolidaysSeed
                 EndDate = Instant.FromDateTimeUtc(new DateTime(2024, 6, 2, 0, 0, 0, DateTimeKind.Utc)),
                 Region = "CN",
                 Tags = [NotableDayTag.Event],
+                Meta = new Dictionary<string, object> { ["priority"] = 3 },
                 IsRecurring = true,
                 RecurrencePattern = "06-01",
                 IsPeriod = false,
@@ -199,6 +238,7 @@ public static class ChineseHolidaysSeed
                 EndDate = Instant.FromDateTimeUtc(new DateTime(2024, 9, 11, 0, 0, 0, DateTimeKind.Utc)),
                 Region = "CN",
                 Tags = [NotableDayTag.Event],
+                Meta = new Dictionary<string, object> { ["priority"] = 3 },
                 IsRecurring = true,
                 RecurrencePattern = "09-10",
                 IsPeriod = false,
@@ -216,6 +256,7 @@ public static class ChineseHolidaysSeed
                 EndDate = Instant.FromDateTimeUtc(new DateTime(2024, 8, 11, 0, 0, 0, DateTimeKind.Utc)),
                 Region = "CN",
                 Tags = [NotableDayTag.Festival],
+                Meta = new Dictionary<string, object> { ["calendar"] = "lunar", ["priority"] = 2 },
                 IsRecurring = true,
                 RecurrencePattern = "07-07", // Lunar calendar
                 IsPeriod = false,
@@ -233,6 +274,7 @@ public static class ChineseHolidaysSeed
                 EndDate = Instant.FromDateTimeUtc(new DateTime(2024, 10, 12, 0, 0, 0, DateTimeKind.Utc)),
                 Region = "CN",
                 Tags = [NotableDayTag.Festival],
+                Meta = new Dictionary<string, object> { ["calendar"] = "lunar", ["priority"] = 2 },
                 IsRecurring = true,
                 RecurrencePattern = "09-09", // Lunar calendar
                 IsPeriod = false,
