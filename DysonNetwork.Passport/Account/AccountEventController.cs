@@ -335,9 +335,9 @@ public class AccountEventController(
                 [nameof(year)] = new[] { "Year must be a positive integer." }
             }, traceId: HttpContext.TraceIdentifier));
 
-        // Use user's region with fallback to "us"
+        // Use user's region with fallback to "cn" (seeded notable days are CN)
         var regionCode = currentUser.Region;
-        if (string.IsNullOrWhiteSpace(regionCode)) regionCode = "us";
+        if (string.IsNullOrWhiteSpace(regionCode)) regionCode = "cn";
 
         var calendar = await events.GetEventCalendar(
             currentUser,
@@ -393,9 +393,9 @@ public class AccountEventController(
                 [nameof(year)] = new[] { "Year must be a positive integer." }
             }, traceId: HttpContext.TraceIdentifier));
 
-        // Use user's region with fallback to "us"
+        // Use user's region with fallback to "cn" (seeded notable days are CN)
         var regionCode = currentUser.Region;
-        if (string.IsNullOrWhiteSpace(regionCode)) regionCode = "us";
+        if (string.IsNullOrWhiteSpace(regionCode)) regionCode = "cn";
 
         var calendar = await events.GetMergedEventCalendar(
             currentUser,
@@ -598,7 +598,7 @@ public class AccountEventController(
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var regionCode = string.IsNullOrWhiteSpace(region) ? currentUser.Region : region;
-        if (string.IsNullOrWhiteSpace(regionCode)) regionCode = "us";
+        if (string.IsNullOrWhiteSpace(regionCode)) regionCode = "cn";
 
         NotableDayTag? parsedNotableDayTag = null;
         if (!string.IsNullOrWhiteSpace(notableDayTag))
@@ -639,9 +639,9 @@ public class AccountEventController(
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
-        // Use user's region with fallback to "us"
+        // Use user's region with fallback to "cn" (seeded notable days are CN)
         var regionCode = currentUser.Region;
-        if (string.IsNullOrWhiteSpace(regionCode)) regionCode = "us";
+        if (string.IsNullOrWhiteSpace(regionCode)) regionCode = "cn";
 
         NotableDayTag? tagFilter = null;
         if (!string.IsNullOrWhiteSpace(tag) && Enum.TryParse<NotableDayTag>(tag, true, out var parsedTag))

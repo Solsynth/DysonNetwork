@@ -77,11 +77,12 @@ public class NotableDaysController(
         var endOfYear = Instant.FromDateTimeUtc(new DateTime(year.Value + 1, 1, 1, 0, 0, 0, DateTimeKind.Utc));
 
         // Recurring days have anchor dates fixed to a reference year; only
-        // non-recurring days are constrained to the requested year range.
+        // non-recurring days are constrained to the requested year range. Region
+        // matched case-insensitively (stored "CN" vs caller "cn").
         var query = db.NotableDays
             .AsNoTracking()
             .Where(n => n.DeletedAt == null
-                && n.Region == region
+                && n.Region.ToLower() == region.ToLowerInvariant()
                 && (n.IsRecurring || (n.StartDate < endOfYear && n.EndDate >= startOfYear)));
 
         if (!string.IsNullOrWhiteSpace(tag) && Enum.TryParse<NotableDayTag>(tag, true, out var tagEnum))

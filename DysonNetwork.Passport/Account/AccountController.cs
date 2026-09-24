@@ -195,10 +195,10 @@ public class AccountController(
             viewerId = currentUser.Id;
         }
 
-        // Use account's region with fallback to "us"
+        // Use account.s region with fallback to "cn" (seeded notable days are CN)
         var regionCode = account.Region;
         if (string.IsNullOrWhiteSpace(regionCode))
-            regionCode = "us";
+            regionCode = "cn";
 
         var calendar = await events.GetEventCalendar(
             account,
@@ -286,10 +286,10 @@ public class AccountController(
             viewerId = currentUser.Id;
         }
 
-        // Use account's region with fallback to "us"
+        // Use account.s region with fallback to "cn" (seeded notable days are CN)
         var regionCode = account.Region;
         if (string.IsNullOrWhiteSpace(regionCode))
-            regionCode = "us";
+            regionCode = "cn";
 
         var calendar = await events.GetMergedEventCalendar(
             account,
@@ -335,10 +335,10 @@ public class AccountController(
             viewerId = currentUser.Id;
         }
 
-        // Use account's region with fallback to "us"
+        // Use account.s region with fallback to "cn" (seeded notable days are CN)
         var regionCode = account.Region;
         if (string.IsNullOrWhiteSpace(regionCode))
-            regionCode = "us";
+            regionCode = "cn";
 
         NotableDayTag? tagFilter = null;
         if (

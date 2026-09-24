@@ -34,11 +34,13 @@ public class NotableDaysService(AppDatabase db, ICacheService cache)
         var endOfYear = Instant.FromDateTimeUtc(new DateTime(year.Value + 1, 1, 1, 0, 0, 0, DateTimeKind.Utc));
 
         // Recurring days have anchor dates (start/end) fixed to a reference year, so
-        // they must not be filtered by the requested year range.
+        // they must not be filtered by the requested year range. Region is matched
+        // case-insensitively: stored values are uppercase ("CN") while callers pass
+        // any case, and Postgres "=" on varchar is case-sensitive.
         var query = db.NotableDays
             .AsNoTracking()
             .Where(n => n.DeletedAt == null
-                && n.Region == regionCode
+                && n.Region.ToLower() == regionCode
                 && (n.IsRecurring || (n.StartDate < endOfYear && n.EndDate >= startOfYear)));
 
         if (tag.HasValue)

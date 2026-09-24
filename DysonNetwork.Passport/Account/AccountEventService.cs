@@ -1502,7 +1502,7 @@ TIP-: 忌提示标题 | 具体提醒，要写清今天不适合怎么做、容�
     {
         var days = await notableDaysService.GetNotableDays(
             date.Year,
-            string.IsNullOrWhiteSpace(regionCode) ? "US" : regionCode
+            string.IsNullOrWhiteSpace(regionCode) ? "CN" : regionCode
         );
 
         return days.Where(d => d.Date.InUtc().Date == date)
