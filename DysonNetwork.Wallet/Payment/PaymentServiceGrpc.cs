@@ -183,8 +183,14 @@ public class PaymentServiceGrpc(
         ServerCallContext context
     )
     {
-        var walletFund = await paymentService.GetWalletFundAsync(Guid.Parse(request.FundId));
-        return walletFund?.ToProtoValueWithRecipients() ?? new DyWalletFund();
+        if (!Guid.TryParse(request.FundId, out var fundId))
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid fund ID."));
+
+        var walletFund = await paymentService.GetWalletFundAsync(fundId);
+        if (walletFund is null)
+            throw new RpcException(new Status(StatusCode.NotFound, "Fund not found."));
+
+        return walletFund.ToProtoValueWithRecipients();
     }
 
     public override async Task<DyRegisterAppSubscriptionDefinitionResponse> RegisterAppSubscriptionDefinition(
