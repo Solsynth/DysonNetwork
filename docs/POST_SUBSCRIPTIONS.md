@@ -1,23 +1,23 @@
 # Post Subscription Notifications
 
-This document describes the post-related subscription features in `DysonNetwork.Sphere`:
+This document describes the post-related notification features in `DysonNetwork.Sphere`:
 
 - collection subscriptions that receive new post notifications
-- explicit per-post subscriptions that receive follow-up update notifications
+- post watches, which follow a post a user already interacted with
 
 All API responses use `snake_case`.
 
 ## Overview
 
-There are now two different subscription paths around posts:
+There are two different notification paths around posts:
 
 1. `SnPostCategorySubscription` can target a category, tag, or collection.
-2. `SnPostSubscription` targets one specific post.
+2. Post watches follow one specific post, without a subscription record.
 
 They serve different purposes:
 
 - category/tag/collection subscriptions notify when a newly published post matches the subscribed target
-- post subscriptions notify when an already-known post later receives reactions, boosts, or meaningful edits
+- post watches notify when an already-known post later receives reactions, replies, chained posts, boosts, or meaningful edits, and exist for any account that bookmarked, reacted to, or replied to that post
 
 ## Collection Subscription Notifications
 
@@ -56,251 +56,234 @@ GET /api/publishers/{publisherName}/collections/{slug}/subscription
 
 The current user's category, tag, and collection subscriptions can be listed through the existing subscription listing endpoint.
 
-## Explicit Post Subscriptions
+## Post Watches
 
-Explicit post subscriptions are separate from bookmarks.
+Watching a post is implicit — there is no subscribe endpoint and no per-post subscription
+record. Bookmarking, reacting to, or replying to a post makes the acting account a watcher of
+that post, and the watched set is derived from rows that already exist:
 
-- bookmarks are private saved-post records
-- post subscriptions are notification preferences for one post
+| watch source | derived from |
+|---|---|
+| `bookmark` | `post_bookmarks` |
+| `reaction` | `post_reactions` |
+| `reply` | posts whose `replied_post_id` points at the post |
+
+Un-bookmarking, removing the reaction, or deleting the reply removes that source, and an
+account with no remaining source stops receiving the post's update notifications. The watch
+source rows are the subscription state, so no extra bookkeeping can drift out of sync.
 
 ### Data Model
 
-`SnPostSubscription` is stored in `post_subscriptions`.
+Only the per-source filters are stored, one row per account and source, in
+`post_watch_preferences`.
 
 ```csharp
-public class SnPostSubscription : ModelBase
+public enum PostWatchSource
+{
+    Bookmark,
+    Reaction,
+    Reply,
+}
+
+public enum PostWatchEvent
+{
+    Reactions,
+    Replies,
+    Chains,
+    Forwards,
+    Edits,
+}
+
+public class SnPostWatchPreference : ModelBase
 {
     public Guid Id { get; set; }
-    public Guid PostId { get; set; }
     public Guid AccountId { get; set; }
-    public bool NotifyReactions { get; set; } = true;
-    public bool NotifyForwards { get; set; } = true;
-    public bool NotifyEdits { get; set; } = true;
+    public PostWatchSource Source { get; set; }
+    public bool NotifyReactions { get; set; }
+    public bool NotifyReplies { get; set; }
+    public bool NotifyChains { get; set; }
+    public bool NotifyForwards { get; set; }
+    public bool NotifyEdits { get; set; }
 }
 ```
 
+A row exists only after the user changes a source's filters. When no row exists, the defaults
+apply:
+
+| source | reactions | replies | chains | forwards | edits |
+|---|---|---|---|---|---|
+| `bookmark` | on | on | on | on | on |
+| `reaction` | off | off | on | off | on |
+| `reply` | off | off | on | off | on |
+
+Reacting to or replying to a post therefore subscribes only to new chained posts and edits of
+that post by default, while bookmarking subscribes to everything.
+
 ### Rules
 
-1. Post subscriptions are explicit and per-user.
-2. A user can have at most one active subscription per post.
-3. Re-subscribing updates the existing subscription instead of creating another row.
-4. The user must be able to view the post in order to subscribe to it or fetch its subscription status.
-5. The acting user does not receive their own subscription-triggered notification.
+1. A watch always has at least one source; the acting account never receives its own
+   notification.
+2. At most one filter row per account and source (unique index on
+   `account_id`, `source`, `deleted_at`).
+3. Filters are per account and per source, not per post: one `reaction` setting covers every
+   post the account reacted to.
+4. Updating a subset of the flags leaves the other flags untouched.
+5. Accounts the post publisher blocked or muted are skipped.
+6. A chain is flat: a new chained post notifies watchers of the chain head and of every member
+   of that chain, de-duplicated.
+7. Watch notifications go to accounts, not publisher members: a reply to a post notifies that
+   post's watchers, while the post's publisher members keep receiving the existing
+   `post.replies` notification.
 
-## Post Subscription API
+## Watch Preference API
 
 Base URL:
 
 ```http
-/api/posts
+/api/posts/watch
 ```
 
-### Subscribe To A Post
+### Get Preferences
 
 ```http
-POST /api/posts/{id}/subscribe
+GET /api/posts/watch
 ```
 
-### Request Body
+Requires authentication. Always returns all three sources with the effective values, defaults
+included.
 
-All fields are optional. If omitted on first subscribe, they default to `true`.
+### Update Preferences
+
+```http
+PUT /api/posts/watch
+```
+
+Requires authentication and the `post.subscriptions.manage` permission. Only the sources
+present in the body are written; omitted flags keep their current value (or the default when
+the source has no row yet).
+
+Request body:
 
 ```json
 {
-  "reactions": true,
-  "forwards": true,
-  "edits": true
+  "bookmark": { "reactions": false, "chains": false },
+  "reaction": { "replies": true },
+  "reply": {}
 }
 ```
 
-### Behavior
-
-- requires authentication
-- returns `404` if the post is not visible to the current user
-- creates a new subscription when none exists
-- updates the existing subscription flags when one already exists
-
-### Response Shape
-
-```json
-{
-  "id": "subscription-id",
-  "post_id": "post-id",
-  "account_id": "account-id",
-  "notify_reactions": true,
-  "notify_forwards": true,
-  "notify_edits": true,
-  "created_at": "2026-05-22T00:00:00Z",
-  "updated_at": "2026-05-22T00:00:00Z"
-}
-```
-
-### Unsubscribe From A Post
-
-```http
-POST /api/posts/{id}/unsubscribe
-```
-
-### Behavior
-
-- requires authentication
-- removes the current user's subscription for the target post
-- returns `204 No Content` whether or not a subscription existed
-
-### Get Subscription Status
-
-```http
-GET /api/posts/{id}/subscription
-```
-
-### Behavior
-
-- requires authentication
-- returns `404` if the post is not visible
-- returns `404` if the current user has no subscription record for that post
-
-### List Current User Post Subscriptions
-
-```http
-GET /api/posts/subscriptions?offset=0&take=20
-```
-
-### Query Parameters
-
-- `offset`: pagination offset
-- `take`: page size
-
-### Response Headers
-
-- `X-Total`: total subscription count for the current user
-
-### Response Shape
+Response shape:
 
 ```json
 [
   {
-    "subscription": {
-      "id": "subscription-id",
-      "post_id": "post-id",
-      "account_id": "account-id",
-      "notify_reactions": true,
-      "notify_forwards": false,
-      "notify_edits": true
-    },
-    "post": {
-      "id": "post-id",
-      "title": "Subscribed post",
-      "publisher": {
-        "id": "publisher-id",
-        "name": "publisher-name"
-      }
-    }
+    "source": "bookmark",
+    "notify_reactions": false,
+    "notify_replies": true,
+    "notify_chains": false,
+    "notify_forwards": true,
+    "notify_edits": true
+  },
+  {
+    "source": "reaction",
+    "notify_reactions": false,
+    "notify_replies": true,
+    "notify_chains": true,
+    "notify_forwards": false,
+    "notify_edits": true
+  },
+  {
+    "source": "reply",
+    "notify_reactions": false,
+    "notify_replies": false,
+    "notify_chains": true,
+    "notify_forwards": false,
+    "notify_edits": true
   }
 ]
 ```
 
 ## Notification Triggers
 
-Post subscriptions currently support three event types.
+Watch notifications support five event types. Every one of them carries
+`notification_type = "post_watch"` and `watch_event_type`, and is delivered to the accounts
+whose watch source allows that event.
 
 ### Reaction Notifications
 
 Topic:
 
 ```text
-posts.subscriptions.reactions
+posts.watch.reactions
 ```
 
-Triggered when:
+Triggered when a reaction is added to a watched post. The acting account is excluded. Meta also
+includes `reaction`, `reaction_attitude`, `actor_id`, `actor_name`.
 
-- a reaction is added to the subscribed post
+### Reply Notifications
 
-Not triggered when:
+Topic:
 
-- a reaction is removed
+```text
+posts.watch.replies
+```
 
-Additional notification meta includes:
+Triggered when a reply is published to a watched post. Meta also includes
+`actor_publisher_id`, `actor_publisher_name`, `actor_publisher_nick`.
 
-- `notification_type = "post_subscription"`
-- `subscription_event_type = "reaction"`
-- `reaction`
-- `reaction_attitude`
-- `actor_id`
-- `actor_name`
+### Chain Notifications
+
+Topic:
+
+```text
+posts.watch.chains
+```
+
+Triggered when a post is published with a `chained_post_id`, whether set explicitly or assigned
+by the automatic chaining window. The notification opens the newly chained post. Meta also
+includes `chain_head_id` and the acting publisher fields.
 
 ### Forward Notifications
 
 Topic:
 
 ```text
-posts.subscriptions.forwards
+posts.watch.forwards
 ```
 
-Triggered when:
-
-- a local Sphere boost is created for the subscribed post
-
-Not triggered when:
-
-- remote ActivityPub boosts arrive
-- an existing boost is removed
-
-Additional notification meta includes:
-
-- `notification_type = "post_subscription"`
-- `subscription_event_type = "forward"`
-- `actor_publisher_id`
-- `actor_publisher_name`
-- `actor_publisher_nick`
+Triggered when a local Sphere boost is created for a watched post. Remote ActivityPub boosts and
+boost removal do not trigger it.
 
 ### Edit Notifications
 
 Topic:
 
 ```text
-posts.subscriptions.edits
+posts.watch.edits
 ```
 
-Triggered when:
-
-- a post was already published before the update
-- the post remains published after the update
-- the update changes meaningful content
-
-Meaningful edits currently include changes to:
-
-- `title`
-- `description`
-- `content`
-- `visibility`
-- `drafted_at`
-- `published_at`
-- attachment membership
-
-Not triggered when:
-
-- the post is being published for the first time
-- the post is draft-only before or after the update
-- only unrelated subscription systems are involved
-
-Additional notification meta includes:
-
-- `notification_type = "post_subscription"`
-- `subscription_event_type = "edit"`
+Triggered when a post was already published before the update, remains published after it, and
+the update changes meaningful content: `title`, `description`, `content`, `visibility`,
+`drafted_at`, `published_at`, or attachment membership. The first publication of a post is not
+an edit, and draft-only posts never trigger it.
 
 ## Notes
 
-- Post subscriptions do not replace bookmarks.
-- Collection subscriptions and post subscriptions can both exist for the same user.
-- A user may first discover a post via publisher, category, tag, or collection subscription, then subscribe to that individual post for later updates.
+- Post watches replace the former explicit `post_subscriptions` table and its
+  `/api/posts/{id}/subscribe`, `/api/posts/{id}/unsubscribe`, `/api/posts/{id}/subscription`
+  and `/api/posts/subscriptions` endpoints; `post_subscriptions` is dropped by the
+  `ReplacePostSubscriptionsWithWatchPreferences` migration.
+- The former `posts.subscriptions.*` topics no longer fire. Notification preferences are stored
+  per topic, so any leftover preference rows for those topics are simply never consulted.
+- Collection subscriptions and post watches are independent and can both apply to the same user.
 
 ## Related Files
 
-- `DysonNetwork.Shared/Models/Post.cs`
-- `DysonNetwork.Sphere/AppDatabase.cs`
-- `DysonNetwork.Sphere/Post/PostSubscriptionController.cs`
+- `DysonNetwork.Sphere/Models/PostWatch.cs`
+- `DysonNetwork.Sphere/Post/PostWatchService.cs`
+- `DysonNetwork.Sphere/Post/PostWatchController.cs`
 - `DysonNetwork.Sphere/Post/PostService.cs`
 - `DysonNetwork.Sphere/Post/PostActionController.cs`
-- `DysonNetwork.Sphere/Publisher/PublisherSubscriptionService.cs`
+- `DysonNetwork.Sphere/AppDatabase.cs`
 - `DysonNetwork.Sphere/Migrations/20260521161833_AddPostCollectionSubscription.cs`
-- `DysonNetwork.Sphere/Migrations/20260521162749_AddPostSubscriptions.cs`
+- `DysonNetwork.Sphere/Publisher/PublisherSubscriptionService.cs`

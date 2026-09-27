@@ -978,33 +978,29 @@ public partial class PostService(
         return notification;
     }
 
-    private async Task NotifyPostSubscribersAsync(
+    private async Task NotifyPostWatchersAsync(
         SnPost post,
-        Func<SnPostSubscription, bool> predicate,
+        IReadOnlyCollection<Guid> watchPostIds,
+        PostWatchEvent evt,
         Func<DyAccount, DyPushNotification> notificationFactory,
         Guid? excludeAccountId = null
     )
     {
         using var scope = factory.CreateScope();
-        var scopedDb = scope.ServiceProvider.GetRequiredService<AppDatabase>();
         var scopedAccounts = scope.ServiceProvider.GetRequiredService<
             DyProfileService.DyProfileServiceClient
         >();
         var ring = scope.ServiceProvider.GetRequiredService<DyRingService.DyRingServiceClient>();
+        var watches = scope.ServiceProvider.GetRequiredService<PostWatchService>();
 
-        var subscriptions = await scopedDb.PostSubscriptions
-            .Where(s => s.PostId == post.Id)
-            .ToListAsync();
-
-        subscriptions = subscriptions
-            .Where(predicate)
-            .Where(s => !excludeAccountId.HasValue || s.AccountId != excludeAccountId.Value)
-            .ToList();
-        if (subscriptions.Count == 0)
+        var watcherIds = await watches.ResolveWatcherAccountIdsAsync(watchPostIds, evt);
+        if (excludeAccountId.HasValue)
+            watcherIds = watcherIds.Where(id => id != excludeAccountId.Value).ToList();
+        if (watcherIds.Count == 0)
             return;
 
         var queryRequest = new DyGetAccountBatchRequest();
-        queryRequest.Id.AddRange(subscriptions.Select(s => s.AccountId.ToString()).Distinct());
+        queryRequest.Id.AddRange(watcherIds.Select(id => id.ToString()));
         var queryResponse = await scopedAccounts.GetAccountBatchAsync(queryRequest);
 
         // Filter out blocked and muted accounts
@@ -1070,26 +1066,27 @@ public partial class PostService(
         return !previousAttachmentIds.SequenceEqual(currentAttachmentIds, StringComparer.Ordinal);
     }
 
-    public Task NotifyPostReactionSubscribersAsync(
+    public Task NotifyPostReactionWatchersAsync(
         SnPost post,
         SnPostReaction reaction,
         DyAccount sender
     )
     {
-        return NotifyPostSubscribersAsync(
+        return NotifyPostWatchersAsync(
             post,
-            s => s.NotifyReactions,
+            [post.Id],
+            PostWatchEvent.Reactions,
             account => BuildPostNotification(
                 locale: account.Language,
-                topic: "posts.subscriptions.reactions",
-                title: $"{sender.Nick} reacted to a post you subscribed to",
+                topic: "posts.watch.reactions",
+                title: $"{sender.Nick} reacted to a post you watch",
                 body: $"{sender.Nick} reacted with {reaction.Symbol}",
                 post: post,
                 avatarId: sender.Profile?.Picture?.Id,
                 extraMeta: new Dictionary<string, object?>
                 {
-                    ["notification_type"] = "post_subscription",
-                    ["subscription_event_type"] = "reaction",
+                    ["notification_type"] = "post_watch",
+                    ["watch_event_type"] = "reaction",
                     ["reaction"] = reaction.Symbol,
                     ["reaction_attitude"] = reaction.Attitude.ToString().ToLowerInvariant(),
                     ["actor_id"] = sender.Id,
@@ -1100,56 +1097,117 @@ public partial class PostService(
         );
     }
 
-    public Task NotifyPostForwardSubscribersAsync(
+    public Task NotifyPostReplyWatchersAsync(SnPost replyPost, Guid? excludeAccountId = null)
+    {
+        if (replyPost.RepliedPostId is null)
+            return Task.CompletedTask;
+
+        var actorName = replyPost.Publisher?.Nick ?? replyPost.Publisher?.Name ?? "Someone";
+        return NotifyPostWatchersAsync(
+            replyPost,
+            [replyPost.RepliedPostId.Value],
+            PostWatchEvent.Replies,
+            account => BuildPostNotification(
+                locale: account.Language,
+                topic: "posts.watch.replies",
+                title: $"{actorName} replied to a post you watch",
+                body: ChopPostForNotification(replyPost, account.Language).content,
+                post: replyPost,
+                avatarId: replyPost.Publisher?.Picture?.Id,
+                extraMeta: new Dictionary<string, object?>
+                {
+                    ["notification_type"] = "post_watch",
+                    ["watch_event_type"] = "reply",
+                    ["actor_publisher_id"] = replyPost.Publisher?.Id.ToString(),
+                    ["actor_publisher_name"] = replyPost.Publisher?.Name,
+                    ["actor_publisher_nick"] = replyPost.Publisher?.Nick,
+                }
+            ),
+            excludeAccountId: excludeAccountId ?? replyPost.Publisher?.AccountId
+        );
+    }
+
+    public Task NotifyPostChainWatchersAsync(
+        SnPost chainedPost,
+        IReadOnlyCollection<Guid> chainPostIds,
+        Guid? excludeAccountId = null
+    )
+    {
+        var actorName = chainedPost.Publisher?.Nick ?? chainedPost.Publisher?.Name ?? "Someone";
+        return NotifyPostWatchersAsync(
+            chainedPost,
+            chainPostIds,
+            PostWatchEvent.Chains,
+            account => BuildPostNotification(
+                locale: account.Language,
+                topic: "posts.watch.chains",
+                title: $"{actorName} added a new post to a chain you watch",
+                body: ChopPostForNotification(chainedPost, account.Language).content,
+                post: chainedPost,
+                avatarId: chainedPost.Publisher?.Picture?.Id,
+                extraMeta: new Dictionary<string, object?>
+                {
+                    ["notification_type"] = "post_watch",
+                    ["watch_event_type"] = "chain",
+                    ["chain_head_id"] = chainedPost.ChainedPostId?.ToString(),
+                    ["actor_publisher_id"] = chainedPost.Publisher?.Id.ToString(),
+                    ["actor_publisher_name"] = chainedPost.Publisher?.Name,
+                    ["actor_publisher_nick"] = chainedPost.Publisher?.Nick,
+                }
+            ),
+            excludeAccountId: excludeAccountId ?? chainedPost.Publisher?.AccountId
+        );
+    }
+
+    public Task NotifyPostForwardWatchersAsync(
         SnPost post,
         SnPublisher actorPublisher,
-        Guid excludeAccountId
+        Guid? excludeAccountId = null
     )
     {
         var actorName = actorPublisher.Nick ?? actorPublisher.Name;
-        return NotifyPostSubscribersAsync(
+        return NotifyPostWatchersAsync(
             post,
-            s => s.NotifyForwards,
+            [post.Id],
+            PostWatchEvent.Forwards,
             account => BuildPostNotification(
                 locale: account.Language,
-                topic: "posts.subscriptions.forwards",
-                title: $"{actorName} forwarded a post you subscribed to",
+                topic: "posts.watch.forwards",
+                title: $"{actorName} shared a post you watch",
                 body: $"{actorName} boosted this post",
                 post: post,
                 avatarId: actorPublisher.Picture?.Id,
                 extraMeta: new Dictionary<string, object?>
                 {
-                    ["notification_type"] = "post_subscription",
-                    ["subscription_event_type"] = "forward",
+                    ["notification_type"] = "post_watch",
+                    ["watch_event_type"] = "forward",
                     ["actor_publisher_id"] = actorPublisher.Id.ToString(),
                     ["actor_publisher_name"] = actorPublisher.Name,
                     ["actor_publisher_nick"] = actorPublisher.Nick,
                 }
             ),
-            excludeAccountId: excludeAccountId
+            excludeAccountId: excludeAccountId ?? actorPublisher.AccountId
         );
     }
 
-    public Task NotifyPostEditSubscribersAsync(
-        SnPost post,
-        Guid? excludeAccountId = null
-    )
+    public Task NotifyPostEditWatchersAsync(SnPost post, Guid? excludeAccountId = null)
     {
         var actorName = post.Publisher?.Nick ?? post.Publisher?.Name ?? "The author";
-        return NotifyPostSubscribersAsync(
+        return NotifyPostWatchersAsync(
             post,
-            s => s.NotifyEdits,
+            [post.Id],
+            PostWatchEvent.Edits,
             account => BuildPostNotification(
                 locale: account.Language,
-                topic: "posts.subscriptions.edits",
-                title: $"{actorName} updated a post you subscribed to",
+                topic: "posts.watch.edits",
+                title: $"{actorName} edited a post you watch",
                 body: "The original post has new edits.",
                 post: post,
                 avatarId: post.Publisher?.Picture?.Id,
                 extraMeta: new Dictionary<string, object?>
                 {
-                    ["notification_type"] = "post_subscription",
-                    ["subscription_event_type"] = "edit",
+                    ["notification_type"] = "post_watch",
+                    ["watch_event_type"] = "edit",
                 }
             ),
             excludeAccountId: excludeAccountId
@@ -1695,6 +1753,43 @@ public partial class PostService(
                 await pubSub.NotifySubscriberPost(post);
             });
 
+        if (isPublishedNow && post.RepliedPostId is not null)
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await NotifyPostReplyWatchersAsync(post);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogError(
+                        ex,
+                        "Error when sending post reply watch notifications for post {PostId}",
+                        post.Id
+                    );
+                }
+            });
+
+        if (isPublishedNow && post.ChainedPostId is not null)
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    using var scope = factory.CreateScope();
+                    var watches = scope.ServiceProvider.GetRequiredService<PostWatchService>();
+                    var chainPostIds = await watches.GetChainPostIdsAsync(post.ChainedPostId.Value);
+                    await NotifyPostChainWatchersAsync(post, chainPostIds);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogError(
+                        ex,
+                        "Error when sending post chain watch notifications for post {PostId}",
+                        post.Id
+                    );
+                }
+            });
+
         if (isPublishedNow && post.RepliedPost is not null)
         {
             _ = Task.Run(async () =>
@@ -1915,7 +2010,7 @@ public partial class PostService(
             .Select(a => a.Id)
             .Where(id => !string.IsNullOrWhiteSpace(id))
             .ToList();
-        var shouldNotifyPostSubscribersAboutEdit = HasMeaningfulPublishedEdit(
+        var shouldNotifyPostWatchersAboutEdit = HasMeaningfulPublishedEdit(
             previousTitle,
             previousDescription,
             previousContent,
@@ -1941,6 +2036,43 @@ public partial class PostService(
                     scope.ServiceProvider.GetRequiredService<PublisherSubscriptionService>();
                 await pubSub.NotifySubscriberPost(post);
             });
+
+            if (post.RepliedPostId is not null)
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await NotifyPostReplyWatchersAsync(post);
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogError(
+                            ex,
+                            "Error when sending post reply watch notifications for post {PostId}",
+                            post.Id
+                        );
+                    }
+                });
+
+            if (post.ChainedPostId is not null)
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        using var scope = factory.CreateScope();
+                        var watches = scope.ServiceProvider.GetRequiredService<PostWatchService>();
+                        var chainPostIds = await watches.GetChainPostIdsAsync(post.ChainedPostId.Value);
+                        await NotifyPostChainWatchersAsync(post, chainPostIds);
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogError(
+                            ex,
+                            "Error when sending post chain watch notifications for post {PostId}",
+                            post.Id
+                        );
+                    }
+                });
 
             if (post.RepliedPost is not null)
             {
@@ -2010,13 +2142,13 @@ public partial class PostService(
                 _ = Task.Run(async () => await CreateLinkPreviewAsync(post));
         }
 
-        if (shouldNotifyPostSubscribersAboutEdit)
+        if (shouldNotifyPostWatchersAboutEdit)
         {
             _ = Task.Run(async () =>
             {
                 try
                 {
-                    await NotifyPostEditSubscribersAsync(post, post.Publisher?.AccountId);
+                    await NotifyPostEditWatchersAsync(post, post.Publisher?.AccountId);
                 }
                 catch (Exception ex)
                 {
@@ -2684,7 +2816,7 @@ public partial class PostService(
         {
             try
             {
-                await NotifyPostReactionSubscribersAsync(post, reaction, sender);
+                await NotifyPostReactionWatchersAsync(post, reaction, sender);
             }
             catch (Exception ex)
             {

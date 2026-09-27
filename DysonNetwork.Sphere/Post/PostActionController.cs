@@ -1964,7 +1964,7 @@ public class PostActionController(
         {
             try
             {
-                await ps.NotifyPostForwardSubscribersAsync(post, userPublisher, accountId);
+                await ps.NotifyPostForwardWatchersAsync(post, userPublisher, accountId);
             }
             catch (Exception ex)
             {

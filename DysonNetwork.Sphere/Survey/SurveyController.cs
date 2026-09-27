@@ -834,7 +834,7 @@ public class SurveyController(
 
     // ---- Subscription endpoints ----------------------------------------------
     //
-    // Per-survey subscriptions mirror SnPostSubscription. A subscriber receives a
+    // Per-survey subscriptions are explicit. A subscriber receives a
     // push notification (topic "surveys.answer") when someone answers the survey,
     // as long as the survey's NotifySubscribers flag is set. A user can have at
     // most one active subscription per survey; re-subscribing is idempotent.
