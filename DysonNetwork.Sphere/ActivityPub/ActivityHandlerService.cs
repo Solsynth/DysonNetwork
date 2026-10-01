@@ -139,26 +139,29 @@ public class ActivityHandlerService(
         var actor = await ResolveOrCreateActorAsync(actorUri);
         var targetActor = await ResolveOrCreateActorAsync(objectUri);
 
-        var existing = await db.FediverseRelationships
-            .FirstOrDefaultAsync(r => r.PublisherId == actor.Id && r.TargetPublisherId == targetActor.Id);
+        var existing = await db.PublisherSubscriptions
+            .FirstOrDefaultAsync(r => r.FollowerPublisherId == actor.Id && r.PublisherId == targetActor.Id);
 
         switch (existing?.State)
         {
-            case RelationshipState.Accepted:
+            case PublisherSubscriptionState.Accepted:
                 logger.LogInformation("Follow already accepted: {Actor} -> {Target}", actorUri, objectUri);
                 return ActivityResult.Success;
             case null:
-                existing = new SnFediverseRelationship
+                existing = new SnPublisherSubscription
                 {
-                    PublisherId = actor.Id,
-                    TargetPublisherId = targetActor.Id,
-                    State = RelationshipState.Accepted
+                    FollowerPublisherId = actor.Id,
+                    PublisherId = targetActor.Id,
+                    State = PublisherSubscriptionState.Accepted,
+                    FollowedAt = SystemClock.Instance.GetCurrentInstant()
                 };
-                db.FediverseRelationships.Add(existing);
+                db.PublisherSubscriptions.Add(existing);
                 logger.LogInformation("Created follow: {Actor} -> {Target}", actorUri, objectUri);
                 break;
             default:
-                existing.State = RelationshipState.Accepted;
+                existing.State = PublisherSubscriptionState.Accepted;
+                existing.EndedAt = null;
+                existing.FollowedAt = SystemClock.Instance.GetCurrentInstant();
                 break;
         }
 
@@ -191,31 +194,35 @@ public class ActivityHandlerService(
 
         var actor = await ResolveOrCreateActorAsync(actorUri);
 
-        var relationship = await db.FediverseRelationships
+        var localActor = await db.Publishers.FirstOrDefaultAsync(a => a.Uri == followObjectUri);
+        if (localActor == null)
+        {
+            logger.LogWarning("Local actor not found: {Uri}", followObjectUri);
+            return ActivityResult.NotFound;
+        }
+
+        var relationship = await db.PublisherSubscriptions
+            .Include(r => r.FollowerPublisher)
             .Include(r => r.Publisher)
-            .Include(r => r.TargetPublisher)
-            .FirstOrDefaultAsync(r => r.TargetPublisherId == actor.Id);
+            .FirstOrDefaultAsync(r => r.FollowerPublisherId == localActor.Id && r.PublisherId == actor.Id);
 
         if (relationship == null)
         {
-            var localActor = await db.FediverseActors.FirstOrDefaultAsync(a => a.Uri == followObjectUri);
-            if (localActor == null)
+            relationship = new SnPublisherSubscription
             {
-                logger.LogWarning("Local actor not found: {Uri}", followObjectUri);
-                return ActivityResult.NotFound;
-            }
-
-            relationship = new SnFediverseRelationship
-            {
-                PublisherId = localActor.Id,
-                TargetPublisherId = actor.Id,
-                State = RelationshipState.Accepted
+                AccountId = localActor.AccountId,
+                FollowerPublisherId = localActor.Id,
+                PublisherId = actor.Id,
+                State = PublisherSubscriptionState.Accepted,
+                FollowedAt = SystemClock.Instance.GetCurrentInstant()
             };
-            db.FediverseRelationships.Add(relationship);
+            db.PublisherSubscriptions.Add(relationship);
         }
         else
         {
-            relationship.State = RelationshipState.Accepted;
+            relationship.State = PublisherSubscriptionState.Accepted;
+            relationship.EndedAt = null;
+            relationship.FollowedAt = SystemClock.Instance.GetCurrentInstant();
         }
 
         await db.SaveChangesAsync();
@@ -227,15 +234,17 @@ public class ActivityHandlerService(
     {
         var actor = await ResolveOrCreateActorAsync(actorUri);
 
-        var relationship = await db.FediverseRelationships
-            .FirstOrDefaultAsync(r => r.TargetPublisherId == actor.Id);
+        var relationships = await db.PublisherSubscriptions
+            .Where(r => r.PublisherId == actor.Id && r.State == PublisherSubscriptionState.Pending)
+            .ToListAsync();
 
-        if (relationship != null)
+        foreach (var relationship in relationships)
         {
-            relationship.State = RelationshipState.Rejected;
+            relationship.State = PublisherSubscriptionState.Rejected;
             relationship.RejectReason = "Remote rejected follow";
-            await db.SaveChangesAsync();
         }
+
+        await db.SaveChangesAsync();
 
         logger.LogInformation("Follow rejected by {Actor}", actorUri);
         return ActivityResult.Success;
@@ -309,12 +318,12 @@ public class ActivityHandlerService(
         var actor = await ResolveOrCreateActorAsync(actorUri);
         var targetActor = await ResolveOrCreateActorAsync(objectUri);
 
-        var relationship = await db.FediverseRelationships
-            .FirstOrDefaultAsync(r => r.PublisherId == actor.Id && r.TargetPublisherId == targetActor.Id);
+        var relationship = await db.PublisherSubscriptions
+            .FirstOrDefaultAsync(r => r.FollowerPublisherId == actor.Id && r.PublisherId == targetActor.Id);
 
         if (relationship != null)
         {
-            db.FediverseRelationships.Remove(relationship);
+            db.PublisherSubscriptions.Remove(relationship);
             await db.SaveChangesAsync();
         }
 

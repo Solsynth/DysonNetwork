@@ -21,7 +21,6 @@ public class AppDatabase(
     public DbSet<SnPublisherMember> PublisherMembers { get; set; } = null!;
     public DbSet<SnPublisherSubscription> PublisherSubscriptions { get; set; } = null!;
     public DbSet<SnPublisherFeature> PublisherFeatures { get; set; } = null!;
-    public DbSet<SnPublisherFollowRequest> PublisherFollowRequests { get; set; } = null!;
     public DbSet<SnPublisherRatingRecord> PublisherRatingRecords { get; set; } = null!;
 
     public DbSet<SnPost> Posts { get; set; } = null!;
@@ -57,7 +56,6 @@ public class AppDatabase(
     public DbSet<SnRealmPostModerationLog> RealmPostModerationLogs { get; set; } = null!;
 
     public DbSet<SnFediverseInstance> FediverseInstances { get; set; } = null!;
-    public DbSet<SnFediverseRelationship> FediverseRelationships { get; set; } = null!;
     public DbSet<SnFediverseModerationRule> FediverseModerationRules { get; set; } = null!;
     public DbSet<SnFediverseKey> FediverseKeys { get; set; } = null!;
     public DbSet<SnActivityPubDelivery> ActivityPubDeliveries { get; set; } = null!;
@@ -131,13 +129,14 @@ public class AppDatabase(
             .HasForeignKey(ps => ps.PublisherId)
             .OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<SnPublisherSubscription>()
-            .HasIndex(ps => new { ps.AccountId, ps.PublisherId, ps.EndedAt });
-
-        modelBuilder.Entity<SnPublisherFollowRequest>()
-            .HasOne(fr => fr.Publisher)
+            .HasOne(ps => ps.FollowerPublisher)
             .WithMany()
-            .HasForeignKey(fr => fr.PublisherId)
-            .OnDelete(DeleteBehavior.Cascade);
+            .HasForeignKey(ps => ps.FollowerPublisherId)
+            .OnDelete(DeleteBehavior.SetNull);
+        modelBuilder.Entity<SnPublisherSubscription>()
+            .HasIndex(ps => new { ps.AccountId, ps.PublisherId, ps.EndedAt });
+        modelBuilder.Entity<SnPublisherSubscription>()
+            .HasIndex(ps => new { ps.FollowerPublisherId, ps.PublisherId, ps.State, ps.EndedAt });
 
         modelBuilder.Entity<SnPublisherRatingRecord>()
             .HasOne(r => r.Publisher)
@@ -284,17 +283,6 @@ public class AppDatabase(
             .HasOne(s => s.Collection)
             .WithMany()
             .HasForeignKey(s => s.CollectionId)
-            .OnDelete(DeleteBehavior.Cascade);
-
-        modelBuilder.Entity<SnFediverseRelationship>()
-            .HasOne(r => r.Publisher)
-            .WithMany()
-            .HasForeignKey(r => r.PublisherId)
-            .OnDelete(DeleteBehavior.Cascade);
-        modelBuilder.Entity<SnFediverseRelationship>()
-            .HasOne(r => r.TargetPublisher)
-            .WithMany()
-            .HasForeignKey(r => r.TargetPublisherId)
             .OnDelete(DeleteBehavior.Cascade);
 
         modelBuilder.Entity<SnBoost>()

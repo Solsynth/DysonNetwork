@@ -67,7 +67,11 @@ public class PostController(
             {
                 var currentAccountId = Guid.Parse(currentUser.Id);
                 var activeSubscriptions = await db.PublisherSubscriptions
-                    .Where(s => s.AccountId == currentAccountId && s.EndedAt == null && publisherIds.Contains(s.PublisherId))
+                    .Where(s => s.AccountId == currentAccountId
+                        && s.EndedAt == null
+                        && s.State == PublisherSubscriptionState.Accepted
+                        && !s.IsBlocking
+                        && publisherIds.Contains(s.PublisherId))
                     .Select(s => s.PublisherId)
                     .ToListAsync();
                 subscriberPublisherIds = activeSubscriptions.ToHashSet();
@@ -599,7 +603,11 @@ public class PostController(
                 {
                     var currentAccountId = Guid.Parse(currentUser.Id);
                     var activeSubscriptions = await db.PublisherSubscriptions
-                        .Where(s => s.AccountId == currentAccountId && s.EndedAt == null && publisherIdsInQuery.Contains(s.PublisherId))
+                        .Where(s => s.AccountId == currentAccountId
+                            && s.EndedAt == null
+                            && s.State == PublisherSubscriptionState.Accepted
+                            && !s.IsBlocking
+                            && publisherIdsInQuery.Contains(s.PublisherId))
                         .Select(s => s.PublisherId)
                         .ToListAsync();
                     subscriberPublisherIds = activeSubscriptions.ToHashSet();
@@ -859,7 +867,11 @@ public class PostController(
                 return StatusCode(403, ApiError.Unauthorized("Subscriber access required", forbidden: true));
             var currentAccountId = Guid.Parse(currentUser.Id);
             var isSubscriber = await db.PublisherSubscriptions
-                .AnyAsync(s => s.PublisherId == post.PublisherId && s.AccountId == currentAccountId && s.EndedAt == null);
+                .AnyAsync(s => s.PublisherId == post.PublisherId
+                    && s.AccountId == currentAccountId
+                    && s.EndedAt == null
+                    && s.State == PublisherSubscriptionState.Accepted
+                    && !s.IsBlocking);
             if (!isSubscriber && !userPublishers.Any(p => p.Id == post.PublisherId))
                 return StatusCode(403, ApiError.Unauthorized("Subscriber access required", forbidden: true));
         }
@@ -929,7 +941,11 @@ public class PostController(
                 return StatusCode(403, ApiError.Unauthorized("Subscriber access required", forbidden: true));
             var currentAccountId = Guid.Parse(currentUser.Id);
             var isSubscriber = await db.PublisherSubscriptions
-                .AnyAsync(s => s.PublisherId == post.PublisherId && s.AccountId == currentAccountId && s.EndedAt == null);
+                .AnyAsync(s => s.PublisherId == post.PublisherId
+                    && s.AccountId == currentAccountId
+                    && s.EndedAt == null
+                    && s.State == PublisherSubscriptionState.Accepted
+                    && !s.IsBlocking);
             if (!isSubscriber && !userPublishers.Any(p => p.Id == post.PublisherId))
                 return StatusCode(403, ApiError.Unauthorized("Subscriber access required", forbidden: true));
         }
@@ -1098,7 +1114,11 @@ public class PostController(
                 return StatusCode(403, ApiError.Unauthorized("Subscriber access required", forbidden: true));
             var currentAccountId = Guid.Parse(currentUser.Id);
             var isSubscriber = await db.PublisherSubscriptions
-                .AnyAsync(s => s.PublisherId == prevPost.PublisherId && s.AccountId == currentAccountId && s.EndedAt == null);
+                .AnyAsync(s => s.PublisherId == prevPost.PublisherId
+                    && s.AccountId == currentAccountId
+                    && s.EndedAt == null
+                    && s.State == PublisherSubscriptionState.Accepted
+                    && !s.IsBlocking);
             if (!isSubscriber && !userPublishers.Any(p => p.Id == prevPost.PublisherId))
                 return StatusCode(403, ApiError.Unauthorized("Subscriber access required", forbidden: true));
         }
@@ -1262,7 +1282,11 @@ public class PostController(
                 return StatusCode(403, ApiError.Unauthorized("Subscriber access required", forbidden: true));
             var currentAccountId = Guid.Parse(currentUser.Id);
             var isSubscriber = await db.PublisherSubscriptions
-                .AnyAsync(s => s.PublisherId == nextPost.PublisherId && s.AccountId == currentAccountId && s.EndedAt == null);
+                .AnyAsync(s => s.PublisherId == nextPost.PublisherId
+                    && s.AccountId == currentAccountId
+                    && s.EndedAt == null
+                    && s.State == PublisherSubscriptionState.Accepted
+                    && !s.IsBlocking);
             if (!isSubscriber && !userPublishers.Any(p => p.Id == nextPost.PublisherId))
                 return StatusCode(403, ApiError.Unauthorized("Subscriber access required", forbidden: true));
         }
@@ -1742,7 +1766,11 @@ public class PostController(
                 return StatusCode(403, ApiError.Unauthorized("Subscriber access required", forbidden: true));
             var currentAccountId = Guid.Parse(currentUser.Id);
             var isSubscriber = await db.PublisherSubscriptions
-                .AnyAsync(s => s.PublisherId == currentPost.PublisherId && s.AccountId == currentAccountId && s.EndedAt == null);
+                .AnyAsync(s => s.PublisherId == currentPost.PublisherId
+                    && s.AccountId == currentAccountId
+                    && s.EndedAt == null
+                    && s.State == PublisherSubscriptionState.Accepted
+                    && !s.IsBlocking);
             if (!isSubscriber && !userPublishers.Any(p => p.Id == currentPost.PublisherId))
                 return StatusCode(403, ApiError.Unauthorized("Subscriber access required", forbidden: true));
         }

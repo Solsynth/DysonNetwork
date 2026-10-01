@@ -36,7 +36,11 @@ public class PublisherSubscriptionService(
     public async Task<bool> SubscriptionExistsAsync(Guid accountId, Guid publisherId)
     {
         return await db.PublisherSubscriptions.AnyAsync(p =>
-            p.AccountId == accountId && p.PublisherId == publisherId && p.EndedAt == null
+            p.AccountId == accountId
+            && p.PublisherId == publisherId
+            && p.EndedAt == null
+            && p.State == PublisherSubscriptionState.Accepted
+            && !p.IsBlocking
         );
     }
 
@@ -54,7 +58,11 @@ public class PublisherSubscriptionService(
         return await db
             .PublisherSubscriptions.Include(p => p.Publisher)
             .FirstOrDefaultAsync(p =>
-                p.AccountId == accountId && p.PublisherId == publisherId && p.EndedAt == null
+                p.AccountId == accountId
+                && p.PublisherId == publisherId
+                && p.EndedAt == null
+                && p.State == PublisherSubscriptionState.Accepted
+                && !p.IsBlocking
             );
     }
 
@@ -96,6 +104,8 @@ public class PublisherSubscriptionService(
         // Gather subscribers
         var subscribers = await db.PublisherSubscriptions
             .Where(p => !p.EndedAt.HasValue)
+            .Where(p => p.State == PublisherSubscriptionState.Accepted && !p.IsBlocking)
+            .Where(p => p.AccountId != null)
             .Where(p => p.PublisherId == post.PublisherId)
             .ToListAsync();
 
@@ -294,7 +304,11 @@ public class PublisherSubscriptionService(
             data["pfp"] = liveStream.Publisher.Picture.Id;
 
         var subscribers = await db
-            .PublisherSubscriptions.Where(p => p.PublisherId == liveStream.PublisherId)
+            .PublisherSubscriptions.Where(p => p.PublisherId == liveStream.PublisherId
+                && p.EndedAt == null
+                && p.State == PublisherSubscriptionState.Accepted
+                && !p.IsBlocking
+                && p.AccountId != null)
             .ToListAsync();
 
         if (subscribers.Count == 0)
@@ -345,7 +359,10 @@ public class PublisherSubscriptionService(
     {
         return await db
             .PublisherSubscriptions.Include(p => p.Publisher)
-            .Where(p => p.AccountId == accountId)
+            .Where(p => p.AccountId == accountId
+                && p.EndedAt == null
+                && p.State == PublisherSubscriptionState.Accepted
+                && !p.IsBlocking)
             .ToListAsync();
     }
 
@@ -357,7 +374,10 @@ public class PublisherSubscriptionService(
     public async Task<List<SnPublisherSubscription>> GetPublisherSubscribersAsync(Guid publisherId)
     {
         return await db
-            .PublisherSubscriptions.Where(p => p.PublisherId == publisherId)
+            .PublisherSubscriptions.Where(p => p.PublisherId == publisherId
+                && p.EndedAt == null
+                && p.State == PublisherSubscriptionState.Accepted
+                && !p.IsBlocking)
             .ToListAsync();
     }
 
@@ -460,7 +480,9 @@ public class PublisherSubscriptionService(
     public async Task<int> MarkAllSubscriptionsReadAsync(Guid accountId)
     {
         var subscriptions = await db.PublisherSubscriptions
-            .Where(subscription => subscription.AccountId == accountId && subscription.EndedAt == null)
+            .Where(subscription => subscription.AccountId == accountId
+                && subscription.EndedAt == null
+                && subscription.State == PublisherSubscriptionState.Accepted)
             .ToListAsync();
         if (subscriptions.Count == 0)
             return 0;
@@ -503,6 +525,7 @@ public class PublisherSubscriptionService(
             .Where(subscription =>
                 subscription.AccountId == accountId
                 && subscription.EndedAt == null
+                && subscription.State == PublisherSubscriptionState.Accepted
                 && latestReadAtByPublisher.Keys.Contains(subscription.PublisherId)
             )
             .ToListAsync();
@@ -547,6 +570,9 @@ public class PublisherSubscriptionService(
             endedSubscription.EndReason = null;
             endedSubscription.EndedByAccountId = null;
             endedSubscription.Notify = true;
+            endedSubscription.State = PublisherSubscriptionState.Accepted;
+            endedSubscription.IsBlocking = false;
+            endedSubscription.FollowedAt = SystemClock.Instance.GetCurrentInstant();
             db.PublisherSubscriptions.Update(endedSubscription);
             await db.SaveChangesAsync();
             await cache.RemoveAsync(
@@ -560,6 +586,8 @@ public class PublisherSubscriptionService(
         {
             AccountId = accountId,
             PublisherId = publisherId,
+            State = PublisherSubscriptionState.Accepted,
+            FollowedAt = SystemClock.Instance.GetCurrentInstant(),
         };
 
         db.PublisherSubscriptions.Add(subscription);
@@ -622,6 +650,8 @@ public class PublisherSubscriptionService(
             existing.EndReason = null;
             existing.EndedByAccountId = null;
             existing.Notify = false;
+            existing.State = PublisherSubscriptionState.Accepted;
+            existing.FollowedAt = SystemClock.Instance.GetCurrentInstant();
             db.PublisherSubscriptions.Update(existing);
         }
         else
@@ -631,6 +661,8 @@ public class PublisherSubscriptionService(
                 AccountId = accountId,
                 PublisherId = publisherId,
                 Notify = false,
+                State = PublisherSubscriptionState.Accepted,
+                FollowedAt = SystemClock.Instance.GetCurrentInstant(),
             };
             db.PublisherSubscriptions.Add(subscription);
         }
@@ -694,6 +726,113 @@ public class PublisherSubscriptionService(
         db.PublisherSubscriptions.Update(subscription);
         await db.SaveChangesAsync();
 
+        return subscription;
+    }
+
+    /// <summary>
+    /// Gets the set of publisher IDs the account has blocked.
+    /// </summary>
+    public async Task<HashSet<Guid>> GetBlockedPublisherIdsAsync(Guid accountId)
+    {
+        var ids = await db.PublisherSubscriptions
+            .Where(s => s.AccountId == accountId && s.EndedAt == null && s.IsBlocking)
+            .Select(s => s.PublisherId)
+            .ToListAsync();
+        return ids.ToHashSet();
+    }
+
+    /// <summary>
+    /// Gets the set of publisher IDs the account has muted.
+    /// </summary>
+    public async Task<HashSet<Guid>> GetMutedPublisherIdsAsync(Guid accountId)
+    {
+        var ids = await db.PublisherSubscriptions
+            .Where(s => s.AccountId == accountId && s.EndedAt == null && s.IsMuting)
+            .Select(s => s.PublisherId)
+            .ToListAsync();
+        return ids.ToHashSet();
+    }
+
+    public async Task<List<SnPublisherSubscription>> GetBlockedPublishersAsync(Guid accountId)
+    {
+        return await db.PublisherSubscriptions
+            .Include(s => s.Publisher)
+            .Where(s => s.AccountId == accountId && s.EndedAt == null && s.IsBlocking)
+            .OrderByDescending(s => s.UpdatedAt)
+            .ToListAsync();
+    }
+
+    public async Task<List<SnPublisherSubscription>> GetMutedPublishersAsync(Guid accountId)
+    {
+        return await db.PublisherSubscriptions
+            .Include(s => s.Publisher)
+            .Where(s => s.AccountId == accountId && s.EndedAt == null && s.IsMuting)
+            .OrderByDescending(s => s.UpdatedAt)
+            .ToListAsync();
+    }
+
+    /// <summary>
+    /// Creates or updates the relationship row so the account blocks (or unblocks)
+    /// the given publisher without necessarily subscribing to it.
+    /// </summary>
+    public async Task<SnPublisherSubscription> SetPublisherBlockingAsync(
+        Guid accountId,
+        Guid publisherId,
+        bool blocking
+    )
+    {
+        var subscription = await GetSubscriptionIncludingEndedAsync(accountId, publisherId);
+        if (subscription is null)
+        {
+            subscription = new SnPublisherSubscription
+            {
+                AccountId = accountId,
+                PublisherId = publisherId,
+                State = PublisherSubscriptionState.Accepted,
+            };
+            db.PublisherSubscriptions.Add(subscription);
+        }
+
+        subscription.IsBlocking = blocking;
+        if (blocking)
+            subscription.IsMuting = false;
+
+        await db.SaveChangesAsync();
+        await cache.RemoveAsync(
+            string.Format(PublisherService.SubscribedPublishersCacheKey, accountId)
+        );
+
+        return subscription;
+    }
+
+    /// <summary>
+    /// Creates or updates the relationship row so the account mutes (or unmutes)
+    /// the given publisher without necessarily subscribing to it.
+    /// </summary>
+    public async Task<SnPublisherSubscription?> SetPublisherMutingAsync(
+        Guid accountId,
+        Guid publisherId,
+        bool muting
+    )
+    {
+        var subscription = await GetSubscriptionIncludingEndedAsync(accountId, publisherId);
+        if (subscription is null)
+        {
+            if (!muting)
+                return null;
+
+            subscription = new SnPublisherSubscription
+            {
+                AccountId = accountId,
+                PublisherId = publisherId,
+                State = PublisherSubscriptionState.Accepted,
+            };
+            db.PublisherSubscriptions.Add(subscription);
+        }
+
+        subscription.IsMuting = muting;
+
+        await db.SaveChangesAsync();
         return subscription;
     }
 }

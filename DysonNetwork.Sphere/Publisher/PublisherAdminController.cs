@@ -135,7 +135,10 @@ public class PublisherAdminController(
             CollectionCount = await db.PostCollections
                 .CountAsync(c => c.PublisherId == publisher.Id, HttpContext.RequestAborted),
             SubscriberCount = await db.PublisherSubscriptions
-                .CountAsync(s => s.PublisherId == publisher.Id && s.EndedAt == null, HttpContext.RequestAborted)
+                .CountAsync(s => s.PublisherId == publisher.Id
+                    && s.EndedAt == null
+                    && s.State == PublisherSubscriptionState.Accepted
+                    && !s.IsBlocking, HttpContext.RequestAborted)
         };
 
         return Ok(detail);

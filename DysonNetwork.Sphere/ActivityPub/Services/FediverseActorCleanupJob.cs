@@ -127,13 +127,14 @@ public class FediverseActorCleanupJob(
             .Distinct()
             .ToListAsync();
 
-        var actorIdsWithFollowing = await db.FediverseRelationships
-            .Select(r => r.PublisherId)
+        var actorIdsWithFollowing = await db.PublisherSubscriptions
+            .Where(r => r.FollowerPublisherId != null)
+            .Select(r => r.FollowerPublisherId!.Value)
             .Distinct()
             .ToListAsync();
 
-        var actorIdsWithFollowers = await db.FediverseRelationships
-            .Select(r => r.TargetPublisherId)
+        var actorIdsWithFollowers = await db.PublisherSubscriptions
+            .Select(r => r.PublisherId)
             .Distinct()
             .ToListAsync();
 

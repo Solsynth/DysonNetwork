@@ -148,6 +148,7 @@ public class PublisherService(
         var publishersId = await db.PublisherSubscriptions
             .Where(p => p.AccountId == userId)
             .Where(p => !p.EndedAt.HasValue)
+            .Where(p => p.State == PublisherSubscriptionState.Accepted && !p.IsBlocking)
             .Select(p => p.PublisherId)
             .ToListAsync();
         publishers = await db.Publishers
@@ -305,7 +306,12 @@ public class PublisherService(
 
         var stickersCount = await db.Stickers.Where(e => stickerPacksId.Contains(e.PackId)).CountAsync();
 
-        var subscribersCount = await db.PublisherSubscriptions.Where(e => e.PublisherId == publisher.Id).CountAsync();
+        var subscribersCount = await db.PublisherSubscriptions
+            .Where(e => e.PublisherId == publisher.Id
+                && e.EndedAt == null
+                && e.State == PublisherSubscriptionState.Accepted
+                && !e.IsBlocking)
+            .CountAsync();
 
         stats = new PublisherStats
         {
@@ -432,35 +438,36 @@ public class PublisherService(
 
     public async Task<bool> IsFollower(Guid publisherId, Guid accountId)
     {
-        var request = await db.PublisherFollowRequests
-            .FirstOrDefaultAsync(r =>
+        return await db.PublisherSubscriptions
+            .AnyAsync(r =>
                 r.PublisherId == publisherId &&
                 r.AccountId == accountId &&
-                r.State == FollowRequestState.Accepted
+                r.State == PublisherSubscriptionState.Accepted &&
+                r.EndedAt == null
             );
-        return request != null;
     }
 
     public async Task<bool> HasAcceptedFollowRequest(Guid publisherId, Guid accountId)
     {
-        return await db.PublisherFollowRequests
+        return await db.PublisherSubscriptions
             .AnyAsync(r =>
                 r.PublisherId == publisherId &&
                 r.AccountId == accountId &&
-                r.State == FollowRequestState.Accepted
+                r.State == PublisherSubscriptionState.Accepted &&
+                r.EndedAt == null
             );
     }
 
-    public async Task<SnPublisherFollowRequest?> GetFollowRequest(Guid publisherId, Guid accountId)
+    public async Task<SnPublisherSubscription?> GetFollowRequest(Guid publisherId, Guid accountId)
     {
-        return await db.PublisherFollowRequests
+        return await db.PublisherSubscriptions
             .FirstOrDefaultAsync(r =>
                 r.PublisherId == publisherId &&
                 r.AccountId == accountId
             );
     }
 
-    public async Task<SnPublisherFollowRequest> CreateFollowRequest(Guid publisherId, Guid accountId)
+    public async Task<SnPublisherSubscription> CreateFollowRequest(Guid publisherId, Guid accountId)
     {
         var publisher = await db.Publishers.FindAsync(publisherId);
         if (publisher?.AccountId is not null)
@@ -473,11 +480,15 @@ public class PublisherService(
         var existingRequest = await GetFollowRequest(publisherId, accountId);
         if (existingRequest != null)
         {
-            if (existingRequest.State == FollowRequestState.Pending)
+            if (existingRequest.State == PublisherSubscriptionState.Pending && existingRequest.EndedAt == null)
                 throw new InvalidOperationException("Follow request already pending");
-            if (existingRequest.State == FollowRequestState.Accepted)
+            if (existingRequest.State == PublisherSubscriptionState.Accepted && existingRequest.EndedAt == null)
                 throw new InvalidOperationException("Already following");
-            existingRequest.State = FollowRequestState.Pending;
+            existingRequest.State = PublisherSubscriptionState.Pending;
+            existingRequest.EndedAt = null;
+            existingRequest.EndReason = null;
+            existingRequest.EndedByAccountId = null;
+            existingRequest.IsBlocking = false;
             existingRequest.ReviewedAt = null;
             existingRequest.ReviewedByAccountId = null;
             existingRequest.RejectReason = null;
@@ -485,70 +496,54 @@ public class PublisherService(
             return existingRequest;
         }
 
-        var request = new SnPublisherFollowRequest
+        var request = new SnPublisherSubscription
         {
             PublisherId = publisherId,
             AccountId = accountId,
-            State = FollowRequestState.Pending
+            State = PublisherSubscriptionState.Pending
         };
-        db.PublisherFollowRequests.Add(request);
+        db.PublisherSubscriptions.Add(request);
         await db.SaveChangesAsync();
         return request;
     }
 
-    public async Task<SnPublisherFollowRequest> ApproveFollowRequest(Guid requestId, Guid reviewerAccountId)
+    public async Task<SnPublisherSubscription> ApproveFollowRequest(Guid requestId, Guid reviewerAccountId)
     {
-        var request = await db.PublisherFollowRequests
+        var request = await db.PublisherSubscriptions
             .Include(r => r.Publisher)
             .FirstOrDefaultAsync(r => r.Id == requestId);
 
         if (request == null)
             throw new InvalidOperationException("Follow request not found");
 
-        if (request.State != FollowRequestState.Pending)
+        if (request.State != PublisherSubscriptionState.Pending)
             throw new InvalidOperationException("Request is not pending");
 
-        request.State = FollowRequestState.Accepted;
+        request.State = PublisherSubscriptionState.Accepted;
+        request.FollowedAt = SystemClock.Instance.GetCurrentInstant();
         request.ReviewedAt = SystemClock.Instance.GetCurrentInstant();
         request.ReviewedByAccountId = reviewerAccountId;
-
-        var existingSubscription = await db.PublisherSubscriptions
-            .FirstOrDefaultAsync(s => s.PublisherId == request.PublisherId && s.AccountId == request.AccountId);
-
-        if (existingSubscription == null)
-        {
-            var subscription = new SnPublisherSubscription
-            {
-                PublisherId = request.PublisherId,
-                AccountId = request.AccountId,
-                Notify = false,
-            };
-            db.PublisherSubscriptions.Add(subscription);
-        }
-        else
-        {
-            existingSubscription.EndedAt = null;
-            existingSubscription.EndReason = null;
-            existingSubscription.EndedByAccountId = null;
-        }
+        request.EndedAt = null;
+        request.EndReason = null;
+        request.EndedByAccountId = null;
 
         await db.SaveChangesAsync();
 
         return request;
     }
 
-    public async Task<SnPublisherFollowRequest> RejectFollowRequest(Guid requestId, Guid reviewerAccountId, string? reason = null)
+    public async Task<SnPublisherSubscription> RejectFollowRequest(Guid requestId, Guid reviewerAccountId, string? reason = null)
     {
-        var request = await db.PublisherFollowRequests
+        var request = await db.PublisherSubscriptions
             .FirstOrDefaultAsync(r => r.Id == requestId);
 
         if (request == null)
             throw new InvalidOperationException("Follow request not found");
 
-        if (request.State != FollowRequestState.Pending)
+        if (request.State != PublisherSubscriptionState.Pending)
             throw new InvalidOperationException("Request is not pending");
 
-        request.State = FollowRequestState.Rejected;
+        request.State = PublisherSubscriptionState.Rejected;
         request.ReviewedAt = SystemClock.Instance.GetCurrentInstant();
         request.ReviewedByAccountId = reviewerAccountId;
         request.RejectReason = reason;
@@ -557,10 +552,10 @@ public class PublisherService(
         return request;
     }
 
-    public async Task<List<SnPublisherFollowRequest>> GetPendingFollowRequests(Guid publisherId)
+    public async Task<List<SnPublisherSubscription>> GetPendingFollowRequests(Guid publisherId)
     {
-        return await db.PublisherFollowRequests
-            .Where(r => r.PublisherId == publisherId && r.State == FollowRequestState.Pending)
+        return await db.PublisherSubscriptions
+            .Where(r => r.PublisherId == publisherId && r.State == PublisherSubscriptionState.Pending)
             .OrderBy(r => r.CreatedAt)
             .ToListAsync();
     }
@@ -570,14 +565,14 @@ public class PublisherService(
         var now = SystemClock.Instance.GetCurrentInstant();
         var expirationThreshold = now.Minus(Duration.FromDays(7));
 
-        var expiredRequests = await db.PublisherFollowRequests
-            .Where(r => r.State == FollowRequestState.Pending && r.CreatedAt < expirationThreshold)
+        var expiredRequests = await db.PublisherSubscriptions
+            .Where(r => r.State == PublisherSubscriptionState.Pending && r.CreatedAt < expirationThreshold)
             .ToListAsync();
 
         if (expiredRequests.Count == 0)
             return 0;
 
-        db.PublisherFollowRequests.RemoveRange(expiredRequests);
+        db.PublisherSubscriptions.RemoveRange(expiredRequests);
         await db.SaveChangesAsync();
 
         return expiredRequests.Count;
@@ -585,7 +580,7 @@ public class PublisherService(
 
     public async Task CancelFollowRequest(Guid publisherId, Guid accountId)
     {
-        var request = await db.PublisherFollowRequests
+        var request = await db.PublisherSubscriptions
             .FirstOrDefaultAsync(r =>
                 r.PublisherId == publisherId &&
                 r.AccountId == accountId
@@ -593,7 +588,7 @@ public class PublisherService(
 
         if (request != null)
         {
-            db.PublisherFollowRequests.Remove(request);
+            db.PublisherSubscriptions.Remove(request);
             await db.SaveChangesAsync();
         }
     }
@@ -1290,8 +1285,11 @@ public class PublisherService(
             .Include(a => a.Instance)
             .FirstOrDefaultAsync(a => a.Id == publisherId && a.Uri != null);
 
-        var followerCount = await db.FediverseRelationships
-            .Where(r => r.TargetPublisherId == publisherId && r.State == RelationshipState.Accepted)
+        var followerCount = await db.PublisherSubscriptions
+            .Where(r => r.PublisherId == publisherId
+                && r.State == PublisherSubscriptionState.Accepted
+                && r.EndedAt == null
+                && !r.IsBlocking)
             .CountAsync();
 
         var publisher = await db.Publishers

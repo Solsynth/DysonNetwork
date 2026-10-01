@@ -124,11 +124,11 @@ public class FediverseCachingService(
 
         await SetActorAsync(actor, instanceDomain);
 
-        var followersCount = await db.FediverseRelationships
-            .CountAsync(r => r.TargetPublisherId == actor.Id && r.State == RelationshipState.Accepted);
+        var followersCount = await db.PublisherSubscriptions
+            .CountAsync(r => r.PublisherId == actor.Id && r.State == PublisherSubscriptionState.Accepted && r.EndedAt == null && !r.IsBlocking);
 
-        var followingCount = await db.FediverseRelationships
-            .CountAsync(r => r.PublisherId == actor.Id && r.State == RelationshipState.Accepted);
+        var followingCount = await db.PublisherSubscriptions
+            .CountAsync(r => r.FollowerPublisherId == actor.Id && r.State == PublisherSubscriptionState.Accepted && r.EndedAt == null && !r.IsBlocking);
 
         return new CachedActor
         {
@@ -165,11 +165,11 @@ public class FediverseCachingService(
 
         await SetActorAsync(actor, actor.Instance?.Domain ?? "unknown");
 
-        var followersCount = await db.FediverseRelationships
-            .CountAsync(r => r.TargetPublisherId == actor.Id && r.State == RelationshipState.Accepted);
+        var followersCount = await db.PublisherSubscriptions
+            .CountAsync(r => r.PublisherId == actor.Id && r.State == PublisherSubscriptionState.Accepted && r.EndedAt == null && !r.IsBlocking);
 
-        var followingCount = await db.FediverseRelationships
-            .CountAsync(r => r.PublisherId == actor.Id && r.State == RelationshipState.Accepted);
+        var followingCount = await db.PublisherSubscriptions
+            .CountAsync(r => r.FollowerPublisherId == actor.Id && r.State == PublisherSubscriptionState.Accepted && r.EndedAt == null && !r.IsBlocking);
 
         return new CachedActor
         {

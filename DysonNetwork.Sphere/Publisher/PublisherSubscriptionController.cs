@@ -41,7 +41,7 @@ public class PublisherSubscriptionController(
     public class SubscriptionStatusResponse
     {
         public SnPublisherSubscription? Subscription { get; set; }
-        public SnPublisherFollowRequest? FollowRequest { get; set; }
+        public SnPublisherSubscription? FollowRequest { get; set; }
         public bool RequiresApproval { get; set; }
         public string Status { get; set; } = "none";
         public string Message { get; set; } = string.Empty;
@@ -80,14 +80,14 @@ public class PublisherSubscriptionController(
                 response.Subscription = followSubscription;
                 response.Notify = followSubscription?.Notify ?? true;
                 response.IsActive =
-                    followRequest.State == FollowRequestState.Accepted
+                    followRequest.State == PublisherSubscriptionState.Accepted
                     && (followSubscription?.IsActive ?? false);
-                response.IsPending = followRequest.State == FollowRequestState.Pending;
+                response.IsPending = followRequest.State == PublisherSubscriptionState.Pending;
                 response.Status = followRequest.State switch
                 {
-                    FollowRequestState.Pending => "pending",
-                    FollowRequestState.Accepted => response.IsActive ? "following" : "ended",
-                    FollowRequestState.Rejected => "rejected",
+                    PublisherSubscriptionState.Pending => "pending",
+                    PublisherSubscriptionState.Accepted => response.IsActive ? "following" : "ended",
+                    PublisherSubscriptionState.Rejected => "rejected",
                     _ => "none",
                 };
                 response.Message = response.Status switch
@@ -165,7 +165,7 @@ public class PublisherSubscriptionController(
             {
                 return existingRequest.State switch
                 {
-                    FollowRequestState.Pending => BadRequest(
+                    PublisherSubscriptionState.Pending => BadRequest(
                         new SubscriptionStatusResponse
                         {
                             Status = "pending",
@@ -174,7 +174,7 @@ public class PublisherSubscriptionController(
                             FollowRequest = existingRequest,
                         }
                     ),
-                    FollowRequestState.Accepted => Ok(
+                    PublisherSubscriptionState.Accepted => Ok(
                         new SubscriptionStatusResponse
                         {
                             Status = "following",
@@ -183,7 +183,7 @@ public class PublisherSubscriptionController(
                             FollowRequest = existingRequest,
                         }
                     ),
-                    FollowRequestState.Rejected => BadRequest(
+                    PublisherSubscriptionState.Rejected => BadRequest(
                         new SubscriptionStatusResponse
                         {
                             Status = "rejected",
@@ -355,7 +355,10 @@ public class PublisherSubscriptionController(
 
         var subscriptionsQuery = db
             .PublisherSubscriptions.Include(ps => ps.Publisher)
-            .Where(ps => ps.AccountId == accountId && ps.EndedAt == null);
+            .Where(ps => ps.AccountId == accountId
+                && ps.EndedAt == null
+                && ps.State == PublisherSubscriptionState.Accepted
+                && !ps.IsBlocking);
 
         switch (order?.Trim().ToLowerInvariant())
         {
@@ -398,7 +401,10 @@ public class PublisherSubscriptionController(
             .ToListAsync();
 
         var totalCount = await db.PublisherSubscriptions.CountAsync(ps =>
-            ps.AccountId == accountId && ps.EndedAt == null
+            ps.AccountId == accountId
+            && ps.EndedAt == null
+            && ps.State == PublisherSubscriptionState.Accepted
+            && !ps.IsBlocking
         );
 
         var publisherIds = subscriptions.Select(s => s.PublisherId).ToList();
@@ -472,7 +478,7 @@ public class PublisherSubscriptionController(
 
         var query = db
             .PublisherSubscriptions.Where(s => s.PublisherId == publisher.Id)
-            .Where(s => s.EndedAt == null);
+            .Where(s => s.EndedAt == null && s.State == PublisherSubscriptionState.Accepted && !s.IsBlocking);
 
         var total = await query.CountAsync();
         Response.Headers["X-Total"] = total.ToString();
@@ -483,7 +489,11 @@ public class PublisherSubscriptionController(
             .Take(take)
             .ToListAsync();
 
-        var accountIds = subscriptions.Select(s => s.AccountId).Distinct().ToList();
+        var accountIds = subscriptions
+            .Where(s => s.AccountId.HasValue)
+            .Select(s => s.AccountId!.Value)
+            .Distinct()
+            .ToList();
         var accountDict = new Dictionary<Guid, SnAccount>();
         foreach (var id in accountIds)
         {
@@ -496,7 +506,7 @@ public class PublisherSubscriptionController(
             .Select(s => new SubscriberResponse
             {
                 Subscription = s,
-                Account = accountDict.GetValueOrDefault(s.AccountId),
+                Account = s.AccountId is { } id ? accountDict.GetValueOrDefault(id) : null,
             })
             .ToList();
 
@@ -679,7 +689,9 @@ public class PublisherSubscriptionController(
         var accountId = Guid.Parse(currentUser.Id);
 
         var subscribedPublisherIds = await db
-            .PublisherSubscriptions.Where(ps => ps.AccountId == accountId && ps.EndedAt == null)
+            .PublisherSubscriptions.Where(ps => ps.AccountId == accountId
+                && ps.EndedAt == null
+                && ps.State == PublisherSubscriptionState.Accepted)
             .Select(ps => ps.PublisherId)
             .ToListAsync();
 
@@ -710,7 +722,7 @@ public class PublisherSubscriptionController(
 
     [HttpGet("{name}/subscription/requests")]
     [Authorize]
-    public async Task<ActionResult<List<SnPublisherFollowRequest>>> GetPendingFollowRequests(
+    public async Task<ActionResult<List<SnPublisherSubscription>>> GetPendingFollowRequests(
         string name
     )
     {
@@ -727,7 +739,11 @@ public class PublisherSubscriptionController(
 
         var requests = await pub.GetPendingFollowRequests(publisher.Id);
 
-        var accountIds = requests.Select(r => r.AccountId).Distinct().ToList();
+        var accountIds = requests
+            .Where(r => r.AccountId.HasValue)
+            .Select(r => r.AccountId!.Value)
+            .Distinct()
+            .ToList();
         var accountDict = new Dictionary<Guid, DyAccount>();
         foreach (var id in accountIds)
         {
@@ -738,7 +754,7 @@ public class PublisherSubscriptionController(
 
         foreach (var request in requests)
         {
-            if (accountDict.TryGetValue(request.AccountId, out var requesterAccount))
+            if (request.AccountId is { } requesterId && accountDict.TryGetValue(requesterId, out var requesterAccount))
                 request.Account = SnAccount.FromProtoValue(requesterAccount);
         }
 
@@ -748,7 +764,7 @@ public class PublisherSubscriptionController(
     [HttpPost("{name}/subscription/requests/{requestId}/approve")]
     [Authorize]
     [AskPermission(PermissionKeys.PublishersSubscriptionsManage)]
-    public async Task<ActionResult<SnPublisherFollowRequest>> ApproveFollowRequest(
+    public async Task<ActionResult<SnPublisherSubscription>> ApproveFollowRequest(
         string name,
         Guid requestId
     )
@@ -768,27 +784,30 @@ public class PublisherSubscriptionController(
         {
             var request = await pub.ApproveFollowRequest(requestId, accountId);
 
-            var requesterAccount = await accounts.TryGetAccount(request.AccountId);
-            if (requesterAccount != null)
+            if (request.AccountId is { } requesterId)
             {
-                var title = localization.Get(
-                    "followRequestApprovedTitle",
-                    requesterAccount.Language
-                );
-                var body = localization.Get(
-                    "followRequestApprovedBody",
-                    requesterAccount.Language,
-                    new { publisher = publisher.Nick }
-                );
+                var requesterAccount = await accounts.TryGetAccount(requesterId);
+                if (requesterAccount != null)
+                {
+                    var title = localization.Get(
+                        "followRequestApprovedTitle",
+                        requesterAccount.Language
+                    );
+                    var body = localization.Get(
+                        "followRequestApprovedBody",
+                        requesterAccount.Language,
+                        new { publisher = publisher.Nick }
+                    );
 
-                await ring.SendPushNotificationToUser(
-                    request.AccountId.ToString(),
-                    "follow_approved",
-                    title,
-                    null,
-                    body,
-                    isSavable: true
-                );
+                    await ring.SendPushNotificationToUser(
+                        requesterId.ToString(),
+                        "follow_approved",
+                        title,
+                        null,
+                        body,
+                        isSavable: true
+                    );
+                }
             }
 
             return Ok(request);
@@ -802,7 +821,7 @@ public class PublisherSubscriptionController(
     [HttpPost("{name}/subscription/requests/{requestId}/reject")]
     [Authorize]
     [AskPermission(PermissionKeys.PublishersSubscriptionsManage)]
-    public async Task<ActionResult<SnPublisherFollowRequest>> RejectFollowRequest(
+    public async Task<ActionResult<SnPublisherSubscription>> RejectFollowRequest(
         string name,
         Guid requestId,
         [FromBody] RejectFollowRequestBody body
@@ -823,27 +842,30 @@ public class PublisherSubscriptionController(
         {
             var request = await pub.RejectFollowRequest(requestId, accountId, body.Reason);
 
-            var requesterAccount = await accounts.TryGetAccount(request.AccountId);
-            if (requesterAccount != null)
+            if (request.AccountId is { } requesterId)
             {
-                var title = localization.Get(
-                    "followRequestRejectedTitle",
-                    requesterAccount.Language
-                );
-                var notificationBody = localization.Get(
-                    "followRequestRejectedBody",
-                    requesterAccount.Language,
-                    new { publisher = publisher.Nick }
-                );
+                var requesterAccount = await accounts.TryGetAccount(requesterId);
+                if (requesterAccount != null)
+                {
+                    var title = localization.Get(
+                        "followRequestRejectedTitle",
+                        requesterAccount.Language
+                    );
+                    var notificationBody = localization.Get(
+                        "followRequestRejectedBody",
+                        requesterAccount.Language,
+                        new { publisher = publisher.Nick }
+                    );
 
-                await ring.SendPushNotificationToUser(
-                    request.AccountId.ToString(),
-                    "follow_rejected",
-                    title,
-                    null,
-                    notificationBody,
-                    isSavable: true
-                );
+                    await ring.SendPushNotificationToUser(
+                        requesterId.ToString(),
+                        "follow_rejected",
+                        title,
+                        null,
+                        notificationBody,
+                        isSavable: true
+                    );
+                }
             }
 
             return Ok(request);
@@ -852,5 +874,159 @@ public class PublisherSubscriptionController(
         {
             return BadRequest(new ApiError { Code = "PUBLISHER_FOLLOW_REJECT_FAILED", Message = ex.Message, Status = 400 });
         }
+    }
+
+    public class PublisherRelationshipResponse
+    {
+        public SnPublisherSubscription? Subscription { get; set; }
+        public bool IsBlocking { get; set; }
+        public bool IsMuting { get; set; }
+        public bool IsSubscribed { get; set; }
+    }
+
+    [HttpGet("blocked")]
+    [Authorize]
+    public async Task<ActionResult<List<SnPublisherSubscription>>> GetBlockedPublishers()
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
+
+        var blocked = await subs.GetBlockedPublishersAsync(Guid.Parse(currentUser.Id));
+        return Ok(blocked);
+    }
+
+    [HttpGet("muted")]
+    [Authorize]
+    public async Task<ActionResult<List<SnPublisherSubscription>>> GetMutedPublishers()
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
+
+        var muted = await subs.GetMutedPublishersAsync(Guid.Parse(currentUser.Id));
+        return Ok(muted);
+    }
+
+    [HttpGet("{name}/relationship")]
+    [Authorize]
+    public async Task<ActionResult<PublisherRelationshipResponse>> GetPublisherRelationship(string name)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
+
+        var publisher = await db.Publishers.FirstOrDefaultAsync(p => p.Name.ToLower() == name.ToLowerInvariant());
+        if (publisher == null)
+            return NotFound(new ApiError { Code = "PUBLISHER_NOT_FOUND", Message = "Publisher not found", Status = 404 });
+
+        var accountId = Guid.Parse(currentUser.Id);
+        var subscription = await subs.GetSubscriptionIncludingEndedAsync(accountId, publisher.Id);
+        var active = await subs.GetSubscriptionAsync(accountId, publisher.Id);
+
+        return Ok(new PublisherRelationshipResponse
+        {
+            Subscription = subscription,
+            IsBlocking = subscription?.IsBlocking ?? false,
+            IsMuting = subscription?.IsMuting ?? false,
+            IsSubscribed = active != null,
+        });
+    }
+
+    [HttpPost("{name}/block")]
+    [Authorize]
+    [AskPermission(PermissionKeys.PublishersSubscriptionsManage)]
+    public async Task<ActionResult<PublisherRelationshipResponse>> BlockPublisher(string name)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
+
+        var publisher = await db.Publishers.FirstOrDefaultAsync(p => p.Name.ToLower() == name.ToLowerInvariant());
+        if (publisher == null)
+            return NotFound(new ApiError { Code = "PUBLISHER_NOT_FOUND", Message = "Publisher not found", Status = 404 });
+
+        var accountId = Guid.Parse(currentUser.Id);
+        var subscription = await subs.SetPublisherBlockingAsync(accountId, publisher.Id, true);
+        var active = await subs.GetSubscriptionAsync(accountId, publisher.Id);
+
+        return Ok(new PublisherRelationshipResponse
+        {
+            Subscription = subscription,
+            IsBlocking = true,
+            IsMuting = subscription.IsMuting,
+            IsSubscribed = active != null,
+        });
+    }
+
+    [HttpDelete("{name}/block")]
+    [Authorize]
+    [AskPermission(PermissionKeys.PublishersSubscriptionsManage)]
+    public async Task<ActionResult<PublisherRelationshipResponse>> UnblockPublisher(string name)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
+
+        var publisher = await db.Publishers.FirstOrDefaultAsync(p => p.Name.ToLower() == name.ToLowerInvariant());
+        if (publisher == null)
+            return NotFound(new ApiError { Code = "PUBLISHER_NOT_FOUND", Message = "Publisher not found", Status = 404 });
+
+        var accountId = Guid.Parse(currentUser.Id);
+        var subscription = await subs.SetPublisherBlockingAsync(accountId, publisher.Id, false);
+        var active = await subs.GetSubscriptionAsync(accountId, publisher.Id);
+
+        return Ok(new PublisherRelationshipResponse
+        {
+            Subscription = subscription,
+            IsBlocking = false,
+            IsMuting = subscription.IsMuting,
+            IsSubscribed = active != null,
+        });
+    }
+
+    [HttpPost("{name}/mute")]
+    [Authorize]
+    [AskPermission(PermissionKeys.PublishersSubscriptionsManage)]
+    public async Task<ActionResult<PublisherRelationshipResponse>> MutePublisher(string name)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
+
+        var publisher = await db.Publishers.FirstOrDefaultAsync(p => p.Name.ToLower() == name.ToLowerInvariant());
+        if (publisher == null)
+            return NotFound(new ApiError { Code = "PUBLISHER_NOT_FOUND", Message = "Publisher not found", Status = 404 });
+
+        var accountId = Guid.Parse(currentUser.Id);
+        var subscription = await subs.SetPublisherMutingAsync(accountId, publisher.Id, true);
+        var active = await subs.GetSubscriptionAsync(accountId, publisher.Id);
+
+        return Ok(new PublisherRelationshipResponse
+        {
+            Subscription = subscription,
+            IsBlocking = subscription?.IsBlocking ?? false,
+            IsMuting = true,
+            IsSubscribed = active != null,
+        });
+    }
+
+    [HttpDelete("{name}/mute")]
+    [Authorize]
+    [AskPermission(PermissionKeys.PublishersSubscriptionsManage)]
+    public async Task<ActionResult<PublisherRelationshipResponse>> UnmutePublisher(string name)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
+
+        var publisher = await db.Publishers.FirstOrDefaultAsync(p => p.Name.ToLower() == name.ToLowerInvariant());
+        if (publisher == null)
+            return NotFound(new ApiError { Code = "PUBLISHER_NOT_FOUND", Message = "Publisher not found", Status = 404 });
+
+        var accountId = Guid.Parse(currentUser.Id);
+        var subscription = await subs.SetPublisherMutingAsync(accountId, publisher.Id, false);
+        var active = await subs.GetSubscriptionAsync(accountId, publisher.Id);
+
+        return Ok(new PublisherRelationshipResponse
+        {
+            Subscription = subscription,
+            IsBlocking = subscription?.IsBlocking ?? false,
+            IsMuting = false,
+            IsSubscribed = active != null,
+        });
     }
 }

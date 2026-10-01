@@ -1381,10 +1381,13 @@ public partial class PostService(
         if (postsRequireFollow || post.Visibility == PostVisibility.QuietPublic)
         {
             var followerRequests = await db
-                .PublisherFollowRequests.Where(r =>
-                    r.PublisherId == publisherId && r.State == FollowRequestState.Accepted
+                .PublisherSubscriptions.Where(r =>
+                    r.PublisherId == publisherId
+                    && r.State == PublisherSubscriptionState.Accepted
+                    && r.EndedAt == null
+                    && r.AccountId != null
                 )
-                .Select(r => r.AccountId.ToString())
+                .Select(r => r.AccountId!.Value.ToString())
                 .ToListAsync();
             followerAccountIds = followerRequests.ToHashSet();
         }
@@ -3692,6 +3695,8 @@ public partial class PostService(
                     s.PublisherId == post.PublisherId
                     && s.AccountId == accountId
                     && s.EndedAt == null
+                    && s.State == PublisherSubscriptionState.Accepted
+                    && !s.IsBlocking
                 );
 
                 if (!isSubscribed)
@@ -3730,7 +3735,9 @@ public static class PostQueryExtensions
         HashSet<Guid>? blockedAccountIds = null,
         HashSet<Guid>? mutedAccountIds = null,
         HashSet<Guid>? closeFriendPublisherIds = null,
-        bool showQuietPublic = false
+        bool showQuietPublic = false,
+        HashSet<Guid>? blockedPublisherIds = null,
+        HashSet<Guid>? mutedPublisherIds = null
     )
     {
         var now = SystemClock.Instance.GetCurrentInstant();
@@ -3829,6 +3836,20 @@ public static class PostQueryExtensions
                 e.Publisher == null
                 || e.Publisher.AccountId == null
                 || !mutedAccountIds.Contains(e.Publisher.AccountId.Value)
+            );
+        }
+
+        if (blockedPublisherIds is { Count: > 0 })
+        {
+            result = result.Where(e =>
+                e.PublisherId == Guid.Empty || !blockedPublisherIds.Contains(e.PublisherId)
+            );
+        }
+
+        if (mutedPublisherIds is { Count: > 0 })
+        {
+            result = result.Where(e =>
+                e.PublisherId == Guid.Empty || !mutedPublisherIds.Contains(e.PublisherId)
             );
         }
 

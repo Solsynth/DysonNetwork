@@ -96,19 +96,19 @@ public class ActivityPubRealmController(
 
         var actorUrl = $"https://{Domain}/activitypub/realms/{slug}";
 
-        var relationships = await db.FediverseRelationships
-            .Where(r => r.RealmId == realm.Id && r.State == RelationshipState.Accepted)
-            .Include(r => r.Publisher)
+        var relationships = await db.PublisherSubscriptions
+            .Where(r => r.RealmId == realm.Id && r.State == PublisherSubscriptionState.Accepted)
+            .Include(r => r.FollowerPublisher)
             .Take(limit ?? 20)
             .ToListAsync();
 
         var items = relationships
-            .Where(r => r.Publisher != null)
+            .Where(r => r.FollowerPublisher != null)
             .Select(r => new ActivityPubActor
             {
-                Id = r.Publisher.Uri,
+                Id = r.FollowerPublisher!.Uri,
                 Type = "Person",
-                Name = r.Publisher.DisplayName ?? r.Publisher.Username
+                Name = r.FollowerPublisher.DisplayName ?? r.FollowerPublisher.Username
             })
             .ToList();
 
@@ -184,27 +184,27 @@ public class ActivityPubRealmController(
     {
         var actor = await GetOrCreateActorAsync(actorUri);
         
-        var existingFollow = await db.FediverseRelationships
+        var existingFollow = await db.PublisherSubscriptions
             .FirstOrDefaultAsync(r => 
-                r.TargetPublisherId == actor.Id && 
+                r.PublisherId == actor.Id && 
                 r.RealmId == realm.Id &&
-                r.State == RelationshipState.Accepted);
+                r.State == PublisherSubscriptionState.Accepted);
 
         if (existingFollow != null)
         {
             return Ok(new { status = "already_following" });
         }
 
-        var relationship = new SnFediverseRelationship
+        var relationship = new SnPublisherSubscription
         {
+            FollowerPublisherId = actor.Id,
             PublisherId = actor.Id,
-            TargetPublisherId = actor.Id,
             RealmId = realm.Id,
-            State = RelationshipState.Accepted,
+            State = PublisherSubscriptionState.Accepted,
             FollowedAt = SystemClock.Instance.GetCurrentInstant()
         };
 
-        db.FediverseRelationships.Add(relationship);
+        db.PublisherSubscriptions.Add(relationship);
         await db.SaveChangesAsync();
 
         var communityActorUrl = $"https://{Domain}/activitypub/realms/{realm.Slug}";
@@ -253,15 +253,15 @@ public class ActivityPubRealmController(
             return Ok(new { status = "ignored" });
 
         var actor = await GetOrCreateActorAsync(actorUri);
-        var relationship = await db.FediverseRelationships
+        var relationship = await db.PublisherSubscriptions
             .FirstOrDefaultAsync(r => 
-                r.PublisherId == actor.Id && 
-                r.TargetPublisherId == actor.Id &&
+                r.FollowerPublisherId == actor.Id && 
+                r.PublisherId == actor.Id &&
                 r.RealmId == realm.Id);
 
         if (relationship != null)
         {
-            db.FediverseRelationships.Remove(relationship);
+            db.PublisherSubscriptions.Remove(relationship);
             await db.SaveChangesAsync();
             logger.LogInformation("Removed follow relationship for {Actor} from community {Slug}", actorUri, realm.Slug);
         }
@@ -304,19 +304,19 @@ public class ActivityPubRealmController(
             ["cc"] = new[] { $"{communityActorUrl}/followers" }
         };
 
-        var followers = await db.FediverseRelationships
-            .Where(r => r.RealmId == realm.Id && r.State == RelationshipState.Accepted)
-            .Include(r => r.Publisher)
+        var followers = await db.PublisherSubscriptions
+            .Where(r => r.RealmId == realm.Id && r.State == PublisherSubscriptionState.Accepted)
+            .Include(r => r.FollowerPublisher)
             .ToListAsync();
 
         foreach (var follower in followers)
         {
-            if (follower.Publisher?.InboxUri == null) continue;
+            if (follower.FollowerPublisher?.InboxUri == null) continue;
             await deliveryService.EnqueueActivityDeliveryAsync(
                 "Announce",
                 announceActivity,
                 communityActorUrl,
-                follower.Publisher.InboxUri,
+                follower.FollowerPublisher.InboxUri,
                 announceActivity["id"]?.ToString() ?? ""
             );
         }
@@ -382,11 +382,4 @@ public class ActivityPubRealmController(
             _ => false
         };
     }
-}
-
-public enum FediverseRelationshipStatus
-{
-    Pending,
-    Accepted,
-    Rejected
 }

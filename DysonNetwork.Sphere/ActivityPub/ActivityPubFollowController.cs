@@ -82,20 +82,20 @@ public class ActivityPubFollowController(
             return Ok(new List<FediverseActorWithFollowStatus>());
         }
 
-        var totalCount = await db.FediverseRelationships.CountAsync(r =>
-            r.PublisherId == publisher.Id && r.State == RelationshipState.Accepted
+        var totalCount = await db.PublisherSubscriptions.CountAsync(r =>
+            r.FollowerPublisherId == publisher.Id && r.State == PublisherSubscriptionState.Accepted && r.EndedAt == null && !r.IsBlocking
         );
 
         var actors = await db
-            .FediverseRelationships.Include(r => r.TargetPublisher)
+            .PublisherSubscriptions.Include(r => r.Publisher)
             .ThenInclude(a => a.Instance)
             .Where(r =>
-                r.PublisherId == publisher.Id && r.State == RelationshipState.Accepted
+                r.FollowerPublisherId == publisher.Id && r.State == PublisherSubscriptionState.Accepted && r.EndedAt == null && !r.IsBlocking
             )
             .OrderByDescending(r => r.FollowedAt)
             .Skip(offset)
             .Take(take)
-            .Select(r => r.TargetPublisher)
+            .Select(r => r.Publisher)
             .ToListAsync();
 
         var result = actors.Select(a => FediverseActorWithFollowStatus.FromActor(a, true)).ToList();
@@ -125,20 +125,20 @@ public class ActivityPubFollowController(
             return Ok(new List<FediverseActorWithFollowStatus>());
         }
 
-        var totalCount = await db.FediverseRelationships.CountAsync(r =>
-            r.TargetPublisherId == publisher.Id && r.State == RelationshipState.Accepted
+        var totalCount = await db.PublisherSubscriptions.CountAsync(r =>
+            r.PublisherId == publisher.Id && r.State == PublisherSubscriptionState.Accepted && r.EndedAt == null && !r.IsBlocking
         );
 
         var actors = await db
-            .FediverseRelationships.Include(r => r.Publisher)
+            .PublisherSubscriptions.Include(r => r.FollowerPublisher)
             .ThenInclude(a => a.Instance)
             .Where(r =>
-                r.TargetPublisherId == publisher.Id && r.State == RelationshipState.Accepted
+                r.PublisherId == publisher.Id && r.State == PublisherSubscriptionState.Accepted && r.EndedAt == null && !r.IsBlocking
             )
             .OrderByDescending(r => r.FollowedAt ?? r.CreatedAt)
             .Skip(offset)
             .Take(take)
-            .Select(r => r.Publisher)
+            .Select(r => r.FollowerPublisher!)
             .ToListAsync();
 
         var result = await GetActorsWithFollowStatusAsync(actors, publisher.Id);
@@ -192,21 +192,21 @@ public class ActivityPubFollowController(
 
         var actorUrl = $"https://{Domain}/activitypub/actors/{publisher.Name}";
 
-        var followingCount = await db.FediverseRelationships.CountAsync(r =>
-            r.PublisherId == publisher.Id && r.State == RelationshipState.Accepted
+        var followingCount = await db.PublisherSubscriptions.CountAsync(r =>
+            r.FollowerPublisherId == publisher.Id && r.State == PublisherSubscriptionState.Accepted && r.EndedAt == null && !r.IsBlocking
         );
 
-        var followersCount = await db.FediverseRelationships.CountAsync(r =>
-            r.TargetPublisherId == publisher.Id && r.State == RelationshipState.Accepted
+        var followersCount = await db.PublisherSubscriptions.CountAsync(r =>
+            r.PublisherId == publisher.Id && r.State == PublisherSubscriptionState.Accepted && r.EndedAt == null && !r.IsBlocking
         );
 
-        var pendingCount = await db.FediverseRelationships.CountAsync(r =>
-            r.PublisherId == publisher.Id && r.State == RelationshipState.Pending
+        var pendingCount = await db.PublisherSubscriptions.CountAsync(r =>
+            r.FollowerPublisherId == publisher.Id && r.State == PublisherSubscriptionState.Pending
         );
 
         var relationships = await db
-            .FediverseRelationships.Include(r => r.TargetPublisher)
-            .Where(r => r.PublisherId == publisher.Id)
+            .PublisherSubscriptions.Include(r => r.Publisher)
+            .Where(r => r.FollowerPublisherId == publisher.Id)
             .OrderByDescending(r => r.FollowedAt ?? r.CreatedAt)
             .Take(20)
             .ToListAsync();
@@ -221,13 +221,13 @@ public class ActivityPubFollowController(
                 Relationships = relationships
                     .Select(r => new RelationshipSummaryItem
                     {
-                        Actor = r.TargetPublisher,
+                        Actor = r.Publisher,
                         State = r.State,
                         IsFollowing = true,
                         FollowedAt = r.FollowedAt,
-                        TargetPublisherUri = r.TargetPublisher.Uri,
-                        Username = r.TargetPublisher.Username,
-                        DisplayName = r.TargetPublisher.DisplayName,
+                        TargetPublisherUri = r.Publisher.Uri,
+                        Username = r.Publisher.Username,
+                        DisplayName = r.Publisher.DisplayName,
                     })
                     .ToList(),
             }
@@ -377,12 +377,14 @@ public class ActivityPubFollowController(
             return actors.Select(a => FediverseActorWithFollowStatus.FromActor(a, false)).ToList();
 
         var followingActorIds = await db
-            .FediverseRelationships.Where(r =>
-                r.PublisherId == userActor.Id
-                && actorIds.Contains(r.TargetPublisherId)
-                && r.State == RelationshipState.Accepted
+            .PublisherSubscriptions.Where(r =>
+                r.FollowerPublisherId == userActor.Id
+                && actorIds.Contains(r.PublisherId)
+                && r.State == PublisherSubscriptionState.Accepted
+                && r.EndedAt == null
+                && !r.IsBlocking
             )
-            .Select(r => r.TargetPublisherId)
+            .Select(r => r.PublisherId)
             .ToListAsync();
 
         var result = actors
@@ -438,7 +440,7 @@ public class RelationshipsSummary
 public class RelationshipSummaryItem
 {
     public SnPublisher Actor { get; set; } = null!;
-    public RelationshipState State { get; set; }
+    public PublisherSubscriptionState State { get; set; }
     public bool IsFollowing { get; set; }
     public Instant? FollowedAt { get; set; }
     public string TargetPublisherUri { get; set; } = string.Empty;

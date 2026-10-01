@@ -385,9 +385,9 @@ public class ActivityPubController : ControllerBase
         var followersUrl = $"{actorUrl}/followers";
 
         var relationshipsQuery = _db
-            .FediverseRelationships.Include(r => r.Publisher)
+            .PublisherSubscriptions.Include(r => r.FollowerPublisher)
             .Where(r =>
-                r.TargetPublisherId == publisher.Id && r.State == RelationshipState.Accepted
+                r.PublisherId == publisher.Id && r.State == PublisherSubscriptionState.Accepted && r.EndedAt == null && !r.IsBlocking
             );
 
         var totalItems = await relationshipsQuery.CountAsync();
@@ -401,7 +401,7 @@ public class ActivityPubController : ControllerBase
                 .OrderByDescending(r => r.FollowedAt)
                 .Skip(skip)
                 .Take(pageSize)
-                .Select(r => r.Publisher.Uri)
+                .Select(r => r.FollowerPublisher!.Uri)
                 .ToListAsync();
 
             var collectionPage = new ActivityPubCollectionPage
@@ -452,9 +452,9 @@ public class ActivityPubController : ControllerBase
         var followingUrl = $"{actorUrl}/following";
 
         var relationshipsQuery = _db
-            .FediverseRelationships.Include(r => r.TargetPublisher)
+            .PublisherSubscriptions.Include(r => r.Publisher)
             .Where(r =>
-                r.PublisherId == publisher.Id && r.State == RelationshipState.Accepted
+                r.FollowerPublisherId == publisher.Id && r.State == PublisherSubscriptionState.Accepted && r.EndedAt == null && !r.IsBlocking
             );
 
         var totalItems = await relationshipsQuery.CountAsync();
@@ -468,7 +468,7 @@ public class ActivityPubController : ControllerBase
                 .OrderByDescending(r => r.FollowedAt)
                 .Skip(skip)
                 .Take(pageSize)
-                .Select(r => r.TargetPublisher.Uri)
+                .Select(r => r.Publisher.Uri)
                 .ToListAsync();
 
             var collectionPage = new ActivityPubCollectionPage

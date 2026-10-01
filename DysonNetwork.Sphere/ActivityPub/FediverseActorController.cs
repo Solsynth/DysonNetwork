@@ -853,10 +853,10 @@ public class FediverseActorController(
             return NotFound(new ApiError { Code = "ACTIVITYPUB_ACTOR_NOT_FOUND", Message = "Actor not found", Status = 404 });
 
         var followerQuery = db
-            .FediverseRelationships.Include(r => r.Publisher)
+            .PublisherSubscriptions.Include(r => r.FollowerPublisher)
             .ThenInclude(a => a.Instance)
-            .Where(r => r.TargetPublisherId == id && r.State == RelationshipState.Accepted)
-            .Select(r => r.Publisher);
+            .Where(r => r.PublisherId == id && r.State == PublisherSubscriptionState.Accepted && r.EndedAt == null && !r.IsBlocking)
+            .Select(r => r.FollowerPublisher!);
 
         var totalCount = await followerQuery.CountAsync();
         Response.Headers["X-Total"] = totalCount.ToString();
@@ -880,10 +880,10 @@ public class FediverseActorController(
             return NotFound(new ApiError { Code = "ACTIVITYPUB_ACTOR_NOT_FOUND", Message = "Actor not found", Status = 404 });
 
         var followingQuery = db
-            .FediverseRelationships.Include(r => r.TargetPublisher)
+            .PublisherSubscriptions.Include(r => r.Publisher)
             .ThenInclude(a => a.Instance)
-            .Where(r => r.PublisherId == id && r.State == RelationshipState.Accepted)
-            .Select(r => r.TargetPublisher);
+            .Where(r => r.FollowerPublisherId == id && r.State == PublisherSubscriptionState.Accepted && r.EndedAt == null && !r.IsBlocking)
+            .Select(r => r.Publisher);
 
         var totalCount = await followingQuery.CountAsync();
         Response.Headers["X-Total"] = totalCount.ToString();
@@ -935,17 +935,18 @@ public class FediverseActorController(
             );
         }
 
-        var relationship = await db.FediverseRelationships
-            .Where(r => localActorIds.Contains(r.PublisherId) && r.TargetPublisherId == id)
+        var relationship = await db.PublisherSubscriptions
+            .Where(r => r.FollowerPublisherId != null && localActorIds.Contains(r.FollowerPublisherId!.Value) && r.PublisherId == id)
             .ToListAsync();
 
-        var isFollowing = relationship.Any(r => r.State == RelationshipState.Accepted);
-        var isPending = relationship.Any(r => r.State == RelationshipState.Pending);
+        var isFollowing = relationship.Any(r => r.State == PublisherSubscriptionState.Accepted && r.EndedAt == null);
+        var isPending = relationship.Any(r => r.State == PublisherSubscriptionState.Pending && r.EndedAt == null);
 
-        var isFollowedBy = await db.FediverseRelationships.AnyAsync(r =>
-            r.PublisherId == id
-            && localActorIds.Contains(r.TargetPublisherId)
-            && r.State == RelationshipState.Accepted
+        var isFollowedBy = await db.PublisherSubscriptions.AnyAsync(r =>
+            r.FollowerPublisherId == id
+            && localActorIds.Contains(r.PublisherId)
+            && r.State == PublisherSubscriptionState.Accepted
+            && r.EndedAt == null
         );
 
         var dto = new FediverseRelationshipResponse

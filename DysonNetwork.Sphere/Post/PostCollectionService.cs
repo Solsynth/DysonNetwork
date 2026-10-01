@@ -440,7 +440,11 @@ public class PostCollectionService(
             {
                 var currentAccountId = Guid.Parse(currentUser.Id);
                 var activeSubscriptions = await db.PublisherSubscriptions
-                    .Where(s => s.AccountId == currentAccountId && s.EndedAt == null && s.PublisherId == publisherId)
+                    .Where(s => s.AccountId == currentAccountId
+                        && s.EndedAt == null
+                        && s.State == PublisherSubscriptionState.Accepted
+                        && !s.IsBlocking
+                        && s.PublisherId == publisherId)
                     .Select(s => s.PublisherId)
                     .ToListAsync();
                 subscriberPublisherIds = activeSubscriptions.ToHashSet();

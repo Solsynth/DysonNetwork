@@ -169,6 +169,14 @@ public class TimelineService(
         var blockedAccountIds = await GetCachedBlockedAccountIds(accountId);
         var mutedIds = await GetCachedMutedAccountIds(accountId);
         var allHiddenIds = blockedAccountIds.Concat(mutedIds).ToHashSet();
+        var blockedPublisherIds = (await db.PublisherSubscriptions
+            .Where(s => s.AccountId == accountId && s.EndedAt == null && s.IsBlocking)
+            .Select(s => s.PublisherId)
+            .ToListAsync()).ToHashSet();
+        var mutedPublisherIds = (await db.PublisherSubscriptions
+            .Where(s => s.AccountId == accountId && s.EndedAt == null && s.IsMuting)
+            .Select(s => s.PublisherId)
+            .ToListAsync()).ToHashSet();
         var closeFriendPublisherIds = await GetCachedCloseFriendPublisherIds(accountId);
 
         var filteredPublishers = await GetFilteredPublishers(filter, currentUser, userFriends);
@@ -203,7 +211,10 @@ public class TimelineService(
         if (gatekeptPublisherIds.Count > 0)
         {
             var activeSubscriptions = await db.PublisherSubscriptions
-                .Where(s => s.AccountId == accountId && s.EndedAt == null)
+                .Where(s => s.AccountId == accountId
+                    && s.EndedAt == null
+                    && s.State == PublisherSubscriptionState.Accepted
+                    && !s.IsBlocking)
                 .Select(s => s.PublisherId)
                 .ToListAsync();
             followerPublisherIds = activeSubscriptions.ToHashSet();
@@ -218,7 +229,9 @@ public class TimelineService(
                 gatekeptPublisherIds,
                 followerPublisherIds,
                 allHiddenIds,
-                closeFriendPublisherIds: closeFriendPublisherIds
+                closeFriendPublisherIds: closeFriendPublisherIds,
+                blockedPublisherIds: blockedPublisherIds,
+                mutedPublisherIds: mutedPublisherIds
             )
             .Take(take * TimelineCandidateMultiplier);
 
@@ -311,8 +324,6 @@ public class TimelineService(
         Instant? cursor
     )
     {
-        var publisherIds = userPublishers.Select(p => p.Id).ToList();
-
         if (cursor is null)
         {
             var cacheKey = $"timeline:boosted-posts:{accountId}";
@@ -321,17 +332,12 @@ public class TimelineService(
                 return cached;
         }
 
-        var localActorIds = await db.FediverseActors
-            .Where(a => publisherIds.Contains(a.Id))
-            .Select(a => a.Id)
-            .ToListAsync();
-
-        if (localActorIds.Count == 0)
-            return new List<Guid>();
-
-        var followedActorIds = await db.FediverseRelationships
-            .Where(r => localActorIds.Contains(r.PublisherId) && r.State == RelationshipState.Accepted)
-            .Select(r => r.TargetPublisherId)
+        var followedActorIds = await db.PublisherSubscriptions
+            .Where(r => r.AccountId == accountId
+                && r.State == PublisherSubscriptionState.Accepted
+                && r.EndedAt == null
+                && !r.IsBlocking)
+            .Select(r => r.PublisherId)
             .ToListAsync();
 
         if (followedActorIds.Count == 0)
@@ -366,45 +372,27 @@ public class TimelineService(
 
         var visibleActorIds = new HashSet<Guid>();
 
-        // 1. Get local actors for the current user's publishers
-        var userPublisherIds = await db.Publishers
-            .Where(p => p.AccountId == accountId)
-            .Select(p => p.Id)
+        // 1. Publishers followed by the current user (local and remote alike)
+        var followedByUser = await db.PublisherSubscriptions
+            .Where(r => r.AccountId == accountId
+                && r.State == PublisherSubscriptionState.Accepted
+                && r.EndedAt == null
+                && !r.IsBlocking)
+            .Select(r => r.PublisherId)
             .ToListAsync();
+        foreach (var id in followedByUser)
+            visibleActorIds.Add(id);
 
-        var userLocalActorIds = await db.FediverseActors
-            .Where(a => userPublisherIds.Contains(a.Id))
-            .Select(a => a.Id)
-            .ToListAsync();
-
-        // 2. Get actors followed by current user's local actors
-        if (userLocalActorIds.Count > 0)
+        // 2. Publishers followed by the user's friends
+        if (userFriendIds.Count > 0)
         {
-            var followedByUser = await db.FediverseRelationships
-                .Where(r => userLocalActorIds.Contains(r.PublisherId) && r.State == RelationshipState.Accepted)
-                .Select(r => r.TargetPublisherId)
-                .ToListAsync();
-            foreach (var id in followedByUser)
-                visibleActorIds.Add(id);
-        }
-
-        // 3. Get local actors for friends
-        var friendPublisherIds = await db.Publishers
-            .Where(p => p.AccountId.HasValue && userFriendIds.Contains(p.AccountId.Value))
-            .Select(p => p.Id)
-            .ToListAsync();
-
-        var friendLocalActorIds = await db.FediverseActors
-            .Where(a => friendPublisherIds.Contains(a.Id))
-            .Select(a => a.Id)
-            .ToListAsync();
-
-        // 4. Get actors followed by friends' local actors
-        if (friendLocalActorIds.Count > 0)
-        {
-            var followedByFriends = await db.FediverseRelationships
-                .Where(r => friendLocalActorIds.Contains(r.PublisherId) && r.State == RelationshipState.Accepted)
-                .Select(r => r.TargetPublisherId)
+            var followedByFriends = await db.PublisherSubscriptions
+                .Where(r => r.AccountId != null
+                    && userFriendIds.Contains(r.AccountId.Value)
+                    && r.State == PublisherSubscriptionState.Accepted
+                    && r.EndedAt == null
+                    && !r.IsBlocking)
+                .Select(r => r.PublisherId)
                 .ToListAsync();
             foreach (var id in followedByFriends)
                 visibleActorIds.Add(id);

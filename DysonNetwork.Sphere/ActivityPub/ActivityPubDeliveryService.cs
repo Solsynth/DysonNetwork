@@ -107,24 +107,26 @@ public class ActivityPubDeliveryService(
             ["object"] = targetActorUri,
         };
 
-        var existingRelationship = await db.FediverseRelationships.FirstOrDefaultAsync(r =>
-            r.PublisherId == localActor.Id && r.TargetPublisherId == targetActor.Id
+        var existingRelationship = await db.PublisherSubscriptions.FirstOrDefaultAsync(r =>
+            r.FollowerPublisherId == localActor.Id && r.PublisherId == targetActor.Id
         );
 
         if (existingRelationship == null)
         {
-            existingRelationship = new SnFediverseRelationship
+            existingRelationship = new SnPublisherSubscription
             {
-                PublisherId = localActor.Id,
-                TargetPublisherId = targetActor.Id,
+                AccountId = localActor.AccountId,
+                FollowerPublisherId = localActor.Id,
+                PublisherId = targetActor.Id,
                 FollowedAt = SystemClock.Instance.GetCurrentInstant(),
-                State = RelationshipState.Pending,
+                State = PublisherSubscriptionState.Pending,
             };
-            db.FediverseRelationships.Add(existingRelationship);
+            db.PublisherSubscriptions.Add(existingRelationship);
         }
         else
         {
-            existingRelationship.State = RelationshipState.Pending;
+            existingRelationship.State = PublisherSubscriptionState.Pending;
+            existingRelationship.EndedAt = null;
         }
 
         await db.SaveChangesAsync();
@@ -169,8 +171,8 @@ public class ActivityPubDeliveryService(
             },
         };
 
-        var relationship = await db.FediverseRelationships.FirstOrDefaultAsync(r =>
-            r.PublisherId == localActor.Id && r.TargetPublisherId == targetActor.Id
+        var relationship = await db.PublisherSubscriptions.FirstOrDefaultAsync(r =>
+            r.FollowerPublisherId == localActor.Id && r.PublisherId == targetActor.Id
         );
         if (relationship == null)
             return false;
@@ -1069,25 +1071,29 @@ public class ActivityPubDeliveryService(
     private async Task<List<SnPublisher>> GetRemoteFollowersAsync()
     {
         var localActorIds = await db
-            .FediverseActors.Where(a => a.Type != PublisherType.Fediverse)
+            .Publishers.Where(a => a.Type != PublisherType.Fediverse)
             .Select(a => a.Id)
             .ToListAsync();
 
         return await db
-            .FediverseRelationships.Include(r => r.Publisher)
+            .PublisherSubscriptions.Include(r => r.FollowerPublisher)
             .Where(r =>
-                r.State == RelationshipState.Accepted && localActorIds.Contains(r.TargetPublisherId)
+                r.State == PublisherSubscriptionState.Accepted
+                && r.EndedAt == null
+                && !r.IsBlocking
+                && r.FollowerPublisherId != null
+                && localActorIds.Contains(r.PublisherId)
             )
-            .Select(r => r.Publisher)
+            .Select(r => r.FollowerPublisher!)
             .ToListAsync();
     }
 
     private async Task<List<SnPublisher>> GetRemoteFollowersAsync(Guid actorId)
     {
         return await db
-            .FediverseRelationships.Include(r => r.Publisher)
-            .Where(r => r.TargetPublisherId == actorId && r.State == RelationshipState.Accepted)
-            .Select(r => r.Publisher)
+            .PublisherSubscriptions.Include(r => r.FollowerPublisher)
+            .Where(r => r.PublisherId == actorId && r.State == PublisherSubscriptionState.Accepted && r.EndedAt == null && !r.IsBlocking)
+            .Select(r => r.FollowerPublisher!)
             .ToListAsync();
     }
 
