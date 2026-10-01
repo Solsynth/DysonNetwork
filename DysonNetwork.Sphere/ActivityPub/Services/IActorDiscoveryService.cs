@@ -5,12 +5,12 @@ namespace DysonNetwork.Sphere.ActivityPub.Services;
 
 public interface IActorDiscoveryService
 {
-    Task<SnFediverseActor> GetOrCreateActorWithDataAsync(string actorUri, string username, Guid instanceId);
-    Task<SnFediverseActor?> GetOrCreateActorAsync(string actorUri, string? username = null, Guid? instanceId = null);
-    Task FetchActorDataAsync(SnFediverseActor actor);
+    Task<SnPublisher> GetOrCreateActorWithDataAsync(string actorUri, string username, Guid instanceId);
+    Task<SnPublisher?> GetOrCreateActorAsync(string actorUri, string? username = null, Guid? instanceId = null);
+    Task FetchActorDataAsync(SnPublisher actor);
     Task<Dictionary<string, object>?> FetchActivityAsync(string uri, string? actorUri);
-    Task<SnFediverseActor?> DiscoverActorAsync(string query);
-    Task<List<SnFediverseActor>> SearchActorsAsync(string query, int limit = 20, bool includeRemoteDiscovery = false);
-    Task FetchActorStatsAsync(SnFediverseActor actor);
+    Task<SnPublisher?> DiscoverActorAsync(string query);
+    Task<List<SnPublisher>> SearchActorsAsync(string query, int limit = 20, bool includeRemoteDiscovery = false);
+    Task FetchActorStatsAsync(SnPublisher actor);
     Task FetchInstanceMetadataAsync(SnFediverseInstance instance);
 }

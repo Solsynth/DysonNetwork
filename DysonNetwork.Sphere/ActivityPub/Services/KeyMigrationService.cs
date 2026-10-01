@@ -45,8 +45,8 @@ public class KeyMigrationService(
         logger.LogInformation("Starting key backfill for existing actors");
 
         var actorsWithoutKeys = await db.FediverseActors
-            .Where(a => a.PublisherId != null)
-            .Where(a => !db.FediverseKeys.Any(k => k.ActorId == a.Id))
+            .Where(a => a.Type != PublisherType.Fediverse)
+            .Where(a => !db.FediverseKeys.Any(k => k.PublisherId == a.Id))
             .ToListAsync();
 
         logger.LogInformation("Found {Count} actors without keys", actorsWithoutKeys.Count);
@@ -79,7 +79,7 @@ public class KeyMigrationService(
 
         var actorsWithPublicKey = await db.FediverseActors
             .Where(a => !string.IsNullOrEmpty(a.PublicKey))
-            .Where(a => !db.FediverseKeys.Any(k => k.ActorId == a.Id))
+            .Where(a => !db.FediverseKeys.Any(k => k.PublisherId == a.Id))
             .ToListAsync();
 
         logger.LogInformation("Found {Count} actors with public key to migrate", actorsWithPublicKey.Count);
@@ -100,8 +100,7 @@ public class KeyMigrationService(
                     {
                         KeyId = keyId,
                         KeyPem = actor.PublicKey!,
-                        ActorId = actor.Id,
-                        PublisherId = actor.PublisherId,
+                        PublisherId = actor.Id,
                         CreatedAt = SystemClock.Instance.GetCurrentInstant()
                     };
 
@@ -122,21 +121,15 @@ public class KeyMigrationService(
 
     public async Task<bool> EnsureKeyExistsForActorAsync(Guid actorId)
     {
-        var actor = await db.FediverseActors.FindAsync(actorId);
+        var actor = await db.Publishers.FindAsync(actorId);
         if (actor == null)
             return false;
 
         var existingKey = await db.FediverseKeys
-            .FirstOrDefaultAsync(k => k.ActorId == actorId);
+            .FirstOrDefaultAsync(k => k.PublisherId == actorId);
 
         if (existingKey != null)
             return true;
-
-        if (!actor.PublisherId.HasValue)
-        {
-            logger.LogWarning("Actor {ActorId} has no publisher, cannot create key", actorId);
-            return false;
-        }
 
         var key = await keyService.GetOrCreateKeyForActorAsync(actor);
         return key != null;
@@ -146,12 +139,12 @@ public class KeyMigrationService(
     {
         var result = new KeyAuditResult();
 
-        result.TotalActors = await db.FediverseActors.CountAsync(a => a.PublisherId != null);
+        result.TotalActors = await db.FediverseActors.CountAsync(a => a.Type != PublisherType.Fediverse);
         result.TotalKeys = await db.FediverseKeys.CountAsync();
 
         result.ActorsWithKeys = await db.FediverseActors
-            .CountAsync(a => a.PublisherId != null && 
-                            db.FediverseKeys.Any(k => k.ActorId == a.Id));
+            .CountAsync(a => a.Type != PublisherType.Fediverse && 
+                            db.FediverseKeys.Any(k => k.PublisherId == a.Id));
 
         result.ActorsWithoutKeys = result.TotalActors - result.ActorsWithKeys;
 
@@ -161,8 +154,8 @@ public class KeyMigrationService(
         result.KeysWithoutPrivateKey = result.TotalKeys - result.KeysWithPrivateKey;
 
         var orphanedKeys = await db.FediverseKeys
-            .Where(k => k.ActorId != null)
-            .Where(k => !db.FediverseActors.Any(a => a.Id == k.ActorId))
+            .Where(k => k.PublisherId != null)
+            .Where(k => !db.Publishers.Any(a => a.Id == k.PublisherId))
             .ToListAsync();
 
         result.OrphanedKeys = orphanedKeys.Count;
@@ -173,8 +166,8 @@ public class KeyMigrationService(
     public async Task<int> RemoveOrphanedKeysAsync()
     {
         var orphanedKeys = await db.FediverseKeys
-            .Where(k => k.ActorId != null)
-            .Where(k => !db.FediverseActors.Any(a => a.Id == k.ActorId))
+            .Where(k => k.PublisherId != null)
+            .Where(k => !db.Publishers.Any(a => a.Id == k.PublisherId))
             .ToListAsync();
 
         if (orphanedKeys.Count > 0)

@@ -193,7 +193,7 @@ public class TimelineService(
             scope.Publisher?.Id,
             scope.Collection?.Id
         );
-        postsQuery = postsQuery.Where(p => p.FediverseUri == null || (p.ActorId.HasValue && visibleFediverseActorIds.Contains(p.ActorId.Value)));
+        postsQuery = postsQuery.Where(p => p.FediverseUri == null || visibleFediverseActorIds.Contains(p.PublisherId));
 
         var timelinePublishers = filter is null ? userPublishers : [];
 
@@ -322,7 +322,7 @@ public class TimelineService(
         }
 
         var localActorIds = await db.FediverseActors
-            .Where(a => a.PublisherId != null && publisherIds.Contains(a.PublisherId.Value))
+            .Where(a => publisherIds.Contains(a.Id))
             .Select(a => a.Id)
             .ToListAsync();
 
@@ -330,15 +330,15 @@ public class TimelineService(
             return new List<Guid>();
 
         var followedActorIds = await db.FediverseRelationships
-            .Where(r => localActorIds.Contains(r.ActorId) && r.State == RelationshipState.Accepted)
-            .Select(r => r.TargetActorId)
+            .Where(r => localActorIds.Contains(r.PublisherId) && r.State == RelationshipState.Accepted)
+            .Select(r => r.TargetPublisherId)
             .ToListAsync();
 
         if (followedActorIds.Count == 0)
             return new List<Guid>();
 
         var query = db.Boosts
-            .Where(b => followedActorIds.Contains(b.ActorId))
+            .Where(b => followedActorIds.Contains(b.PublisherId))
             .Where(b => cursor == null || b.BoostedAt < cursor)
             .OrderByDescending(b => b.BoostedAt)
             .Select(b => b.PostId);
@@ -373,7 +373,7 @@ public class TimelineService(
             .ToListAsync();
 
         var userLocalActorIds = await db.FediverseActors
-            .Where(a => a.PublisherId != null && userPublisherIds.Contains(a.PublisherId.Value))
+            .Where(a => userPublisherIds.Contains(a.Id))
             .Select(a => a.Id)
             .ToListAsync();
 
@@ -381,8 +381,8 @@ public class TimelineService(
         if (userLocalActorIds.Count > 0)
         {
             var followedByUser = await db.FediverseRelationships
-                .Where(r => userLocalActorIds.Contains(r.ActorId) && r.State == RelationshipState.Accepted)
-                .Select(r => r.TargetActorId)
+                .Where(r => userLocalActorIds.Contains(r.PublisherId) && r.State == RelationshipState.Accepted)
+                .Select(r => r.TargetPublisherId)
                 .ToListAsync();
             foreach (var id in followedByUser)
                 visibleActorIds.Add(id);
@@ -395,7 +395,7 @@ public class TimelineService(
             .ToListAsync();
 
         var friendLocalActorIds = await db.FediverseActors
-            .Where(a => a.PublisherId != null && friendPublisherIds.Contains(a.PublisherId.Value))
+            .Where(a => friendPublisherIds.Contains(a.Id))
             .Select(a => a.Id)
             .ToListAsync();
 
@@ -403,8 +403,8 @@ public class TimelineService(
         if (friendLocalActorIds.Count > 0)
         {
             var followedByFriends = await db.FediverseRelationships
-                .Where(r => friendLocalActorIds.Contains(r.ActorId) && r.State == RelationshipState.Accepted)
-                .Select(r => r.TargetActorId)
+                .Where(r => friendLocalActorIds.Contains(r.PublisherId) && r.State == RelationshipState.Accepted)
+                .Select(r => r.TargetPublisherId)
                 .ToListAsync();
             foreach (var id in followedByFriends)
                 visibleActorIds.Add(id);
@@ -601,7 +601,7 @@ public class TimelineService(
 
         var tagIds = posts.SelectMany(p => p.Tags.Select(x => x.Id)).Distinct().ToList();
         var categoryIds = posts.SelectMany(p => p.Categories.Select(x => x.Id)).Distinct().ToList();
-        var publisherIds = posts.Where(p => p.PublisherId.HasValue).Select(p => p.PublisherId!.Value).Distinct().ToList();
+        var publisherIds = posts.Where(p => p.PublisherId != Guid.Empty).Select(p => p.PublisherId).Distinct().ToList();
         var postCollectionMap = await GetPostCollectionMapAsync(posts.Select(p => p.Id));
         var collectionIds = postCollectionMap.Values
             .SelectMany(x => x)
@@ -642,9 +642,9 @@ public class TimelineService(
                 var bonus = 0d;
                 bonus += post.Tags.Sum(tag => tagInterest.GetValueOrDefault(tag.Id, 0d) * 0.8d);
                 bonus += post.Categories.Sum(category => categoryInterest.GetValueOrDefault(category.Id, 0d) * 0.75d);
-                if (post.PublisherId.HasValue)
+                if (post.PublisherId != Guid.Empty)
                 {
-                    var publisherScore = publisherInterest.GetValueOrDefault(post.PublisherId.Value, 0d);
+                    var publisherScore = publisherInterest.GetValueOrDefault(post.PublisherId, 0d);
                     bonus += publisherScore >= 0d
                         ? Math.Min(2d, publisherScore * 0.2d)
                         : Math.Max(-6d, publisherScore * 0.5d);
@@ -720,7 +720,7 @@ public class TimelineService(
 
         return posts.ToDictionary(
             p => p.Id,
-            p => p.PublisherId.HasValue && subscribedPublisherIds.Contains(p.PublisherId.Value)
+            p => p.PublisherId != Guid.Empty && subscribedPublisherIds.Contains(p.PublisherId)
                 ? SubscriptionBoostBonus
                 : 0d
         );
@@ -932,7 +932,7 @@ public class TimelineService(
                 .AsNoTracking()
                 .Include(p => p.Tags)
                 .Include(p => p.Categories)
-                .Where(p => p.PublisherId != null && userPublisherIds.Contains(p.PublisherId.Value))
+                .Where(p => p.PublisherId != null && userPublisherIds.Contains(p.PublisherId))
                 .Where(p => p.DraftedAt == null)
                 .Where(p =>
                     (p.PublishedAt != null && p.PublishedAt >= recent)
@@ -1084,8 +1084,8 @@ public class TimelineService(
 
         var adjustments = new List<(PostInterestKind Kind, Guid ReferenceId, double ScoreDelta)>();
 
-        if (post.PublisherId.HasValue)
-            adjustments.Add((PostInterestKind.Publisher, post.PublisherId.Value, baseScore));
+        if (post.PublisherId != Guid.Empty)
+            adjustments.Add((PostInterestKind.Publisher, post.PublisherId, baseScore));
 
         var collectionIds = await db.PostCollectionItems
             .Where(x => x.PostId == post.Id)
@@ -1427,8 +1427,8 @@ public class TimelineService(
     )
     {
         var publisherCandidates = candidatePosts
-            .Where(p => p.PublisherId.HasValue)
-            .GroupBy(p => p.PublisherId!.Value)
+            .Where(p => p.PublisherId != Guid.Empty)
+            .GroupBy(p => p.PublisherId)
             .Select(group =>
             {
                 var posts = group.ToList();
@@ -1766,17 +1766,17 @@ public class TimelineService(
                 break;
 
             var penalty = 0d;
-            if (candidate.Post.PublisherId.HasValue)
-                penalty = publisherCounts.GetValueOrDefault(candidate.Post.PublisherId.Value, 0)
+            if (candidate.Post.PublisherId != Guid.Empty)
+                penalty = publisherCounts.GetValueOrDefault(candidate.Post.PublisherId, 0)
                     * PublisherRepeatPenalty;
 
             var finalRank = candidate.Rank - penalty;
             candidate.Post.DebugRank = finalRank;
             selected.Add(candidate.Post);
 
-            if (candidate.Post.PublisherId.HasValue)
-                publisherCounts[candidate.Post.PublisherId.Value] =
-                    publisherCounts.GetValueOrDefault(candidate.Post.PublisherId.Value, 0) + 1;
+            if (candidate.Post.PublisherId != Guid.Empty)
+                publisherCounts[candidate.Post.PublisherId] =
+                    publisherCounts.GetValueOrDefault(candidate.Post.PublisherId, 0) + 1;
         }
 
         return selected;
@@ -1811,7 +1811,7 @@ public class TimelineService(
     {
         return posts
             .Where(p =>
-                !(p.PublisherId.HasValue && p.Publisher?.IsShadowbanned == true) &&
+                !(p.PublisherId != Guid.Empty && p.Publisher?.IsShadowbanned == true) &&
                 !p.IsShadowbanned)
             .OrderByDescending(GetPostTimelineInstant)
             .Take(take)
@@ -2214,7 +2214,7 @@ public class TimelineService(
         }
         if (filteredPublishersId != null && filteredPublishersId.Count != 0)
             query = query.Where(p =>
-                p.PublisherId.HasValue && filteredPublishersId.Contains(p.PublisherId.Value)
+                p.PublisherId != Guid.Empty && filteredPublishersId.Contains(p.PublisherId)
             );
         if (userRealms == null)
         {

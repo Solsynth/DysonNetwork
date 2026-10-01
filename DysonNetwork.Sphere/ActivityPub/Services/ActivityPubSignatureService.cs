@@ -142,7 +142,7 @@ public class ActivityPubSignatureService(
 
     public async Task SignOutgoingRequestAsync(HttpRequestMessage request, Guid publisherId)
     {
-        var actor = await db.FediverseActors.FirstOrDefaultAsync(a => a.PublisherId == publisherId);
+        var actor = await db.FediverseActors.FirstOrDefaultAsync(a => a.Id == publisherId);
 
         if (actor == null)
         {
@@ -195,7 +195,7 @@ public class ActivityPubSignatureService(
 
         var actor = await db.FediverseActors.FirstOrDefaultAsync(a => a.Uri == actorUri);
 
-        if (actor == null || !actor.PublisherId.HasValue)
+        if (actor == null)
         {
             logger.LogDebug(
                 "Actor {ActorUri} not found or has no publisher, using server key",
@@ -205,7 +205,7 @@ public class ActivityPubSignatureService(
             return;
         }
 
-        await SignOutgoingRequestAsync(request, actor.PublisherId.Value);
+        await SignOutgoingRequestAsync(request, actor.Id);
     }
 
     public async Task SignOutgoingRequestWithServerKeyAsync(HttpRequestMessage request)
@@ -239,7 +239,7 @@ public class ActivityPubSignatureService(
 
     private async Task<string?> GetActorUriForPublisherAsync(Guid publisherId)
     {
-        var actor = await db.FediverseActors.FirstOrDefaultAsync(a => a.PublisherId == publisherId);
+        var actor = await db.FediverseActors.FirstOrDefaultAsync(a => a.Id == publisherId);
 
         return actor?.Uri;
     }
@@ -263,8 +263,7 @@ public class ActivityPubSignatureService(
         );
 
         var actor = await db
-            .FediverseActors.IgnoreQueryFilters()
-            .Include(a => a.Instance)
+            .Publishers.IgnoreQueryFilters()
             .FirstOrDefaultAsync(a => a.Uri == actorUri);
 
         if (actor == null)

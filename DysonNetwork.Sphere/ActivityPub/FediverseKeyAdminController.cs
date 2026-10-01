@@ -57,7 +57,7 @@ public class FediverseKeyAdminController(
             TotalKeys = await db.FediverseKeys.CountAsync(),
             KeysWithPrivateKey = await db.FediverseKeys.CountAsync(k => !string.IsNullOrEmpty(k.PrivateKeyPem)),
             KeysWithoutPrivateKey = await db.FediverseKeys.CountAsync(k => string.IsNullOrEmpty(k.PrivateKeyPem)),
-            LocalActors = await db.FediverseActors.CountAsync(a => a.PublisherId != null)
+            LocalActors = await db.Publishers.CountAsync(a => a.Uri != null)
         };
 
         return Ok(stats);
@@ -74,7 +74,7 @@ public class FediverseKeyAdminController(
             return NotFound(new ApiError { Code = "FEDIVERSE_ACTOR_NOT_FOUND", Message = "Actor not found.", Status = 404 });
 
         var key = await db.FediverseKeys
-            .FirstOrDefaultAsync(k => k.ActorId == actorId);
+            .FirstOrDefaultAsync(k => k.PublisherId == actorId);
 
         return Ok(new ActorKeyInfo
         {
@@ -93,12 +93,9 @@ public class FediverseKeyAdminController(
     [HttpPost("actor/{actorId:guid}/regenerate")]
     public async Task<ActionResult> RegenerateKey(Guid actorId)
     {
-        var actor = await db.FediverseActors.FindAsync(actorId);
+        var actor = await db.Publishers.FindAsync(actorId);
         if (actor == null)
             return NotFound(new ApiError { Code = "FEDIVERSE_ACTOR_NOT_FOUND", Message = "Actor not found.", Status = 404 });
-
-        if (!actor.PublisherId.HasValue)
-            return BadRequest(new ApiError { Code = "FEDIVERSE_KEY_ACTOR_NO_PUBLISHER", Message = "Cannot regenerate key for actor without publisher.", Status = 400 });
 
         var success = await keyMigrationService.EnsureKeyExistsForActorAsync(actorId);
         if (!success)

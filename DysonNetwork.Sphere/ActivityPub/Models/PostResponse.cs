@@ -22,7 +22,7 @@ public class BoostInfo
     public SnPost OriginalPost { get; set; } = null!;
 
     [JsonPropertyName("original_actor")]
-    public SnFediverseActor? OriginalActor { get; set; }
+    public SnPublisher? OriginalActor { get; set; }
 }
 
 public class PostResponse : SnPost

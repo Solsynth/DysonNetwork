@@ -30,7 +30,7 @@ namespace DysonNetwork.Sphere.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
-            modelBuilder.Entity("DysonNetwork.Shared.Models.SnFediverseActor", b =>
+            modelBuilder.Entity("DysonNetwork.Shared.Models.SnPublisher", b =>
                 {
                     b.Property<bool>("IsCommunity")
                         .HasColumnType("boolean")

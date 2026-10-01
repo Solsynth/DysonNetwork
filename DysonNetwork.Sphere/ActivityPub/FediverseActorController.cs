@@ -50,7 +50,7 @@ public class FediverseActorController(
 
     [HttpGet("{username}@{instance}")]
     [Authorize]
-    public async Task<ActionResult<SnFediverseActor>> GetActorByHandle(
+    public async Task<ActionResult<SnPublisher>> GetActorByHandle(
         string username,
         string instance
     )
@@ -84,7 +84,7 @@ public class FediverseActorController(
 
     [HttpGet("{id:guid}")]
     [AllowAnonymous]
-    public async Task<ActionResult<SnFediverseActor>> GetActorById(Guid id)
+    public async Task<ActionResult<SnPublisher>> GetActorById(Guid id)
     {
         var cachedActor = await cachingService.GetActorByIdAsync(id);
         if (cachedActor != null)
@@ -104,7 +104,7 @@ public class FediverseActorController(
 
     [HttpGet("search")]
     [AllowAnonymous]
-    public async Task<ActionResult<List<SnFediverseActor>>> SearchActors(
+    public async Task<ActionResult<List<SnPublisher>>> SearchActors(
         [FromQuery] string query,
         [FromQuery] int limit = 20
     )
@@ -126,25 +126,25 @@ public class FediverseActorController(
             includeRemoteDiscovery: true
         );
 
-        var actorList = new List<SnFediverseActor>();
+        var actorList = new List<SnPublisher>();
         var cachedActors = new List<CachedActor>();
 
         // Get post counts for all actors from local DB
         var actorIds = remoteActors.Select(a => a.Id).ToList();
         var actorUris = remoteActors.Where(a => a.Uri != null).Select(a => a.Uri!).ToList();
 
-        // Get post counts by ActorId
+        // Get post counts by publisher id
         var postCountList = await db.Posts
-            .Where(p => p.ActorId != null && actorIds.Contains(p.ActorId.Value))
-            .GroupBy(p => p.ActorId!.Value)
+            .Where(p => actorIds.Contains(p.PublisherId))
+            .GroupBy(p => p.PublisherId)
             .Select(g => new { ActorId = g.Key, Count = g.Count() })
             .ToListAsync();
 
-        // Get post counts by Actor Uri (for actors where posts use Uri instead of ID)
+        // Get post counts by publisher Uri (for actors where posts use Uri instead of ID)
         var postsByUri = await db.Posts
-            .Include(p => p.Actor)
-            .Where(p => p.Actor != null && actorUris.Contains(p.Actor.Uri))
-            .GroupBy(p => p.Actor!.Uri!)
+            .Include(p => p.Publisher)
+            .Where(p => actorUris.Contains(p.Publisher.Uri))
+            .GroupBy(p => p.Publisher.Uri!)
             .Select(g => new { ActorUri = g.Key, Count = g.Count() })
             .ToListAsync();
 
@@ -174,7 +174,7 @@ public class FediverseActorController(
                 new CachedActor
                 {
                     Id = actor.Id,
-                    Type = actor.Type,
+                    Type = actor.ActorType ?? "Person",
                     Uri = actor.Uri,
                     Username = actor.Username,
                     DisplayName = actor.DisplayName,
@@ -240,21 +240,17 @@ public class FediverseActorController(
 
         var postsQuery = db.Posts
             .Include(p => p.Publisher)
-            .Include(p => p.Actor!)
             .ThenInclude(a => a.Instance)
-            .Where(p => p.ActorId == id || p.Actor!.Uri == actor.Uri)
+            .Where(p => p.PublisherId == id || p.Publisher.Uri == actor.Uri)
             .Where(p => p.DraftedAt == null)
             .Where(p => p.Visibility == PostVisibility.Public);
 
         var boostsQuery = db.Boosts
-            .Include(b => b.Actor!)
-            .ThenInclude(a => a.Instance)
-            .Include(b => b.Post)
-            .ThenInclude(p => p.Actor!)
+            .Include(b => b.Publisher)
             .ThenInclude(a => a.Instance)
             .Include(b => b.Post)
             .ThenInclude(p => p.Publisher)
-            .Where(b => b.ActorId == id)
+            .Where(b => b.PublisherId == id)
             .Where(b => b.Post.DraftedAt == null)
             .Where(b => b.Post.Visibility == PostVisibility.Public);
 
@@ -302,8 +298,6 @@ public class FediverseActorController(
                 ContentType = p.ContentType,
                 Type = p.Type,
                 PinMode = p.PinMode,
-                ActorId = p.ActorId,
-                Actor = p.Actor,
                 PublisherId = p.PublisherId,
                 Publisher = p.Publisher,
                 Tags = p.Tags,
@@ -328,8 +322,6 @@ public class FediverseActorController(
                 ContentType = b.Post.ContentType,
                 Type = b.Post.Type,
                 PinMode = b.Post.PinMode,
-                ActorId = b.ActorId,
-                Actor = b.Actor,
                 PublisherId = b.Post.PublisherId,
                 Publisher = b.Post.Publisher,
                 Tags = b.Post.Tags,
@@ -341,7 +333,7 @@ public class FediverseActorController(
                     ActivityPubUri = b.ActivityPubUri,
                     WebUrl = b.WebUrl,
                     OriginalPost = b.Post,
-                    OriginalActor = b.Post.Actor,
+                    OriginalActor = b.Post.Publisher,
                 },
                 IsCached = true,
             })
@@ -375,7 +367,7 @@ public class FediverseActorController(
     }
 
     private async Task<List<RemotePost>> FetchRemoteOutboxPostsAsync(
-        SnFediverseActor actor,
+        SnPublisher actor,
         int limit
     )
     {
@@ -569,7 +561,7 @@ public class FediverseActorController(
         public static RemotePost FromActivityStream(
             Dictionary<string, object> obj,
             string? activityId,
-            SnFediverseActor actor
+            SnPublisher actor
         )
         {
             var published = obj.GetValueOrDefault("published");
@@ -639,7 +631,7 @@ public class FediverseActorController(
         public static RemotePost FromAnnounce(
             Dictionary<string, object> obj,
             string? activityId,
-            SnFediverseActor actor,
+            SnPublisher actor,
             Instant? boostedAt
         )
         {
@@ -657,7 +649,7 @@ public class FediverseActorController(
             return original;
         }
 
-        public PostResponse ToPostResponse(SnFediverseActor actor)
+        public PostResponse ToPostResponse(SnPublisher actor)
         {
             var domain = ExtractDomain(OriginalActorUri ?? ActorUri ?? actor.Uri)
                 ?? actor.Instance?.Domain
@@ -671,7 +663,7 @@ public class FediverseActorController(
                 Name = actor.Instance?.Name,
                 Software = actor.Instance?.Software,
             };
-            var originalActor = new SnFediverseActor
+            var originalActor = new SnPublisher
             {
                 Id = Guid.Empty,
                 Username = OriginalActorUsername ?? ActorUsername ?? actor.Username ?? "unknown",
@@ -696,8 +688,8 @@ public class FediverseActorController(
                     Type = PostType.Moment,
                     PublishedAt = PublishedAt,
                     Visibility = PostVisibility.Public,
-                    ActorId = actor.Id,
-                    Actor = actor,
+                    PublisherId = actor.Id,
+                    Publisher = actor,
                     PinMode = null,
                     Attachments = Attachments ?? [],
                     BoostInfo = new BoostInfo
@@ -733,8 +725,8 @@ public class FediverseActorController(
                     Type = PostType.Moment,
                     PublishedAt = PublishedAt,
                     Visibility = PostVisibility.Public,
-                    ActorId = Guid.Empty,
-                    Actor = originalActor,
+                    PublisherId = Guid.Empty,
+                    Publisher = originalActor,
                     PinMode = null,
                     Attachments = Attachments ?? [],
                     BoostInfo = null,
@@ -849,7 +841,7 @@ public class FediverseActorController(
 
     [HttpGet("{id:guid}/followers")]
     [AllowAnonymous]
-    public async Task<ActionResult<List<SnFediverseActor>>> GetActorFollowers(
+    public async Task<ActionResult<List<SnPublisher>>> GetActorFollowers(
         Guid id,
         [FromQuery] int take = 40,
         [FromQuery] int offset = 0
@@ -861,10 +853,10 @@ public class FediverseActorController(
             return NotFound(new ApiError { Code = "ACTIVITYPUB_ACTOR_NOT_FOUND", Message = "Actor not found", Status = 404 });
 
         var followerQuery = db
-            .FediverseRelationships.Include(r => r.Actor)
+            .FediverseRelationships.Include(r => r.Publisher)
             .ThenInclude(a => a.Instance)
-            .Where(r => r.TargetActorId == id && r.State == RelationshipState.Accepted)
-            .Select(r => r.Actor);
+            .Where(r => r.TargetPublisherId == id && r.State == RelationshipState.Accepted)
+            .Select(r => r.Publisher);
 
         var totalCount = await followerQuery.CountAsync();
         Response.Headers["X-Total"] = totalCount.ToString();
@@ -876,7 +868,7 @@ public class FediverseActorController(
 
     [HttpGet("{id:guid}/following")]
     [AllowAnonymous]
-    public async Task<ActionResult<List<SnFediverseActor>>> GetActorFollowing(
+    public async Task<ActionResult<List<SnPublisher>>> GetActorFollowing(
         Guid id,
         [FromQuery] int take = 40,
         [FromQuery] int offset = 0
@@ -888,10 +880,10 @@ public class FediverseActorController(
             return NotFound(new ApiError { Code = "ACTIVITYPUB_ACTOR_NOT_FOUND", Message = "Actor not found", Status = 404 });
 
         var followingQuery = db
-            .FediverseRelationships.Include(r => r.TargetActor)
+            .FediverseRelationships.Include(r => r.TargetPublisher)
             .ThenInclude(a => a.Instance)
-            .Where(r => r.ActorId == id && r.State == RelationshipState.Accepted)
-            .Select(r => r.TargetActor);
+            .Where(r => r.PublisherId == id && r.State == RelationshipState.Accepted)
+            .Select(r => r.TargetPublisher);
 
         var totalCount = await followingQuery.CountAsync();
         Response.Headers["X-Total"] = totalCount.ToString();
@@ -923,7 +915,7 @@ public class FediverseActorController(
             .ToListAsync();
 
         var localActorIds = await db.FediverseActors
-            .Where(a => a.PublisherId != null && userPublishers.Contains(a.PublisherId.Value))
+            .Where(a => userPublishers.Contains(a.Id))
             .Select(a => a.Id)
             .ToListAsync();
 
@@ -944,15 +936,15 @@ public class FediverseActorController(
         }
 
         var relationship = await db.FediverseRelationships
-            .Where(r => localActorIds.Contains(r.ActorId) && r.TargetActorId == id)
+            .Where(r => localActorIds.Contains(r.PublisherId) && r.TargetPublisherId == id)
             .ToListAsync();
 
         var isFollowing = relationship.Any(r => r.State == RelationshipState.Accepted);
         var isPending = relationship.Any(r => r.State == RelationshipState.Pending);
 
         var isFollowedBy = await db.FediverseRelationships.AnyAsync(r =>
-            r.ActorId == id
-            && localActorIds.Contains(r.TargetActorId)
+            r.PublisherId == id
+            && localActorIds.Contains(r.TargetPublisherId)
             && r.State == RelationshipState.Accepted
         );
 
@@ -970,7 +962,7 @@ public class FediverseActorController(
         return Ok(dto);
     }
 
-    private static SnFediverseActor CachedActorToEntity(CachedActor cached)
+    private static SnPublisher CachedActorToEntity(CachedActor cached)
     {
         var instance =
             cached.Instance != null
@@ -991,10 +983,10 @@ public class FediverseActorController(
                 }
                 : null;
 
-        return new SnFediverseActor
+        return new SnPublisher
         {
             Id = cached.Id,
-            Type = cached.Type,
+            Type = PublisherType.Fediverse,
             Uri = cached.Uri,
             Username = cached.Username,
             DisplayName = cached.DisplayName,
@@ -1040,8 +1032,7 @@ public class FediverseActorController(
     {
         return await db
             .Posts.Include(p => p.Publisher)
-            .Include(p => p.Actor)
-            .Where(p => p.ActorId == actorId)
+            .Where(p => p.PublisherId == actorId)
             .Where(p => p.DraftedAt == null)
             .Where(p => p.Visibility == PostVisibility.Public)
             .OrderByDescending(p => p.PublishedAt)
@@ -1078,9 +1069,9 @@ public class FediverseActorController(
         var publisherIds = ownedPublishers.Select(p => p.Id).ToList();
 
         // Check which publishers have Fediverse actors
-        var fediverseActors = await db.FediverseActors
+        var fediverseActors = await db.Publishers
             .Include(a => a.Instance)
-            .Where(a => a.PublisherId != null && publisherIds.Contains(a.PublisherId.Value))
+            .Where(a => publisherIds.Contains(a.Id) && a.Uri != null)
             .ToListAsync();
 
         // Only fetch stats for REMOTE actors (not local ones)
@@ -1101,8 +1092,8 @@ public class FediverseActorController(
 
         var enabledPublishers = fediverseActors.Select(a => new FediversePublisherInfo
         {
-            PublisherId = a.PublisherId!.Value,
-            PublisherName = ownedPublishers.FirstOrDefault(p => p.Id == a.PublisherId)?.Name ?? "Unknown",
+            PublisherId = a.Id,
+            PublisherName = ownedPublishers.FirstOrDefault(p => p.Id == a.Id)?.Name ?? "Unknown",
             FediverseHandle = $"{a.Username}@{a.Instance?.Domain}",
             FediverseUri = a.Uri,
             AvatarUrl = a.AvatarUrl,
@@ -1206,8 +1197,8 @@ public class FediverseActorController(
 
             if (isMember)
             {
-                var hasActor = await db.FediverseActors
-                    .AnyAsync(a => a.PublisherId == settings.DefaultFediversePublisherId);
+                var hasActor = await db.Publishers
+                    .AnyAsync(a => a.Id == settings.DefaultFediversePublisherId && a.Uri != null);
 
                 if (hasActor)
                     return settings.DefaultFediversePublisherId;
@@ -1222,8 +1213,8 @@ public class FediverseActorController(
         if (firstPublisher == null)
             return null;
 
-        var hasFediverseActor = await db.FediverseActors
-            .AnyAsync(a => a.PublisherId == firstPublisher.Id);
+        var hasFediverseActor = await db.Publishers
+            .AnyAsync(a => a.Id == firstPublisher.Id && a.Uri != null);
 
         return hasFediverseActor ? firstPublisher.Id : null;
     }

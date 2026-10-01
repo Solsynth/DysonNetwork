@@ -33,12 +33,9 @@ public class SnFediverseKey : ModelBase
     [JsonPropertyName("publisher_id")]
     public Guid? PublisherId { get; set; }
 
-    [JsonPropertyName("actor_id")]
-    public Guid? ActorId { get; set; }
-
-    [JsonPropertyName("actor")]
-    [ForeignKey(nameof(ActorId))]
-    public SnFediverseActor? Actor { get; set; }
+    [JsonPropertyName("publisher")]
+    [ForeignKey(nameof(PublisherId))]
+    public SnPublisher? Publisher { get; set; }
 
     [JsonPropertyName("created_at")]
     public new Instant CreatedAt { get; set; } = SystemClock.Instance.GetCurrentInstant();
@@ -48,7 +45,7 @@ public class SnFediverseKey : ModelBase
 
     [NotMapped]
     [JsonPropertyName("is_local")]
-    public bool IsLocal => PublisherId.HasValue;
+    public bool IsLocal => !string.IsNullOrEmpty(PrivateKeyPem);
 
     [NotMapped]
     public HashAlgorithmName HashAlgorithm => Algorithm switch

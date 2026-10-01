@@ -38,7 +38,7 @@ public class FediverseActorCleanupJob(
         }
     }
 
-    private bool IsActorIncomplete(SnFediverseActor actor)
+    private bool IsActorIncomplete(SnPublisher actor)
     {
         return string.IsNullOrWhiteSpace(actor.Bio) || string.IsNullOrWhiteSpace(actor.DisplayName);
     }
@@ -52,7 +52,7 @@ public class FediverseActorCleanupJob(
         while (true)
         {
             var incompleteActors = await db.FediverseActors
-                .Where(a => a.PublisherId == null)
+                .Where(a => a.Type == PublisherType.Fediverse)
                 .Where(a => a.Uri != null)
                 .Where(a => string.IsNullOrWhiteSpace(a.Bio) || string.IsNullOrWhiteSpace(a.DisplayName))
                 .OrderBy(a => a.LastFetchedAt ?? a.CreatedAt)
@@ -99,7 +99,7 @@ public class FediverseActorCleanupJob(
             if (actorsToDelete.Count == 0)
                 break;
 
-            db.FediverseActors.RemoveRange(actorsToDelete);
+            db.Publishers.RemoveRange(actorsToDelete);
             await db.SaveChangesAsync();
 
             totalDeleted += actorsToDelete.Count;
@@ -112,29 +112,28 @@ public class FediverseActorCleanupJob(
     private async Task<List<Guid>> GetUnusedActorIdsAsync(int limit)
     {
         var actorIdsWithPosts = await db.Posts
-            .Where(p => p.ActorId != null)
-            .Select(p => p.ActorId!.Value)
+            .Select(p => p.PublisherId)
             .Distinct()
             .ToListAsync();
 
         var actorIdsWithBoosts = await db.Boosts
-            .Select(b => b.ActorId)
+            .Select(b => b.PublisherId)
             .Distinct()
             .ToListAsync();
 
         var actorIdsWithReactions = await db.PostReactions
-            .Where(r => r.ActorId != null)
-            .Select(r => r.ActorId!.Value)
+            .Where(r => r.PublisherId != null)
+            .Select(r => r.PublisherId!.Value)
             .Distinct()
             .ToListAsync();
 
         var actorIdsWithFollowing = await db.FediverseRelationships
-            .Select(r => r.ActorId)
+            .Select(r => r.PublisherId)
             .Distinct()
             .ToListAsync();
 
         var actorIdsWithFollowers = await db.FediverseRelationships
-            .Select(r => r.TargetActorId)
+            .Select(r => r.TargetPublisherId)
             .Distinct()
             .ToListAsync();
 
@@ -147,7 +146,7 @@ public class FediverseActorCleanupJob(
         );
 
         var unusedActors = await db.FediverseActors
-            .Where(a => a.PublisherId == null)
+            .Where(a => a.Type == PublisherType.Fediverse)
             .Where(a => !linkedActorIds.Contains(a.Id))
             .OrderBy(a => a.CreatedAt)
             .Take(limit)

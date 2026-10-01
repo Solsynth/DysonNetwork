@@ -34,7 +34,7 @@ public class OutboxBackfillService(
             return;
         }
 
-        var actor = await db.FediverseActors.FindAsync(actorId);
+        var actor = await db.Publishers.FindAsync(actorId);
         if (actor == null)
         {
             logger.LogWarning("Actor not found for backfill: {ActorId}", actorId);
@@ -241,7 +241,7 @@ public class OutboxBackfillService(
 
     private async Task UpdateActorBackfillTimeAsync(Guid actorId)
     {
-        var actor = await db.FediverseActors.FindAsync(actorId);
+        var actor = await db.Publishers.FindAsync(actorId);
         if (actor != null)
         {
             actor.OutboxFetchedAt = clock.GetCurrentInstant();

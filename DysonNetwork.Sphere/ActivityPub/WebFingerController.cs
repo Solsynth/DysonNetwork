@@ -84,7 +84,7 @@ public class WebFingerController(
             return NotFound(new ApiError { Code = "WEBFINGER_PUBLISHER_NOT_FOUND", Message = "Publisher not found.", Status = 404 });
 
         var hasActor = await db.FediverseActors
-            .AnyAsync(a => a.PublisherId == publisher.Id);
+            .AnyAsync(a => a.Id == publisher.Id);
 
         if (!hasActor)
             return NotFound(new ApiError { Code = "WEBFINGER_ACTOR_NOT_FOUND", Message = "Actor not found.", Status = 404 });

@@ -84,6 +84,7 @@ public class AutocompletionService(AppDatabase db, RemoteAccountService remoteAc
                 break;
             case "p":
                 var publishersQuery = db.Publishers
+                    .Where(p => p.Type != PublisherType.Fediverse)
                     .Where(p => EF.Functions.Like(p.Name, $"{query}%") || EF.Functions.Like(p.Nick, $"{query}%"));
 
                 if (blockedIds is { Count: > 0 })

@@ -104,7 +104,7 @@ public class PublisherLeaderboardService(AppDatabase db, ICacheService cache)
     private async Task<List<LeaderboardEntry>> BuildLeaderboard()
     {
         var publishers = await db.Publishers
-            .Where(p => !p.DeletedAt.HasValue)
+            .Where(p => !p.DeletedAt.HasValue && p.Type != PublisherType.Fediverse)
             .Select(p => new { p.Id, p.Name, p.Nick, p.Picture, p.Rating })
             .OrderByDescending(p => p.Rating)
             .ToListAsync();

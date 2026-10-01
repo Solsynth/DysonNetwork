@@ -28,7 +28,7 @@ public class FediverseKeyController(
             return NotFound();
 
         var actor = await db.FediverseActors.FirstOrDefaultAsync(a =>
-            a.PublisherId == publisher.Id
+            a.Id == publisher.Id
         );
 
         if (actor == null)

@@ -156,10 +156,10 @@ public partial class PostService(
     {
         if (post.Publisher is not null)
             return post.Publisher;
-        if (!post.PublisherId.HasValue)
+        if (post.PublisherId == Guid.Empty)
             return null;
 
-        return await db.Publishers.FirstOrDefaultAsync(p => p.Id == post.PublisherId.Value);
+        return await db.Publishers.FirstOrDefaultAsync(p => p.Id == post.PublisherId);
     }
 
     private async Task<List<SnPostTag>> ResolveTagsAsync(
@@ -464,10 +464,10 @@ public partial class PostService(
                 tagSlugs = tagSlugs.Concat(defaultTags).Distinct().ToList();
             }
 
-            if (post.PublisherId.HasValue && tagSlugs.Count < 2)
+            if (post.PublisherId != Guid.Empty && tagSlugs.Count < 2)
             {
                 var derivedTags = await GetDerivedPublisherTopicSlugsAsync(
-                    post.PublisherId.Value,
+                    post.PublisherId,
                     categories: false
                 );
                 if (derivedTags.Count > 0)
@@ -495,10 +495,10 @@ public partial class PostService(
                 categorySlugs = categorySlugs.Concat(defaultCategories).Distinct().ToList();
             }
 
-            if (post.PublisherId.HasValue && categorySlugs.Count < 2)
+            if (post.PublisherId != Guid.Empty && categorySlugs.Count < 2)
             {
                 var derivedCategories = await GetDerivedPublisherTopicSlugsAsync(
-                    post.PublisherId.Value,
+                    post.PublisherId,
                     categories: true
                 );
                 if (derivedCategories.Count > 0)
@@ -558,8 +558,8 @@ public partial class PostService(
             .Distinct()
             .ToList();
         var publisherIds = posts
-            .Values.Where(p => p.PublisherId.HasValue)
-            .Select(p => p.PublisherId!.Value)
+            .Values.Where(p => p.PublisherId != Guid.Empty)
+            .Select(p => p.PublisherId)
             .Distinct()
             .ToList();
         var collectionIds = postCollectionMap
@@ -595,8 +595,8 @@ public partial class PostService(
             var targets = new List<(PostInterestKind Kind, Guid ReferenceId)>();
             targets.AddRange(post.Tags.Select(x => (PostInterestKind.Tag, x.Id)));
             targets.AddRange(post.Categories.Select(x => (PostInterestKind.Category, x.Id)));
-            if (post.PublisherId.HasValue)
-                targets.Add((PostInterestKind.Publisher, post.PublisherId.Value));
+            if (post.PublisherId != Guid.Empty)
+                targets.Add((PostInterestKind.Publisher, post.PublisherId));
             targets.AddRange(postCollectionIds.Select(x => (PostInterestKind.Collection, x)));
 
             foreach (var target in targets.Distinct())
@@ -890,8 +890,8 @@ public partial class PostService(
             ["post_content"] = content,
         };
 
-        if (post.PublisherId.HasValue)
-            data["publisher_id"] = post.PublisherId.Value.ToString();
+        if (post.PublisherId != Guid.Empty)
+            data["publisher_id"] = post.PublisherId.ToString();
 
         if (post.RepliedPostId.HasValue)
             data["replied_post_id"] = post.RepliedPostId.Value.ToString();
@@ -1373,19 +1373,16 @@ public partial class PostService(
         var filteredUserIds = new List<string>();
         var publisherId = post.PublisherId;
 
-        if (publisherId == null)
-            return filteredUserIds;
-
-        var publisherMembers = await ps.GetPublisherMembers(publisherId.Value);
+        var publisherMembers = await ps.GetPublisherMembers(publisherId);
         var memberAccountIds = publisherMembers.Select(m => m.AccountId.ToString()).ToHashSet();
 
-        var postsRequireFollow = await ps.HasPostsRequireFollowFlag(publisherId.Value);
+        var postsRequireFollow = await ps.HasPostsRequireFollowFlag(publisherId);
         HashSet<string>? followerAccountIds = null;
         if (postsRequireFollow || post.Visibility == PostVisibility.QuietPublic)
         {
             var followerRequests = await db
                 .PublisherFollowRequests.Where(r =>
-                    r.PublisherId == publisherId.Value && r.State == FollowRequestState.Accepted
+                    r.PublisherId == publisherId && r.State == FollowRequestState.Accepted
                 )
                 .Select(r => r.AccountId.ToString())
                 .ToListAsync();
@@ -1714,7 +1711,7 @@ public partial class PostService(
 
         if (isPublishedNow && autoChain && post.ChainedPostId == null
             && post.RepliedPostId == null && post.ForwardedPostId == null
-            && post.Type == PostType.Moment && post.PublisherId is not null)
+            && post.Type == PostType.Moment && post.PublisherId != Guid.Empty)
         {
             var configuration = serviceProvider.GetRequiredService<IConfiguration>();
             var windowMinutes =
@@ -1804,7 +1801,7 @@ public partial class PostService(
                 try
                 {
                     var members = await pub.GetPublisherMembers(
-                        post.RepliedPost.PublisherId!.Value
+                        post.RepliedPost!.PublisherId
                     );
                     var queryRequest = new DyGetAccountBatchRequest();
                     queryRequest.Id.AddRange(members.Select(m => m.AccountId.ToString()));
@@ -2088,7 +2085,7 @@ public partial class PostService(
                     try
                     {
                         var members = await pub.GetPublisherMembers(
-                            post.RepliedPost.PublisherId!.Value
+                            post.RepliedPost!.PublisherId
                         );
                         var queryRequest = new DyGetAccountBatchRequest();
                         queryRequest.Id.AddRange(members.Select(m => m.AccountId.ToString()));
@@ -2465,7 +2462,7 @@ public partial class PostService(
 
             if (
                 !await ps.IsMemberWithRole(
-                    post.RepliedPost.PublisherId!.Value,
+                    post.RepliedPost!.PublisherId,
                     accountId,
                     PublisherMemberRole.Editor
                 )
@@ -2479,9 +2476,9 @@ public partial class PostService(
         else
         {
             if (
-                post.PublisherId == null
+                post.PublisherId == Guid.Empty
                 || !await ps.IsMemberWithRole(
-                    post.PublisherId.Value,
+                    post.PublisherId,
                     accountId,
                     PublisherMemberRole.Editor
                 )
@@ -2507,7 +2504,7 @@ public partial class PostService(
 
             if (
                 !await ps.IsMemberWithRole(
-                    post.RepliedPost.PublisherId!.Value,
+                    post.RepliedPost!.PublisherId,
                     accountId,
                     PublisherMemberRole.Editor
                 )
@@ -2519,9 +2516,9 @@ public partial class PostService(
         else
         {
             if (
-                post.PublisherId == null
+                post.PublisherId == Guid.Empty
                 || !await ps.IsMemberWithRole(
-                    post.PublisherId.Value,
+                    post.PublisherId,
                     accountId,
                     PublisherMemberRole.Editor
                 )
@@ -2633,7 +2630,7 @@ public partial class PostService(
         }
 
         // Send ActivityPub Like/Undo activities if post's publisher has actor
-        if (post.PublisherId.HasValue)
+        if (post.PublisherId != Guid.Empty)
         {
             var accountId = Guid.Parse(sender.Id);
             SnPublisher? accountPublisher = null;
@@ -2660,7 +2657,7 @@ public partial class PostService(
             var accountActor = accountPublisher is null
                 ? null
                 : await objFactory.GetLocalActorAsync(accountPublisher.Id);
-            var publisherActor = await objFactory.GetLocalActorAsync(post.PublisherId.Value);
+            var publisherActor = await objFactory.GetLocalActorAsync(post.PublisherId);
 
             if (accountActor != null && publisherActor != null)
             {
@@ -2748,9 +2745,9 @@ public partial class PostService(
                 scope.ServiceProvider.GetRequiredService<DyAccountService.DyAccountServiceClient>();
             try
             {
-                if (post.PublisherId == null)
+                if (post.PublisherId == Guid.Empty)
                     return;
-                var members = await pub.GetPublisherMembers(post.PublisherId.Value);
+                var members = await pub.GetPublisherMembers(post.PublisherId);
                 var queryRequest = new DyGetAccountBatchRequest();
                 queryRequest.Id.AddRange(members.Select(m => m.AccountId.ToString()));
                 var queryResponse = await accountsScoped.GetAccountBatchAsync(queryRequest);
@@ -2954,29 +2951,21 @@ public partial class PostService(
     private async Task<List<SnPost>> LoadPubsAndActors(List<SnPost> posts)
     {
         var publisherIds = posts
-            .SelectMany<SnPost, Guid?>(e =>
-                [e.PublisherId, e.RepliedPost?.PublisherId, e.ForwardedPost?.PublisherId]
+            .SelectMany<SnPost, Guid>(e =>
+                [
+                    e.PublisherId,
+                    e.RepliedPost?.PublisherId ?? Guid.Empty,
+                    e.ForwardedPost?.PublisherId ?? Guid.Empty,
+                ]
             )
-            .Where(e => e != null)
+            .Where(e => e != Guid.Empty)
             .Distinct()
             .ToList();
-        var actorIds = posts
-            .SelectMany<SnPost, Guid?>(e =>
-                [e.ActorId, e.RepliedPost?.ActorId, e.ForwardedPost?.ActorId]
-            )
-            .Where(e => e != null)
-            .Distinct()
-            .ToList();
-        if (publisherIds.Count == 0 && actorIds.Count == 0)
+        if (publisherIds.Count == 0)
             return posts;
 
         var publishers = await db
             .Publishers.Where(e => publisherIds.Contains(e.Id))
-            .ToDictionaryAsync(e => e.Id);
-
-        var actors = await db
-            .FediverseActors.Include(e => e.Instance)
-            .Where(e => actorIds.Contains(e.Id))
             .ToDictionaryAsync(e => e.Id);
 
         static SnPublisher ClonePublisher(SnPublisher publisher)
@@ -3016,56 +3005,42 @@ public partial class PostService(
         foreach (var post in posts)
         {
             if (
-                post.PublisherId.HasValue
-                && publishers.TryGetValue(post.PublisherId.Value, out var publisher)
+                post.PublisherId != Guid.Empty
+                && publishers.TryGetValue(post.PublisherId, out var publisher)
             )
                 post.Publisher = ClonePublisher(publisher);
-
-            if (post.ActorId.HasValue && actors.TryGetValue(post.ActorId.Value, out var actor))
-                post.Actor = actor;
 
             if (
                 post.RepliedPost?.PublisherId != null
                 && publishers.TryGetValue(
-                    post.RepliedPost.PublisherId.Value,
+                    post.RepliedPost!.PublisherId,
                     out var repliedPublisher
                 )
             )
                 post.RepliedPost.Publisher = ClonePublisher(repliedPublisher);
 
             if (
-                post.RepliedPost?.ActorId != null
-                && actors.TryGetValue(post.RepliedPost.ActorId.Value, out var repliedActor)
-            )
-                post.RepliedPost.Actor = repliedActor;
-
-            if (
                 post.ForwardedPost?.PublisherId != null
                 && publishers.TryGetValue(
-                    post.ForwardedPost.PublisherId.Value,
+                    post.ForwardedPost!.PublisherId,
                     out var forwardedPublisher
                 )
             )
                 post.ForwardedPost.Publisher = ClonePublisher(forwardedPublisher);
 
-            if (
-                post.ForwardedPost?.ActorId != null
-                && actors.TryGetValue(post.ForwardedPost.ActorId.Value, out var forwardedActor)
-            )
-                post.ForwardedPost.Actor = forwardedActor;
         }
 
         await ps.LoadIndividualPublisherAccounts(publishers.Values);
         foreach (var post in posts)
         {
-            if (post.Publisher?.AccountId is not null && post.PublisherId.HasValue)
-                post.Publisher.Account = publishers[post.PublisherId.Value].Account;
+            if (post.Publisher?.AccountId is not null && post.PublisherId != Guid.Empty)
+                post.Publisher.Account = publishers[post.PublisherId].Account;
 
-            if (post.RepliedPost?.Publisher?.AccountId is not null && post.RepliedPost.PublisherId.HasValue)
-                post.RepliedPost.Publisher.Account = publishers[post.RepliedPost.PublisherId.Value].Account;
+            if (post.RepliedPost?.Publisher?.AccountId is not null && post.RepliedPost != null)
+                post.RepliedPost.Publisher.Account = publishers[post.RepliedPost!.PublisherId].Account;
 
-            if (post.ForwardedPost?.Publisher?.AccountId is not null && post.ForwardedPost.PublisherId.HasValue)
-                post.ForwardedPost.Publisher.Account = publishers[post.ForwardedPost.PublisherId.Value].Account;
+            if (post.ForwardedPost?.Publisher?.AccountId is not null && post.ForwardedPost != null)
+                post.ForwardedPost.Publisher.Account = publishers[post.ForwardedPost!.PublisherId].Account;
         }
 
         var postPublishers = posts
@@ -3264,7 +3239,7 @@ public partial class PostService(
         // Check publication status - either published or user is member
         var isPublished =
             post.DraftedAt is null && post.PublishedAt != null && now >= post.PublishedAt;
-        var isMember = post.PublisherId.HasValue && publishersId.Contains(post.PublisherId.Value);
+        var isMember = post.PublisherId != Guid.Empty && publishersId.Contains(post.PublisherId);
         if (!isPublished && !isMember)
             return false;
 
@@ -3476,7 +3451,7 @@ public partial class PostService(
                         new Dictionary<string, object>
                         {
                             ["post_id"] = featuredPost.Id,
-                            ["publisher_id"] = featuredPost.PublisherId ?? Guid.Empty,
+                            ["publisher_id"] = featuredPost.PublisherId,
                             ["social_credits"] = record.SocialCredits,
                         }
                     );
@@ -3535,7 +3510,7 @@ public partial class PostService(
         await db.SaveChangesAsync();
 
         // Create merchant settlement via gRPC for positive awards (tips)
-        if (attitude == PostReactionAttitude.Positive && post.PublisherId.HasValue)
+        if (attitude == PostReactionAttitude.Positive && post.PublisherId != Guid.Empty)
         {
             _ = Task.Run(async () =>
             {
@@ -3544,7 +3519,7 @@ public partial class PostService(
                 try
                 {
                     await merchantRpc.CreateMerchantSettlementAsync(
-                        publisherId: post.PublisherId!.Value.ToString(),
+                        publisherId: post.PublisherId.ToString(),
                         currency: "points",
                         amount: amount.ToString(System.Globalization.CultureInfo.InvariantCulture),
                         awardId: award.Id.ToString());
@@ -3577,9 +3552,9 @@ public partial class PostService(
             {
                 var sender = await accountsHelper.GetAccount(accountId);
 
-                if (post.PublisherId == null)
+                if (post.PublisherId == Guid.Empty)
                     return;
-                var members = await pub.GetPublisherMembers(post.PublisherId.Value);
+                var members = await pub.GetPublisherMembers(post.PublisherId);
                 var queryRequest = new DyGetAccountBatchRequest();
                 queryRequest.Id.AddRange(members.Select(m => m.AccountId.ToString()));
                 var queryResponse = await accounts.GetAccountBatchAsync(queryRequest);
@@ -3697,14 +3672,14 @@ public partial class PostService(
                 return PostVisibilityResult.Visible;
         }
 
-        if (post.PublisherId.HasValue)
+        if (post.PublisherId != Guid.Empty)
         {
             var publisher = post.Publisher;
             if (publisher == null)
             {
                 publisher = await db
                     .Publishers.AsNoTracking()
-                    .FirstOrDefaultAsync(p => p.Id == post.PublisherId.Value);
+                    .FirstOrDefaultAsync(p => p.Id == post.PublisherId);
             }
 
             if (publisher?.IsGatekept == true)
@@ -3714,7 +3689,7 @@ public partial class PostService(
 
                 var accountId = Guid.Parse(currentUser.Id);
                 var isSubscribed = await db.PublisherSubscriptions.AnyAsync(s =>
-                    s.PublisherId == post.PublisherId.Value
+                    s.PublisherId == post.PublisherId
                     && s.AccountId == accountId
                     && s.EndedAt == null
                 );
@@ -3768,7 +3743,7 @@ public static class PostQueryExtensions
         {
             true when currentUser is not null => source.Where(e =>
                 e.Visibility != Shared.Models.PostVisibility.Unlisted
-                || (e.PublisherId.HasValue && publishersId.Contains(e.PublisherId.Value))
+                || (e.PublisherId != Guid.Empty && publishersId.Contains(e.PublisherId))
             ),
             true => source.Where(e => e.Visibility != Shared.Models.PostVisibility.Unlisted),
             _ => source,
@@ -3779,7 +3754,7 @@ public static class PostQueryExtensions
             if (gatekeptPublisherIds != null && gatekeptPublisherIds.Count > 0)
             {
                 source = source.Where(e =>
-                    !(e.PublisherId.HasValue && gatekeptPublisherIds.Contains(e.PublisherId.Value))
+                    !(e.PublisherId != Guid.Empty && gatekeptPublisherIds.Contains(e.PublisherId))
                 );
             }
 
@@ -3792,11 +3767,11 @@ public static class PostQueryExtensions
         var result = source
             .Where(e =>
                 (e.DraftedAt == null && e.PublishedAt != null && now >= e.PublishedAt)
-                || (e.PublisherId.HasValue && publishersId.Contains(e.PublisherId.Value))
+                || (e.PublisherId != Guid.Empty && publishersId.Contains(e.PublisherId))
             )
             .Where(e =>
                 e.Visibility != Shared.Models.PostVisibility.Private
-                || publishersId.Contains(e.PublisherId!.Value)
+                || publishersId.Contains(e.PublisherId)
             )
             .Where(e =>
                 e.Visibility != Shared.Models.PostVisibility.Friends
@@ -3804,25 +3779,25 @@ public static class PostQueryExtensions
                     e.Publisher!.AccountId != null
                     && userFriends.Contains(e.Publisher.AccountId.Value)
                 )
-                || publishersId.Contains(e.PublisherId!.Value)
+                || publishersId.Contains(e.PublisherId)
             )
             .Where(e =>
                 e.Visibility != Shared.Models.PostVisibility.CloseFriendsOnly
-                || publishersId.Contains(e.PublisherId!.Value)
+                || publishersId.Contains(e.PublisherId)
                 || (
                     closeFriendPublisherIds != null
-                    && e.PublisherId.HasValue
-                    && closeFriendPublisherIds.Contains(e.PublisherId.Value)
+                    && e.PublisherId != Guid.Empty
+                    && closeFriendPublisherIds.Contains(e.PublisherId)
                 )
             )
             .Where(e =>
                 e.Visibility != Shared.Models.PostVisibility.QuietPublic
                 || showQuietPublic
-                || publishersId.Contains(e.PublisherId!.Value)
+                || publishersId.Contains(e.PublisherId)
                 || (
                     followerPublisherIds != null
-                    && e.PublisherId.HasValue
-                    && followerPublisherIds.Contains(e.PublisherId.Value)
+                    && e.PublisherId != Guid.Empty
+                    && followerPublisherIds.Contains(e.PublisherId)
                 )
             );
 
@@ -3833,9 +3808,9 @@ public static class PostQueryExtensions
         )
         {
             result = result.Where(e =>
-                !(e.PublisherId.HasValue && gatekeptPublisherIds.Contains(e.PublisherId.Value))
-                || publishersId.Contains(e.PublisherId.Value)
-                || followerPublisherIds.Contains(e.PublisherId.Value)
+                !(e.PublisherId != Guid.Empty && gatekeptPublisherIds.Contains(e.PublisherId))
+                || publishersId.Contains(e.PublisherId)
+                || followerPublisherIds.Contains(e.PublisherId)
             );
         }
 

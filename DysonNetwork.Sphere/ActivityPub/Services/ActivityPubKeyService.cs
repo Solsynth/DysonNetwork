@@ -16,7 +16,7 @@ public class ActivityPubKeyService(
 {
     private static readonly ConcurrentDictionary<Guid, SemaphoreSlim> ActorLocks = new();
 
-    public async Task<SnFediverseKey> GetOrCreateKeyForActorAsync(SnFediverseActor actor, string algorithm = KeyAlgorithm.RSA_SHA256)
+    public async Task<SnFediverseKey> GetOrCreateKeyForActorAsync(SnPublisher actor, string algorithm = KeyAlgorithm.RSA_SHA256)
     {
         var actorLock = ActorLocks.GetOrAdd(actor.Id, _ => new SemaphoreSlim(1, 1));
         await actorLock.WaitAsync();
@@ -30,13 +30,13 @@ public class ActivityPubKeyService(
         }
     }
 
-    private async Task<SnFediverseKey> GetOrCreateKeyForActorInternalAsync(SnFediverseActor actor, string algorithm = KeyAlgorithm.RSA_SHA256)
+    private async Task<SnFediverseKey> GetOrCreateKeyForActorInternalAsync(SnPublisher actor, string algorithm = KeyAlgorithm.RSA_SHA256)
     {
         for (var attempt = 0; attempt < 3; attempt++)
         {
             var existingKey = await db.FediverseKeys
                 .IgnoreQueryFilters()
-                .FirstOrDefaultAsync(k => k.ActorId == actor.Id);
+                .FirstOrDefaultAsync(k => k.PublisherId == actor.Id);
 
             if (existingKey != null && !string.IsNullOrEmpty(existingKey.PrivateKeyPem))
                 return existingKey;
@@ -76,8 +76,7 @@ public class ActivityPubKeyService(
                     KeyPem = publicKey,
                     PrivateKeyPem = privateKey,
                     Algorithm = algorithm,
-                    ActorId = actor.Id,
-                    PublisherId = actor.PublisherId,
+                    PublisherId = actor.Id,
                     CreatedAt = SystemClock.Instance.GetCurrentInstant()
                 };
 
@@ -105,7 +104,7 @@ public class ActivityPubKeyService(
             }
         }
 
-        var finalKey = await db.FediverseKeys.FirstOrDefaultAsync(k => k.ActorId == actor.Id);
+        var finalKey = await db.FediverseKeys.FirstOrDefaultAsync(k => k.PublisherId == actor.Id);
         if (finalKey != null && !string.IsNullOrEmpty(finalKey.PrivateKeyPem))
             return finalKey;
 
@@ -116,7 +115,7 @@ public class ActivityPubKeyService(
     public async Task<SnFediverseKey?> GetKeyForActorAsync(Guid actorId)
     {
         return await db.FediverseKeys
-            .FirstOrDefaultAsync(k => k.ActorId == actorId);
+            .FirstOrDefaultAsync(k => k.PublisherId == actorId);
     }
 
     public async Task<SnFediverseKey?> GetKeyForActorAsync(string actorUri)
@@ -125,14 +124,14 @@ public class ActivityPubKeyService(
             .FirstOrDefaultAsync(k => k.KeyId == $"{actorUri}#main-key");
     }
 
-    public async Task<SnFediverseKey> CreateKeyForActorAsync(SnFediverseActor actor, string algorithm = KeyAlgorithm.RSA_SHA256)
+    public async Task<SnFediverseKey> CreateKeyForActorAsync(SnPublisher actor, string algorithm = KeyAlgorithm.RSA_SHA256)
     {
         return await GetOrCreateKeyForActorAsync(actor, algorithm);
     }
 
     public async Task RotateKeyAsync(Guid actorId)
     {
-        var actor = await db.FediverseActors.FindAsync(actorId);
+        var actor = await db.Publishers.FindAsync(actorId);
         if (actor == null)
             return;
 
@@ -160,7 +159,7 @@ public class ActivityPubKeyService(
             .FirstOrDefaultAsync(k => k.PublisherId == publisherId);
     }
 
-    public async Task UpdateKeyForActorAsync(SnFediverseActor actor)
+    public async Task UpdateKeyForActorAsync(SnPublisher actor)
     {
         var actorLock = ActorLocks.GetOrAdd(actor.Id, _ => new SemaphoreSlim(1, 1));
         await actorLock.WaitAsync();
@@ -174,10 +173,10 @@ public class ActivityPubKeyService(
         }
     }
 
-    private async Task UpdateKeyForActorInternalAsync(SnFediverseActor actor)
+    private async Task UpdateKeyForActorInternalAsync(SnPublisher actor)
     {
         var existingKey = await db.FediverseKeys
-            .FirstOrDefaultAsync(k => k.ActorId == actor.Id);
+            .FirstOrDefaultAsync(k => k.PublisherId == actor.Id);
 
         if (existingKey != null && !string.IsNullOrEmpty(existingKey.PrivateKeyPem))
         {
@@ -200,8 +199,7 @@ public class ActivityPubKeyService(
                 KeyId = $"{actor.Uri}#main-key",
                 KeyPem = publicKey,
                 PrivateKeyPem = privateKey,
-                ActorId = actor.Id,
-                PublisherId = actor.PublisherId,
+                PublisherId = actor.Id,
                 CreatedAt = SystemClock.Instance.GetCurrentInstant()
             };
 
@@ -220,7 +218,7 @@ public class ActivityPubKeyService(
         if (existingKey != null)
         {
             existingKey.KeyPem = keyPem;
-            existingKey.ActorId = actorId;
+            existingKey.PublisherId = actorId;
             existingKey.RotatedAt = SystemClock.Instance.GetCurrentInstant();
         }
         else
@@ -229,7 +227,7 @@ public class ActivityPubKeyService(
             {
                 KeyId = keyId,
                 KeyPem = keyPem,
-                ActorId = actorId,
+                PublisherId = actorId,
                 CreatedAt = SystemClock.Instance.GetCurrentInstant()
             };
 

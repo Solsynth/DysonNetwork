@@ -24,7 +24,7 @@ public class ActivityPubDeliveryService(
     private string AssetsBaseUrl =>
         configuration["ActivityPub:FileBaseUrl"] ?? $"https://{Domain}/files";
 
-    public async Task<bool> SendAcceptActivityAsync(SnFediverseActor actor, string followerActorUri)
+    public async Task<bool> SendAcceptActivityAsync(SnPublisher actor, string followerActorUri)
     {
         var actorUrl = actor.Uri;
         var followerActor = await db.FediverseActors.FirstOrDefaultAsync(a =>
@@ -108,15 +108,15 @@ public class ActivityPubDeliveryService(
         };
 
         var existingRelationship = await db.FediverseRelationships.FirstOrDefaultAsync(r =>
-            r.ActorId == localActor.Id && r.TargetActorId == targetActor.Id
+            r.PublisherId == localActor.Id && r.TargetPublisherId == targetActor.Id
         );
 
         if (existingRelationship == null)
         {
             existingRelationship = new SnFediverseRelationship
             {
-                ActorId = localActor.Id,
-                TargetActorId = targetActor.Id,
+                PublisherId = localActor.Id,
+                TargetPublisherId = targetActor.Id,
                 FollowedAt = SystemClock.Instance.GetCurrentInstant(),
                 State = RelationshipState.Pending,
             };
@@ -170,7 +170,7 @@ public class ActivityPubDeliveryService(
         };
 
         var relationship = await db.FediverseRelationships.FirstOrDefaultAsync(r =>
-            r.ActorId == localActor.Id && r.TargetActorId == targetActor.Id
+            r.PublisherId == localActor.Id && r.TargetPublisherId == targetActor.Id
         );
         if (relationship == null)
             return false;
@@ -193,9 +193,9 @@ public class ActivityPubDeliveryService(
 
     public async Task<bool> SendCreateActivityAsync(SnPost post)
     {
-        if (post.PublisherId == null)
+        if (post.PublisherId == Guid.Empty)
             return false;
-        var localActor = await objFactory.GetLocalActorAsync(post.PublisherId.Value);
+        var localActor = await objFactory.GetLocalActorAsync(post.PublisherId);
         if (localActor == null)
             return false;
 
@@ -210,21 +210,14 @@ public class ActivityPubDeliveryService(
             var repliedPost = await db
                 .Posts.Where(p => p.Id == post.RepliedPostId)
                 .Include(p => p.Publisher)
-                .Include(p => p.Actor)
                 .FirstOrDefaultAsync();
             post.RepliedPost = repliedPost;
 
-            // Local post
-            if (repliedPost?.Publisher != null)
-            {
-                var actor = await objFactory.GetLocalActorAsync(repliedPost.PublisherId!.Value);
-                if (actor?.FollowersUri != null)
-                    postReceivers.Add(actor.FollowersUri);
-            }
-
-            // Fediverse post
-            if (repliedPost?.Actor?.FollowersUri != null)
-                postReceivers.Add(post.Actor!.FollowersUri!);
+            var repliedActor = repliedPost != null
+                ? await objFactory.GetLocalActorAsync(repliedPost.PublisherId)
+                : null;
+            if (repliedActor?.FollowersUri != null)
+                postReceivers.Add(repliedActor.FollowersUri);
         }
 
         var activity = new Dictionary<string, object>
@@ -241,19 +234,7 @@ public class ActivityPubDeliveryService(
 
         var followers = await GetRemoteFollowersAsync(localActor.Id);
         if (post.RepliedPost != null)
-        {
-            if (post.RepliedPost.PublisherId.HasValue)
-            {
-                var repliedLocalActor = await objFactory.GetLocalActorAsync(
-                    post.RepliedPost.PublisherId.Value
-                );
-                if (repliedLocalActor != null)
-                    followers.AddRange(await GetRemoteFollowersAsync(repliedLocalActor.Id));
-            }
-
-            if (post.RepliedPost.ActorId.HasValue)
-                followers.AddRange(await GetRemoteFollowersAsync(post.RepliedPost.ActorId.Value));
-        }
+            followers.AddRange(await GetRemoteFollowersAsync(post.RepliedPost.PublisherId));
 
         logger.LogInformation("Enqueuing Create activity for {Count} followers", followers.Count);
 
@@ -275,9 +256,9 @@ public class ActivityPubDeliveryService(
 
     public async Task<bool> SendUpdateActivityAsync(SnPost post)
     {
-        if (post.PublisherId == null)
+        if (post.PublisherId == Guid.Empty)
             return false;
-        var localActor = await objFactory.GetLocalActorAsync(post.PublisherId.Value);
+        var localActor = await objFactory.GetLocalActorAsync(post.PublisherId);
         if (localActor == null)
             return false;
 
@@ -318,9 +299,9 @@ public class ActivityPubDeliveryService(
 
     public async Task<bool> SendDeleteActivityAsync(SnPost post)
     {
-        if (post.PublisherId == null)
+        if (post.PublisherId == Guid.Empty)
             return false;
-        var localActor = await objFactory.GetLocalActorAsync(post.PublisherId.Value);
+        var localActor = await objFactory.GetLocalActorAsync(post.PublisherId);
         if (localActor == null)
             return false;
 
@@ -362,12 +343,9 @@ public class ActivityPubDeliveryService(
         return followers.Count > 0;
     }
 
-    public async Task<bool> SendUpdateActorActivityAsync(SnFediverseActor actor)
+    public async Task<bool> SendUpdateActorActivityAsync(SnPublisher actor)
     {
-        var publisher = await db.Publishers.FirstOrDefaultAsync(p => p.Id == actor.PublisherId);
-
-        if (publisher == null)
-            return false;
+        var publisher = actor;
 
         actor.DisplayName = publisher.Nick;
         actor.Bio = publisher.Bio;
@@ -383,7 +361,7 @@ public class ActivityPubDeliveryService(
         var actorObject = new Dictionary<string, object?>
         {
             ["id"] = actorUrl,
-            ["type"] = actor.Type,
+            ["type"] = actor.ActorType ?? "Person",
             ["name"] = publisher.Nick,
             ["preferredUsername"] = publisher.Name,
             ["summary"] = publisher.Bio ?? "",
@@ -463,9 +441,9 @@ public class ActivityPubDeliveryService(
     }
 
     public async Task<bool> SendLikeActivityToLocalPostAsync(
-        SnFediverseActor actor,
+        SnPublisher actor,
         Guid postId,
-        SnFediverseActor postSenderActor
+        SnPublisher postSenderActor
     )
     {
         var actorUrl = actor.Uri;
@@ -514,9 +492,9 @@ public class ActivityPubDeliveryService(
     }
 
     public async Task<bool> SendUndoLikeActivityAsync(
-        SnFediverseActor actor,
+        SnPublisher actor,
         Guid postId,
-        SnFediverseActor postSenderActor
+        SnPublisher postSenderActor
     )
     {
         var actorUrl = actor.Uri;
@@ -570,7 +548,7 @@ public class ActivityPubDeliveryService(
 
     public async Task<bool> SendAnnounceActivityAsync(
         SnPost post,
-        SnFediverseActor actor,
+        SnPublisher actor,
         string? content = null,
         string? quoteUri = null
     )
@@ -642,7 +620,7 @@ public class ActivityPubDeliveryService(
         return followers.Count > 0;
     }
 
-    public async Task<bool> SendUndoAnnounceActivityAsync(SnPost post, SnFediverseActor actor)
+    public async Task<bool> SendUndoAnnounceActivityAsync(SnPost post, SnPublisher actor)
     {
         var actorUrl = actor.Uri;
         var postUrl = $"https://{Domain}/posts/{post.Id}";
@@ -735,10 +713,10 @@ public class ActivityPubDeliveryService(
     }
 
     public async Task<bool> SendEmojiReactionActivityAsync(
-        SnFediverseActor actor,
+        SnPublisher actor,
         Guid postId,
         string emoji,
-        SnFediverseActor postSenderActor,
+        SnPublisher postSenderActor,
         string? activityId = null
     )
     {
@@ -797,10 +775,10 @@ public class ActivityPubDeliveryService(
     }
 
     public async Task<bool> SendUndoEmojiReactionActivityAsync(
-        SnFediverseActor actor,
+        SnPublisher actor,
         Guid postId,
         string emoji,
-        SnFediverseActor postSenderActor,
+        SnPublisher postSenderActor,
         string reactionActivityId
     )
     {
@@ -1088,39 +1066,37 @@ public class ActivityPubDeliveryService(
         }
     }
 
-    private async Task<List<SnFediverseActor>> GetRemoteFollowersAsync()
+    private async Task<List<SnPublisher>> GetRemoteFollowersAsync()
     {
         var localActorIds = await db
-            .FediverseActors.Where(a => a.PublisherId != null)
+            .FediverseActors.Where(a => a.Type != PublisherType.Fediverse)
             .Select(a => a.Id)
             .ToListAsync();
 
         return await db
-            .FediverseRelationships.Include(r => r.Actor)
+            .FediverseRelationships.Include(r => r.Publisher)
             .Where(r =>
-                r.State == RelationshipState.Accepted && localActorIds.Contains(r.TargetActorId)
+                r.State == RelationshipState.Accepted && localActorIds.Contains(r.TargetPublisherId)
             )
-            .Select(r => r.Actor)
+            .Select(r => r.Publisher)
             .ToListAsync();
     }
 
-    private async Task<List<SnFediverseActor>> GetRemoteFollowersAsync(Guid actorId)
+    private async Task<List<SnPublisher>> GetRemoteFollowersAsync(Guid actorId)
     {
         return await db
-            .FediverseRelationships.Include(r => r.Actor)
-            .Where(r => r.TargetActorId == actorId && r.State == RelationshipState.Accepted)
-            .Select(r => r.Actor)
+            .FediverseRelationships.Include(r => r.Publisher)
+            .Where(r => r.TargetPublisherId == actorId && r.State == RelationshipState.Accepted)
+            .Select(r => r.Publisher)
             .ToListAsync();
     }
 
-    public async Task<SnFediverseActor?> GetOrCreateLocalActorAsync(SnPublisher publisher)
+    public async Task<SnPublisher?> GetOrCreateLocalActorAsync(SnPublisher publisher)
     {
         var actorUrl = $"https://{Domain}/activitypub/actors/{publisher.Name}";
 
-        var localActor = await db.FediverseActors.FirstOrDefaultAsync(a => a.Uri == actorUrl);
-
-        if (localActor != null)
-            return localActor;
+        if (!string.IsNullOrEmpty(publisher.Uri))
+            return publisher;
 
         var instance = await db.FediverseInstances.FirstOrDefaultAsync(i => i.Domain == Domain);
 
@@ -1133,29 +1109,25 @@ public class ActivityPubDeliveryService(
 
         var assetsBaseUrl = configuration["ActivityPub:FileBaseUrl"] ?? $"https://{Domain}/files";
 
-        localActor = new SnFediverseActor
-        {
-            Uri = actorUrl,
-            Username = publisher.Name,
-            DisplayName = publisher.Name,
-            Bio = publisher.Bio,
-            InboxUri = $"{actorUrl}/inbox",
-            OutboxUri = $"{actorUrl}/outbox",
-            FollowersUri = $"{actorUrl}/followers",
-            FollowingUri = $"{actorUrl}/following",
-            AvatarUrl =
-                publisher.Picture != null ? $"{assetsBaseUrl}/{publisher.Picture.Id}" : null,
-            HeaderUrl =
-                publisher.Background != null ? $"{assetsBaseUrl}/{publisher.Background.Id}" : null,
-            InstanceId = instance.Id,
-            PublisherId = publisher.Id,
-        };
+        publisher.Uri = actorUrl;
+        publisher.ActorType ??= "Person";
+        publisher.Username ??= publisher.Name;
+        publisher.Nick = string.IsNullOrEmpty(publisher.Nick) ? publisher.Name : publisher.Nick;
+        publisher.InboxUri = $"{actorUrl}/inbox";
+        publisher.OutboxUri = $"{actorUrl}/outbox";
+        publisher.FollowersUri = $"{actorUrl}/followers";
+        publisher.FollowingUri = $"{actorUrl}/following";
+        publisher.AvatarUrl ??=
+            publisher.Picture != null ? $"{assetsBaseUrl}/{publisher.Picture.Id}" : null;
+        publisher.HeaderUrl ??=
+            publisher.Background != null ? $"{assetsBaseUrl}/{publisher.Background.Id}" : null;
+        publisher.InstanceId = instance.Id;
+        publisher.InstanceDomain = instance.Domain;
 
         try
         {
-            db.FediverseActors.Add(localActor);
             await db.SaveChangesAsync();
-            return localActor;
+            return publisher;
         }
         catch (DbUpdateException ex)
             when (ex.InnerException is PostgresException pgEx && pgEx.SqlState == "23505")
@@ -1168,11 +1140,10 @@ public class ActivityPubDeliveryService(
         }
     }
 
-    private async Task<SnFediverseActor?> GetOrFetchActorAsync(string actorUri)
+    private async Task<SnPublisher?> GetOrFetchActorAsync(string actorUri)
     {
         var actor = await db
-            .FediverseActors.IgnoreQueryFilters()
-            .Include(a => a.Instance)
+            .Publishers.IgnoreQueryFilters()
             .FirstOrDefaultAsync(a => a.Uri == actorUri);
 
         if (actor != null)
@@ -1202,7 +1173,7 @@ public class ActivityPubDeliveryService(
                 ExtractUsername(actorUri),
                 instance.Id
             );
-            actor.Instance = instance;
+            actor.InstanceDomain = instance.Domain;
             return actor;
         }
         catch (Exception ex)

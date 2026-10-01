@@ -304,7 +304,7 @@ namespace DysonNetwork.Sphere.Migrations
                     b.ToTable("discovery_preferences", (string)null);
                 });
 
-            modelBuilder.Entity("DysonNetwork.Shared.Models.SnFediverseActor", b =>
+            modelBuilder.Entity("DysonNetwork.Shared.Models.SnPublisher", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -2619,7 +2619,7 @@ namespace DysonNetwork.Sphere.Migrations
 
             modelBuilder.Entity("DysonNetwork.Shared.Models.SnBoost", b =>
                 {
-                    b.HasOne("DysonNetwork.Shared.Models.SnFediverseActor", "Actor")
+                    b.HasOne("DysonNetwork.Shared.Models.SnPublisher", "Actor")
                         .WithMany()
                         .HasForeignKey("ActorId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -2638,7 +2638,7 @@ namespace DysonNetwork.Sphere.Migrations
                     b.Navigation("Post");
                 });
 
-            modelBuilder.Entity("DysonNetwork.Shared.Models.SnFediverseActor", b =>
+            modelBuilder.Entity("DysonNetwork.Shared.Models.SnPublisher", b =>
                 {
                     b.HasOne("DysonNetwork.Shared.Models.SnFediverseInstance", "Instance")
                         .WithMany("Actors")
@@ -2652,7 +2652,7 @@ namespace DysonNetwork.Sphere.Migrations
 
             modelBuilder.Entity("DysonNetwork.Shared.Models.SnFediverseKey", b =>
                 {
-                    b.HasOne("DysonNetwork.Shared.Models.SnFediverseActor", "Actor")
+                    b.HasOne("DysonNetwork.Shared.Models.SnPublisher", "Actor")
                         .WithMany()
                         .HasForeignKey("ActorId")
                         .HasConstraintName("fk_fediverse_keys_fediverse_actors_actor_id");
@@ -2662,14 +2662,14 @@ namespace DysonNetwork.Sphere.Migrations
 
             modelBuilder.Entity("DysonNetwork.Shared.Models.SnFediverseRelationship", b =>
                 {
-                    b.HasOne("DysonNetwork.Shared.Models.SnFediverseActor", "Actor")
+                    b.HasOne("DysonNetwork.Shared.Models.SnPublisher", "Actor")
                         .WithMany("FollowingRelationships")
                         .HasForeignKey("ActorId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_fediverse_relationships_fediverse_actors_actor_id");
 
-                    b.HasOne("DysonNetwork.Shared.Models.SnFediverseActor", "TargetActor")
+                    b.HasOne("DysonNetwork.Shared.Models.SnPublisher", "TargetActor")
                         .WithMany("FollowerRelationships")
                         .HasForeignKey("TargetActorId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -2753,7 +2753,7 @@ namespace DysonNetwork.Sphere.Migrations
 
             modelBuilder.Entity("DysonNetwork.Shared.Models.SnPost", b =>
                 {
-                    b.HasOne("DysonNetwork.Shared.Models.SnFediverseActor", "Actor")
+                    b.HasOne("DysonNetwork.Shared.Models.SnPublisher", "Actor")
                         .WithMany()
                         .HasForeignKey("ActorId")
                         .HasConstraintName("fk_posts_fediverse_actors_actor_id");
@@ -2880,7 +2880,7 @@ namespace DysonNetwork.Sphere.Migrations
 
             modelBuilder.Entity("DysonNetwork.Shared.Models.SnPostReaction", b =>
                 {
-                    b.HasOne("DysonNetwork.Shared.Models.SnFediverseActor", "Actor")
+                    b.HasOne("DysonNetwork.Shared.Models.SnPublisher", "Actor")
                         .WithMany()
                         .HasForeignKey("ActorId")
                         .HasConstraintName("fk_post_reactions_fediverse_actors_actor_id");
@@ -2997,7 +2997,7 @@ namespace DysonNetwork.Sphere.Migrations
 
             modelBuilder.Entity("DysonNetwork.Shared.Models.SnQuoteAuthorization", b =>
                 {
-                    b.HasOne("DysonNetwork.Shared.Models.SnFediverseActor", "Author")
+                    b.HasOne("DysonNetwork.Shared.Models.SnPublisher", "Author")
                         .WithMany()
                         .HasForeignKey("AuthorId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -3093,7 +3093,7 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasConstraintName("fk_post_tag_links_post_tags_tags_id");
                 });
 
-            modelBuilder.Entity("DysonNetwork.Shared.Models.SnFediverseActor", b =>
+            modelBuilder.Entity("DysonNetwork.Shared.Models.SnPublisher", b =>
                 {
                     b.Navigation("FollowerRelationships");
 

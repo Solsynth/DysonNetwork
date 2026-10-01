@@ -52,7 +52,7 @@ public class PublisherServiceGrpc(PublisherService service, AppDatabase db)
         ServerCallContext context
     )
     {
-        var query = db.Publishers.AsQueryable();
+        var query = db.Publishers.Where(p => p.Type != PublisherType.Fediverse).AsQueryable();
         if (!string.IsNullOrWhiteSpace(request.AccountId) && Guid.TryParse(request.AccountId, out var aid))
         {
             var ids = await db.PublisherMembers.Where(m => m.AccountId == aid).Select(m => m.PublisherId).ToListAsync();

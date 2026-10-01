@@ -90,7 +90,9 @@ public class PublisherPublicController(
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
         var currentUser = currentUserValue as DyAccount;
 
-        var publishersQueryable = ApplyPublisherSearch(db.Publishers, searchContext);
+        var publishersQueryable = ApplyPublisherSearch(
+            db.Publishers.Where(p => p.Type != PublisherType.Fediverse),
+            searchContext);
 
         if (currentUser is not null)
         {

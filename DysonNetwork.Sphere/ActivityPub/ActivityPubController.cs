@@ -180,11 +180,10 @@ public class ActivityPubController : ControllerBase
     {
         var post = await _db
             .Posts.Include(p => p.Publisher)
-            .Include(p => p.Actor)
             .Include(p => p.Tags)
             .FirstOrDefaultAsync(p =>
                 p.Id == id
-                && p.PublisherId != null
+                && p.PublisherId != Guid.Empty
                 && p.FediverseUri == null
                 && p.DraftedAt == null
                 && p.Visibility == PostVisibility.Public
@@ -223,14 +222,14 @@ public class ActivityPubController : ControllerBase
             return NotFound();
 
         var actor = await _db.FediverseActors.FirstOrDefaultAsync(a =>
-            a.PublisherId == publisher.Id
+            a.Id == publisher.Id && a.Uri != null
         );
 
         var actorUrl = $"https://{Domain}/activitypub/actors/{username}";
         var outboxUrl = $"{actorUrl}/outbox";
 
         var posts = await _db
-            .Posts.Include(p => p.Actor)
+            .Posts.Include(p => p.Publisher)
             .Include(p => p.Tags)
             .Where(p =>
                 p.PublisherId == publisher.Id
@@ -244,10 +243,9 @@ public class ActivityPubController : ControllerBase
         {
             boosts = await _db
                 .Boosts.Include(b => b.Post)
-                .ThenInclude(p => p.Actor)
                 .Include(b => b.Post)
                 .ThenInclude(p => p.Tags)
-                .Where(b => b.ActorId == actor.Id)
+                .Where(b => b.PublisherId == actor.Id)
                 .Where(b => b.Post.DraftedAt == null)
                 .Where(b => b.Post.Visibility == PostVisibility.Public)
                 .ToListAsync();
@@ -387,9 +385,9 @@ public class ActivityPubController : ControllerBase
         var followersUrl = $"{actorUrl}/followers";
 
         var relationshipsQuery = _db
-            .FediverseRelationships.Include(r => r.Actor)
+            .FediverseRelationships.Include(r => r.Publisher)
             .Where(r =>
-                r.TargetActor.PublisherId == publisher.Id && r.State == RelationshipState.Accepted
+                r.TargetPublisherId == publisher.Id && r.State == RelationshipState.Accepted
             );
 
         var totalItems = await relationshipsQuery.CountAsync();
@@ -403,7 +401,7 @@ public class ActivityPubController : ControllerBase
                 .OrderByDescending(r => r.FollowedAt)
                 .Skip(skip)
                 .Take(pageSize)
-                .Select(r => r.Actor.Uri)
+                .Select(r => r.Publisher.Uri)
                 .ToListAsync();
 
             var collectionPage = new ActivityPubCollectionPage
@@ -454,9 +452,9 @@ public class ActivityPubController : ControllerBase
         var followingUrl = $"{actorUrl}/following";
 
         var relationshipsQuery = _db
-            .FediverseRelationships.Include(r => r.TargetActor)
+            .FediverseRelationships.Include(r => r.TargetPublisher)
             .Where(r =>
-                r.Actor.PublisherId == publisher.Id && r.State == RelationshipState.Accepted
+                r.PublisherId == publisher.Id && r.State == RelationshipState.Accepted
             );
 
         var totalItems = await relationshipsQuery.CountAsync();
@@ -470,7 +468,7 @@ public class ActivityPubController : ControllerBase
                 .OrderByDescending(r => r.FollowedAt)
                 .Skip(skip)
                 .Take(pageSize)
-                .Select(r => r.TargetActor.Uri)
+                .Select(r => r.TargetPublisher.Uri)
                 .ToListAsync();
 
             var collectionPage = new ActivityPubCollectionPage
@@ -503,7 +501,7 @@ public class ActivityPubController : ControllerBase
     private async Task<string> GetPublicKeyAsync(SnPublisher publisher)
     {
         var actor = await _db.FediverseActors.FirstOrDefaultAsync(a =>
-            a.PublisherId == publisher.Id
+            a.Id == publisher.Id && a.Uri != null
         );
 
         if (actor == null)

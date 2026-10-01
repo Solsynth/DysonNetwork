@@ -81,7 +81,7 @@ public class PublisherSubscriptionService(
     /// <returns>The number of subscribers notified</returns>
     public async Task<int> NotifySubscriberPost(SnPost post)
     {
-        if (!post.PublisherId.HasValue || post.Publisher is null)
+        if (post.Publisher is null)
             return 0;
         if (post.RepliedPostId is not null)
             return 0;
@@ -371,12 +371,11 @@ public class PublisherSubscriptionService(
 
         var latestPosts = await db
             .Posts.Where(p =>
-                p.PublisherId.HasValue
-                && ids.Contains(p.PublisherId.Value)
+                ids.Contains(p.PublisherId)
                 && p.RepliedPostId == null
                 && p.Visibility == Shared.Models.PostVisibility.Public
             )
-            .GroupBy(p => p.PublisherId!.Value)
+            .GroupBy(p => p.PublisherId)
             .Select(g => new
             {
                 PublisherId = g.Key,
@@ -491,8 +490,7 @@ public class PublisherSubscriptionService(
     public async Task UpdateLastReadAtForPostsAsync(Guid accountId, IEnumerable<SnPost> posts)
     {
         var latestReadAtByPublisher = posts
-            .Where(post => post.PublisherId.HasValue)
-            .GroupBy(post => post.PublisherId!.Value)
+            .GroupBy(post => post.PublisherId)
             .ToDictionary(
                 group => group.Key,
                 group => group.Max(post => post.PublishedAt ?? post.CreatedAt)

@@ -275,10 +275,10 @@ public class PostController(
         if (post is null) return NotFound();
 
         Guid? authorAccountId = null;
-        if (post.PublisherId.HasValue)
+        if (post.PublisherId != Guid.Empty)
         {
             authorAccountId = await db.Publishers
-                .Where(p => p.Id == post.PublisherId.Value && p.AccountId.HasValue)
+                .Where(p => p.Id == post.PublisherId && p.AccountId.HasValue)
                 .Select(p => p.AccountId!.Value)
                 .FirstOrDefaultAsync();
         }
@@ -322,7 +322,7 @@ public class PostController(
 
         var query = db
             .Posts.Where(p =>
-                p.DraftedAt != null && p.PublisherId.HasValue && publisherIds.Contains(p.PublisherId.Value)
+                p.DraftedAt != null && p.PublisherId != Guid.Empty && publisherIds.Contains(p.PublisherId)
             )
             .Include(e => e.Categories)
             .Include(e => e.Tags)
@@ -361,8 +361,8 @@ public class PostController(
         var bookmarkedPostQuery = db.PostBookmarks
             .Where(b => b.AccountId == accountId)
             .Select(b => b.Post)
-            .Where(p => p.PublisherId != null)
-            .Select(p => p.PublisherId!.Value);
+            .Where(p => p.PublisherId != Guid.Empty)
+            .Select(p => p.PublisherId);
 
         var (gatekeptPublisherIds, subscriberPublisherIds, closeFriendPublisherIds) = await GetGatekeepInfoAsync(
             bookmarkedPostQuery,
@@ -575,7 +575,7 @@ public class PostController(
 
         var publisherIdsInQuery = publisher != null
             ? new List<Guid> { publisher.Id }
-            : await query.Where(p => p.PublisherId != null).Select(p => p.PublisherId!.Value).Distinct().ToListAsync();
+            : await query.Where(p => p.PublisherId != Guid.Empty).Select(p => p.PublisherId).Distinct().ToListAsync();
 
         HashSet<Guid>? gatekeptPublisherIds = null;
         HashSet<Guid>? subscriberPublisherIds = null;
@@ -629,7 +629,7 @@ public class PostController(
         if (shadowbannedPublisherIds != null && shadowbannedPublisherIds.Count > 0)
         {
             query = query.Where(p =>
-                !shadowbannedPublisherIds.Contains(p.PublisherId!.Value) &&
+                !shadowbannedPublisherIds.Contains(p.PublisherId) &&
                 (p.ShadowbanReason == null || p.ShadowbanReason == PostShadowbanReason.None));
         }
 
@@ -853,14 +853,14 @@ public class PostController(
         if (post is null)
             return NotFound();
 
-        if (post.PublisherId.HasValue && (post.Publisher?.GatekeptFollows == true || post.Visibility == Shared.Models.PostVisibility.QuietPublic))
+        if (post.PublisherId != Guid.Empty && (post.Publisher?.GatekeptFollows == true || post.Visibility == Shared.Models.PostVisibility.QuietPublic))
         {
             if (currentUser == null)
                 return StatusCode(403, ApiError.Unauthorized("Subscriber access required", forbidden: true));
             var currentAccountId = Guid.Parse(currentUser.Id);
             var isSubscriber = await db.PublisherSubscriptions
-                .AnyAsync(s => s.PublisherId == post.PublisherId.Value && s.AccountId == currentAccountId && s.EndedAt == null);
-            if (!isSubscriber && !userPublishers.Any(p => p.Id == post.PublisherId.Value))
+                .AnyAsync(s => s.PublisherId == post.PublisherId && s.AccountId == currentAccountId && s.EndedAt == null);
+            if (!isSubscriber && !userPublishers.Any(p => p.Id == post.PublisherId))
                 return StatusCode(403, ApiError.Unauthorized("Subscriber access required", forbidden: true));
         }
 
@@ -872,7 +872,7 @@ public class PostController(
             {
                 var currentAccountId = Guid.Parse(currentUser.Id);
                 var isCloseFriend = await remoteAccountsHelper.IsCloseFriend(post.Publisher.AccountId.Value, currentAccountId);
-                if (!isCloseFriend && !userPublishers.Any(p => p.Id == post.PublisherId!.Value))
+                if (!isCloseFriend && !userPublishers.Any(p => p.Id == post.PublisherId))
                     return StatusCode(403, ApiError.Unauthorized("Close friends access required", forbidden: true));
             }
         }
@@ -923,14 +923,14 @@ public class PostController(
         if (post is null)
             return NotFound();
 
-        if (post.PublisherId.HasValue && (post.Publisher?.GatekeptFollows == true || post.Visibility == Shared.Models.PostVisibility.QuietPublic))
+        if (post.PublisherId != Guid.Empty && (post.Publisher?.GatekeptFollows == true || post.Visibility == Shared.Models.PostVisibility.QuietPublic))
         {
             if (currentUser == null)
                 return StatusCode(403, ApiError.Unauthorized("Subscriber access required", forbidden: true));
             var currentAccountId = Guid.Parse(currentUser.Id);
             var isSubscriber = await db.PublisherSubscriptions
-                .AnyAsync(s => s.PublisherId == post.PublisherId.Value && s.AccountId == currentAccountId && s.EndedAt == null);
-            if (!isSubscriber && !userPublishers.Any(p => p.Id == post.PublisherId.Value))
+                .AnyAsync(s => s.PublisherId == post.PublisherId && s.AccountId == currentAccountId && s.EndedAt == null);
+            if (!isSubscriber && !userPublishers.Any(p => p.Id == post.PublisherId))
                 return StatusCode(403, ApiError.Unauthorized("Subscriber access required", forbidden: true));
         }
 
@@ -942,7 +942,7 @@ public class PostController(
             {
                 var currentAccountId = Guid.Parse(currentUser.Id);
                 var isCloseFriend = await remoteAccountsHelper.IsCloseFriend(post.Publisher.AccountId.Value, currentAccountId);
-                if (!isCloseFriend && !userPublishers.Any(p => p.Id == post.PublisherId!.Value))
+                if (!isCloseFriend && !userPublishers.Any(p => p.Id == post.PublisherId))
                     return StatusCode(403, ApiError.Unauthorized("Close friends access required", forbidden: true));
             }
         }
@@ -1069,7 +1069,7 @@ public class PostController(
         baseQuery = ApplyPostTextSearch(baseQuery, CreatePostSearchContext(queryTerm));
 
         var (gatekeptPublisherIds, subscriberPublisherIds, closeFriendPublisherIds) = await GetGatekeepInfoAsync(
-            baseQuery.Where(p => p.PublisherId != null).Select(p => p.PublisherId!.Value),
+            baseQuery.Where(p => p.PublisherId != Guid.Empty).Select(p => p.PublisherId),
             currentUser
         );
 
@@ -1092,14 +1092,14 @@ public class PostController(
         if (prevPost is null)
             return NotFound(new ApiError { Code = "POST_PREV_NOT_FOUND", Message = "No previous post found", Status = 404 });
 
-        if (prevPost.PublisherId.HasValue && (prevPost.Publisher?.GatekeptFollows == true || prevPost.Visibility == Shared.Models.PostVisibility.QuietPublic))
+        if (prevPost.PublisherId != Guid.Empty && (prevPost.Publisher?.GatekeptFollows == true || prevPost.Visibility == Shared.Models.PostVisibility.QuietPublic))
         {
             if (currentUser == null)
                 return StatusCode(403, ApiError.Unauthorized("Subscriber access required", forbidden: true));
             var currentAccountId = Guid.Parse(currentUser.Id);
             var isSubscriber = await db.PublisherSubscriptions
-                .AnyAsync(s => s.PublisherId == prevPost.PublisherId.Value && s.AccountId == currentAccountId && s.EndedAt == null);
-            if (!isSubscriber && !userPublishers.Any(p => p.Id == prevPost.PublisherId.Value))
+                .AnyAsync(s => s.PublisherId == prevPost.PublisherId && s.AccountId == currentAccountId && s.EndedAt == null);
+            if (!isSubscriber && !userPublishers.Any(p => p.Id == prevPost.PublisherId))
                 return StatusCode(403, ApiError.Unauthorized("Subscriber access required", forbidden: true));
         }
 
@@ -1111,7 +1111,7 @@ public class PostController(
             {
                 var currentAccountId = Guid.Parse(currentUser.Id);
                 var isCloseFriend = await remoteAccountsHelper.IsCloseFriend(prevPost.Publisher.AccountId.Value, currentAccountId);
-                if (!isCloseFriend && !userPublishers.Any(p => p.Id == prevPost.PublisherId!.Value))
+                if (!isCloseFriend && !userPublishers.Any(p => p.Id == prevPost.PublisherId))
                     return StatusCode(403, ApiError.Unauthorized("Close friends access required", forbidden: true));
             }
         }
@@ -1233,7 +1233,7 @@ public class PostController(
         baseQuery = ApplyPostTextSearch(baseQuery, CreatePostSearchContext(queryTerm));
 
         var (gatekeptPublisherIds, subscriberPublisherIds, closeFriendPublisherIds) = await GetGatekeepInfoAsync(
-            baseQuery.Where(p => p.PublisherId != null).Select(p => p.PublisherId!.Value),
+            baseQuery.Where(p => p.PublisherId != Guid.Empty).Select(p => p.PublisherId),
             currentUser
         );
 
@@ -1256,14 +1256,14 @@ public class PostController(
         if (nextPost is null)
             return NotFound(new ApiError { Code = "POST_NEXT_NOT_FOUND", Message = "No next post found", Status = 404 });
 
-        if (nextPost.PublisherId.HasValue && (nextPost.Publisher?.GatekeptFollows == true || nextPost.Visibility == Shared.Models.PostVisibility.QuietPublic))
+        if (nextPost.PublisherId != Guid.Empty && (nextPost.Publisher?.GatekeptFollows == true || nextPost.Visibility == Shared.Models.PostVisibility.QuietPublic))
         {
             if (currentUser == null)
                 return StatusCode(403, ApiError.Unauthorized("Subscriber access required", forbidden: true));
             var currentAccountId = Guid.Parse(currentUser.Id);
             var isSubscriber = await db.PublisherSubscriptions
-                .AnyAsync(s => s.PublisherId == nextPost.PublisherId.Value && s.AccountId == currentAccountId && s.EndedAt == null);
-            if (!isSubscriber && !userPublishers.Any(p => p.Id == nextPost.PublisherId.Value))
+                .AnyAsync(s => s.PublisherId == nextPost.PublisherId && s.AccountId == currentAccountId && s.EndedAt == null);
+            if (!isSubscriber && !userPublishers.Any(p => p.Id == nextPost.PublisherId))
                 return StatusCode(403, ApiError.Unauthorized("Subscriber access required", forbidden: true));
         }
 
@@ -1275,7 +1275,7 @@ public class PostController(
             {
                 var currentAccountId = Guid.Parse(currentUser.Id);
                 var isCloseFriend = await remoteAccountsHelper.IsCloseFriend(nextPost.Publisher.AccountId.Value, currentAccountId);
-                if (!isCloseFriend && !userPublishers.Any(p => p.Id == nextPost.PublisherId!.Value))
+                if (!isCloseFriend && !userPublishers.Any(p => p.Id == nextPost.PublisherId))
                     return StatusCode(403, ApiError.Unauthorized("Close friends access required", forbidden: true));
             }
         }
@@ -1311,7 +1311,7 @@ public class PostController(
         };
 
         var reactions = await query
-            .Include(r => r.Actor)
+            .Include(r => r.Publisher)
             .ThenInclude(r => r!.Instance)
             .Take(take)
             .Skip(offset)
@@ -1367,10 +1367,10 @@ public class PostController(
         var localPostQuery = db.PostReactions
             .Where(r => r.AccountId == accountId && r.Post.FediverseUri == null)
             .Select(r => r.Post)
-            .Where(p => p.PublisherId != null);
+            .Where(p => p.PublisherId != Guid.Empty);
 
         var (gatekeptPublisherIds, subscriberPublisherIds, closeFriendPublisherIds) = await GetGatekeepInfoAsync(
-            localPostQuery.Select(p => p.PublisherId!.Value),
+            localPostQuery.Select(p => p.PublisherId),
             currentUser
         );
 
@@ -1400,7 +1400,7 @@ public class PostController(
         };
 
         var reactions = await visibleReactions
-            .Include(r => r.Actor)
+            .Include(r => r.Publisher)
             .Include(r => r.Post)
             .ThenInclude(p => p.Publisher)
             .Include(r => r.Post)
@@ -1459,7 +1459,7 @@ public class PostController(
             : await pub.GetUserPublishers(Guid.Parse(currentUser.Id));
 
         var (gatekeptPublisherIds, subscriberPublisherIds, closeFriendPublisherIds) = await GetGatekeepInfoAsync(
-            db.Posts.Where(e => e.RepliedPostId == id && e.PublisherId != null).Select(e => e.PublisherId!.Value),
+            db.Posts.Where(e => e.RepliedPostId == id && e.PublisherId != Guid.Empty).Select(e => e.PublisherId),
             currentUser
         );
 
@@ -1498,7 +1498,7 @@ public class PostController(
             : await pub.GetUserPublishers(Guid.Parse(currentUser.Id));
 
         var (gatekeptPublisherIds, subscriberPublisherIds, closeFriendPublisherIds) = await GetGatekeepInfoAsync(
-            db.Posts.Where(e => e.RepliedPostId == id && e.PublisherId != null).Select(e => e.PublisherId!.Value),
+            db.Posts.Where(e => e.RepliedPostId == id && e.PublisherId != Guid.Empty).Select(e => e.PublisherId),
             currentUser
         );
 
@@ -1545,7 +1545,7 @@ public class PostController(
             return NotFound();
 
         var (gatekeptPublisherIds, subscriberPublisherIds, closeFriendPublisherIds) = await GetGatekeepInfoAsync(
-            db.Posts.Where(e => e.RepliedPostId == id && e.PublisherId != null).Select(e => e.PublisherId!.Value),
+            db.Posts.Where(e => e.RepliedPostId == id && e.PublisherId != Guid.Empty).Select(e => e.PublisherId),
             currentUser
         );
 
@@ -1611,7 +1611,7 @@ public class PostController(
             return NotFound();
 
         var (gatekeptPublisherIds, subscriberPublisherIds, closeFriendPublisherIds) = await GetGatekeepInfoAsync(
-            db.Posts.Where(e => e.RepliedPostId == id && e.PublisherId != null).Select(e => e.PublisherId!.Value),
+            db.Posts.Where(e => e.RepliedPostId == id && e.PublisherId != Guid.Empty).Select(e => e.PublisherId),
             currentUser
         );
 
@@ -1736,14 +1736,14 @@ public class PostController(
         if (currentPost is null)
             return NotFound();
 
-        if (currentPost.PublisherId.HasValue && (currentPost.Publisher?.GatekeptFollows == true || currentPost.Visibility == Shared.Models.PostVisibility.QuietPublic))
+        if (currentPost.PublisherId != Guid.Empty && (currentPost.Publisher?.GatekeptFollows == true || currentPost.Visibility == Shared.Models.PostVisibility.QuietPublic))
         {
             if (currentUser == null)
                 return StatusCode(403, ApiError.Unauthorized("Subscriber access required", forbidden: true));
             var currentAccountId = Guid.Parse(currentUser.Id);
             var isSubscriber = await db.PublisherSubscriptions
-                .AnyAsync(s => s.PublisherId == currentPost.PublisherId.Value && s.AccountId == currentAccountId && s.EndedAt == null);
-            if (!isSubscriber && !userPublishers.Any(p => p.Id == currentPost.PublisherId.Value))
+                .AnyAsync(s => s.PublisherId == currentPost.PublisherId && s.AccountId == currentAccountId && s.EndedAt == null);
+            if (!isSubscriber && !userPublishers.Any(p => p.Id == currentPost.PublisherId))
                 return StatusCode(403, ApiError.Unauthorized("Subscriber access required", forbidden: true));
         }
 
@@ -1755,7 +1755,7 @@ public class PostController(
             {
                 var currentAccountId = Guid.Parse(currentUser.Id);
                 var isCloseFriend = await remoteAccountsHelper.IsCloseFriend(currentPost.Publisher.AccountId.Value, currentAccountId);
-                if (!isCloseFriend && !userPublishers.Any(p => p.Id == currentPost.PublisherId!.Value))
+                if (!isCloseFriend && !userPublishers.Any(p => p.Id == currentPost.PublisherId))
                     return StatusCode(403, ApiError.Unauthorized("Close friends access required", forbidden: true));
             }
         }
@@ -1833,7 +1833,7 @@ public class PostController(
         }
 
         var (gatekeptPublisherIds, subscriberPublisherIds, closeFriendPublisherIds) = await GetGatekeepInfoAsync(
-            db.Posts.Where(e => e.RepliedPostId == id && e.PublisherId != null).Select(e => e.PublisherId!.Value),
+            db.Posts.Where(e => e.RepliedPostId == id && e.PublisherId != Guid.Empty).Select(e => e.PublisherId),
             currentUser
         );
 
@@ -2016,7 +2016,7 @@ public class PostController(
             return NotFound();
 
         var (gatekeptPublisherIds, subscriberPublisherIds, closeFriendPublisherIds) = await GetGatekeepInfoAsync(
-            db.Posts.Where(e => e.ForwardedPostId == id && e.PublisherId != null).Select(e => e.PublisherId!.Value),
+            db.Posts.Where(e => e.ForwardedPostId == id && e.PublisherId != Guid.Empty).Select(e => e.PublisherId),
             currentUser
         );
 

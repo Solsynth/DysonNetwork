@@ -24,7 +24,7 @@ public class QuoteAuthorizationController(
     public async Task<ActionResult> GetQuoteAuthorization(Guid id)
     {
         var auth = await db.QuoteAuthorizations
-            .Include(q => q.Author)
+            .Include(q => q.Publisher)
             .FirstOrDefaultAsync(q => q.Id == id);
 
         if (auth == null || !auth.IsValid)
@@ -53,7 +53,7 @@ public class QuoteAuthorizationController(
             },
             ["type"] = "QuoteAuthorization",
             ["id"] = $"{BaseUrl}/quote-authorizations/{auth.Id}",
-            ["attributedTo"] = auth.Author.Uri,
+            ["attributedTo"] = auth.Publisher.Uri,
             ["interactingObject"] = auth.InteractingObjectUri,
             ["interactionTarget"] = auth.InteractionTargetUri
         };
@@ -67,7 +67,7 @@ public class QuoteAuthorizationController(
     {
         var actor = await db.FediverseActors
             .Include(a => a.Instance)
-            .FirstOrDefaultAsync(a => a.PublisherId == GetCurrentUserId());
+            .FirstOrDefaultAsync(a => a.Id == GetCurrentUserId() && a.Uri != null);
 
         if (actor == null)
             return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
@@ -76,7 +76,7 @@ public class QuoteAuthorizationController(
             .FirstOrDefaultAsync(q =>
                 q.InteractionTargetUri == request.InteractionTargetUri &&
                 q.InteractingObjectUri == request.InteractingObjectUri &&
-                q.AuthorId == actor.Id &&
+                q.PublisherId == actor.Id &&
                 q.IsValid);
 
         if (existingAuth != null)
@@ -94,7 +94,7 @@ public class QuoteAuthorizationController(
         {
             Id = Guid.NewGuid(),
             FediverseUri = $"{BaseUrl}/quote-authorizations/{Guid.NewGuid()}",
-            AuthorId = actor.Id,
+            PublisherId = actor.Id,
             InteractingObjectUri = request.InteractingObjectUri,
             InteractionTargetUri = request.InteractionTargetUri,
             TargetPostId = targetPost?.Id,
@@ -113,13 +113,13 @@ public class QuoteAuthorizationController(
     public async Task<ActionResult> RevokeQuoteAuthorization(Guid id)
     {
         var actor = await db.FediverseActors
-            .FirstOrDefaultAsync(a => a.PublisherId == GetCurrentUserId());
+            .FirstOrDefaultAsync(a => a.Id == GetCurrentUserId() && a.Uri != null);
 
         if (actor == null)
             return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
 
         var auth = await db.QuoteAuthorizations
-            .FirstOrDefaultAsync(q => q.Id == id && q.AuthorId == actor.Id);
+            .FirstOrDefaultAsync(q => q.Id == id && q.PublisherId == actor.Id);
 
         if (auth == null)
             return NotFound();

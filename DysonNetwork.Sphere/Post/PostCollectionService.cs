@@ -360,8 +360,8 @@ public class PostCollectionService(
             return;
 
         var publisherPostGroups = posts
-            .Where(p => p.PublisherId.HasValue)
-            .GroupBy(p => p.PublisherId!.Value)
+            .Where(p => p.PublisherId != Guid.Empty)
+            .GroupBy(p => p.PublisherId)
             .ToList();
         if (publisherPostGroups.Count == 0)
             return;
@@ -384,7 +384,7 @@ public class PostCollectionService(
 
         var grouped = items
             .Join(
-                posts.Where(p => p.PublisherId.HasValue),
+                posts.Where(p => p.PublisherId != Guid.Empty),
                 item => item.PostId,
                 post => post.Id,
                 (item, post) => new
@@ -393,7 +393,7 @@ public class PostCollectionService(
                     item.Collection,
                     item.PublishedAt,
                     item.CreatedAt,
-                    PostPublisherId = post.PublisherId!.Value
+                    PostPublisherId = post.PublisherId
                 }
             )
             .Where(x => x.Collection.PublisherId == x.PostPublisherId)

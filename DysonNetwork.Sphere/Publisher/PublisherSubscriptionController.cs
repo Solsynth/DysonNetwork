@@ -367,11 +367,10 @@ public class PublisherSubscriptionController(
             case "latest_posted_at":
                 var latestPosts = db.Posts
                     .Where(post =>
-                        post.PublisherId.HasValue
-                        && post.RepliedPostId == null
+                        post.RepliedPostId == null
                         && post.Visibility == Shared.Models.PostVisibility.Public
                     )
-                    .GroupBy(post => post.PublisherId!.Value)
+                    .GroupBy(post => post.PublisherId)
                     .Select(group => new
                     {
                         PublisherId = group.Key,

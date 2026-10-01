@@ -140,7 +140,7 @@ public class ActivityHandlerService(
         var targetActor = await ResolveOrCreateActorAsync(objectUri);
 
         var existing = await db.FediverseRelationships
-            .FirstOrDefaultAsync(r => r.ActorId == actor.Id && r.TargetActorId == targetActor.Id);
+            .FirstOrDefaultAsync(r => r.PublisherId == actor.Id && r.TargetPublisherId == targetActor.Id);
 
         switch (existing?.State)
         {
@@ -150,8 +150,8 @@ public class ActivityHandlerService(
             case null:
                 existing = new SnFediverseRelationship
                 {
-                    ActorId = actor.Id,
-                    TargetActorId = targetActor.Id,
+                    PublisherId = actor.Id,
+                    TargetPublisherId = targetActor.Id,
                     State = RelationshipState.Accepted
                 };
                 db.FediverseRelationships.Add(existing);
@@ -192,9 +192,9 @@ public class ActivityHandlerService(
         var actor = await ResolveOrCreateActorAsync(actorUri);
 
         var relationship = await db.FediverseRelationships
-            .Include(r => r.Actor)
-            .Include(r => r.TargetActor)
-            .FirstOrDefaultAsync(r => r.TargetActorId == actor.Id);
+            .Include(r => r.Publisher)
+            .Include(r => r.TargetPublisher)
+            .FirstOrDefaultAsync(r => r.TargetPublisherId == actor.Id);
 
         if (relationship == null)
         {
@@ -207,8 +207,8 @@ public class ActivityHandlerService(
 
             relationship = new SnFediverseRelationship
             {
-                ActorId = localActor.Id,
-                TargetActorId = actor.Id,
+                PublisherId = localActor.Id,
+                TargetPublisherId = actor.Id,
                 State = RelationshipState.Accepted
             };
             db.FediverseRelationships.Add(relationship);
@@ -228,7 +228,7 @@ public class ActivityHandlerService(
         var actor = await ResolveOrCreateActorAsync(actorUri);
 
         var relationship = await db.FediverseRelationships
-            .FirstOrDefaultAsync(r => r.TargetActorId == actor.Id);
+            .FirstOrDefaultAsync(r => r.TargetPublisherId == actor.Id);
 
         if (relationship != null)
         {
@@ -258,9 +258,7 @@ public class ActivityHandlerService(
             return ActivityResult.NotFound;
         }
 
-        var localActor = targetPost.PublisherId.HasValue
-            ? await db.FediverseActors.FirstOrDefaultAsync(a => a.PublisherId == targetPost.PublisherId)
-            : targetPost.Actor;
+        var localActor = await db.FediverseActors.FirstOrDefaultAsync(a => a.Id == targetPost.PublisherId);
 
         if (localActor == null)
         {
@@ -271,7 +269,7 @@ public class ActivityHandlerService(
         var auth = new SnQuoteAuthorization
         {
             FediverseUri = $"{BaseUrl}/quote-authorizations/{Guid.NewGuid()}",
-            AuthorId = localActor.Id,
+            PublisherId = localActor.Id,
             InteractingObjectUri = instrumentUri ?? GetString(activity, "id") ?? "",
             InteractionTargetUri = objectUri,
             TargetPostId = targetPost.Id,
@@ -312,7 +310,7 @@ public class ActivityHandlerService(
         var targetActor = await ResolveOrCreateActorAsync(objectUri);
 
         var relationship = await db.FediverseRelationships
-            .FirstOrDefaultAsync(r => r.ActorId == actor.Id && r.TargetActorId == targetActor.Id);
+            .FirstOrDefaultAsync(r => r.PublisherId == actor.Id && r.TargetPublisherId == targetActor.Id);
 
         if (relationship != null)
         {
@@ -336,7 +334,7 @@ public class ActivityHandlerService(
             return ActivityResult.NotFound;
 
         var reaction = await db.PostReactions
-            .FirstOrDefaultAsync(r => r.ActorId == actor.Id && r.PostId == post.Id);
+            .FirstOrDefaultAsync(r => r.PublisherId == actor.Id && r.PostId == post.Id);
 
         if (reaction != null)
         {
@@ -368,7 +366,7 @@ public class ActivityHandlerService(
         }
 
         var boost = await db.Boosts
-            .FirstOrDefaultAsync(b => b.PostId == post.Id && b.ActorId == actor.Id);
+            .FirstOrDefaultAsync(b => b.PostId == post.Id && b.PublisherId == actor.Id);
 
         if (boost != null)
         {
@@ -419,7 +417,7 @@ public class ActivityHandlerService(
             ContentType = PostContentType.Html,
             PublishedAt = ParseInstant(GetValue(objectDict, "published")),
             EditedAt = ParseInstant(GetValue(objectDict, "updated")),
-            ActorId = actor.Id,
+            PublisherId = actor.Id,
             Language = GetString(objectDict, "language"),
             Type = objectType == "Article" ? PostType.Article : PostType.Moment,
             Visibility = PostVisibility.Public
@@ -456,7 +454,7 @@ public class ActivityHandlerService(
         }
 
         var existing = await db.PostReactions
-            .FirstOrDefaultAsync(r => r.ActorId == actor.Id && r.PostId == post.Id);
+            .FirstOrDefaultAsync(r => r.PublisherId == actor.Id && r.PostId == post.Id);
 
         if (existing != null)
         {
@@ -474,7 +472,7 @@ public class ActivityHandlerService(
             Attitude = attitude,
             IsLocal = false,
             PostId = post.Id,
-            ActorId = actor.Id,
+            PublisherId = actor.Id,
             CreatedAt = SystemClock.Instance.GetCurrentInstant(),
             UpdatedAt = SystemClock.Instance.GetCurrentInstant()
         };
@@ -508,7 +506,7 @@ public class ActivityHandlerService(
                 return ActivityResult.NotFound;
         }
 
-        var existing = await db.Boosts.FirstOrDefaultAsync(b => b.PostId == post.Id && b.ActorId == actor.Id);
+        var existing = await db.Boosts.FirstOrDefaultAsync(b => b.PostId == post.Id && b.PublisherId == actor.Id);
         if (existing != null)
         {
             logger.LogDebug("Boost already exists");
@@ -518,7 +516,7 @@ public class ActivityHandlerService(
         var boost = new SnBoost
         {
             PostId = post.Id,
-            ActorId = actor.Id,
+            PublisherId = actor.Id,
             ActivityPubUri = GetString(activity, "id"),
             BoostedAt = SystemClock.Instance.GetCurrentInstant()
         };
@@ -572,7 +570,7 @@ public class ActivityHandlerService(
                 FediverseType = DyFediverseContentType.DyFediverseNote,
                 Type = PostType.Moment,
                 Visibility = PostVisibility.Public,
-                ActorId = actor.Id
+                PublisherId = actor.Id
             };
             db.Posts.Add(post);
         }
@@ -696,7 +694,7 @@ public class ActivityHandlerService(
         return Task.FromResult(ActivityResult.Success);
     }
 
-    private async Task<SnFediverseActor> ResolveOrCreateActorAsync(string actorUri)
+    private async Task<SnPublisher> ResolveOrCreateActorAsync(string actorUri)
     {
         var domain = ExtractDomain(actorUri);
         var instance = await db.FediverseInstances.FirstOrDefaultAsync(i => i.Domain == domain);
@@ -751,7 +749,7 @@ public class ActivityHandlerService(
                 await db.SaveChangesAsync();
             }
 
-            var actor = await db.FediverseActors.FirstOrDefaultAsync(a => a.Uri == actorUri);
+            var actor = await ResolveOrCreateActorAsync(actorUri);
 
             var fetched = await discoveryService.FetchActivityAsync(postUri, actorUri);
             if (fetched == null)
@@ -778,7 +776,7 @@ public class ActivityHandlerService(
                 Content = GetString(objectDict, "content"),
                 ContentType = PostContentType.Html,
                 PublishedAt = ParseInstant(GetValue(objectDict, "published")),
-                ActorId = actor?.Id,
+                PublisherId = actor.Id,
                 Type = objectType == "Article" ? PostType.Article : PostType.Moment,
                 Visibility = PostVisibility.Public
             };

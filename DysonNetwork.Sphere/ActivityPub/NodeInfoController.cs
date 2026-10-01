@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using DysonNetwork.Shared.Models;
 using DysonNetwork.Sphere.Models;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
@@ -147,7 +148,7 @@ public class NodeInfoController(
     {
         var totalPublishers = await db.Publishers.CountAsync();
         var totalPosts = await db.Posts.CountAsync(p => p.PublisherId != null);
-        var totalFediverseActors = await db.FediverseActors.CountAsync(a => a.PublisherId != null);
+        var totalFediverseActors = await db.Publishers.CountAsync(a => a.Type != PublisherType.Fediverse && a.Uri != null);
 
         return new NodeInfoStats
         {

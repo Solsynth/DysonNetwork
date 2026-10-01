@@ -73,12 +73,12 @@ public class FediverseCachingService(
         return null;
     }
 
-    public async Task SetActorAsync(SnFediverseActor actor, string instanceDomain)
+    public async Task SetActorAsync(SnPublisher actor, string instanceDomain)
     {
         var cached = new CachedActor
         {
             Id = actor.Id,
-            Type = actor.Type,
+            Type = actor.ActorType ?? "Person",
             Uri = actor.Uri,
             Username = actor.Username,
             DisplayName = actor.DisplayName,
@@ -93,8 +93,8 @@ public class FediverseCachingService(
             InstanceSoftware = actor.Instance?.Software,
             LastActivityAt = actor.LastActivityAt,
             LastFetchedAt = actor.LastFetchedAt,
-            FollowersCount = actor.FollowerRelationships?.Count ?? -1,
-            FollowingCount = actor.FollowingRelationships?.Count ?? -1,
+            FollowersCount = -1,
+            FollowingCount = -1,
             Metadata = actor.Metadata
         };
 
@@ -125,15 +125,15 @@ public class FediverseCachingService(
         await SetActorAsync(actor, instanceDomain);
 
         var followersCount = await db.FediverseRelationships
-            .CountAsync(r => r.TargetActorId == actor.Id && r.State == RelationshipState.Accepted);
+            .CountAsync(r => r.TargetPublisherId == actor.Id && r.State == RelationshipState.Accepted);
 
         var followingCount = await db.FediverseRelationships
-            .CountAsync(r => r.ActorId == actor.Id && r.State == RelationshipState.Accepted);
+            .CountAsync(r => r.PublisherId == actor.Id && r.State == RelationshipState.Accepted);
 
         return new CachedActor
         {
             Id = actor.Id,
-            Type = actor.Type,
+            Type = actor.ActorType ?? "Person",
             Uri = actor.Uri,
             Username = actor.Username,
             DisplayName = actor.DisplayName,
@@ -166,15 +166,15 @@ public class FediverseCachingService(
         await SetActorAsync(actor, actor.Instance?.Domain ?? "unknown");
 
         var followersCount = await db.FediverseRelationships
-            .CountAsync(r => r.TargetActorId == actor.Id && r.State == RelationshipState.Accepted);
+            .CountAsync(r => r.TargetPublisherId == actor.Id && r.State == RelationshipState.Accepted);
 
         var followingCount = await db.FediverseRelationships
-            .CountAsync(r => r.ActorId == actor.Id && r.State == RelationshipState.Accepted);
+            .CountAsync(r => r.PublisherId == actor.Id && r.State == RelationshipState.Accepted);
 
         return new CachedActor
         {
             Id = actor.Id,
-            Type = actor.Type,
+            Type = actor.ActorType ?? "Person",
             Uri = actor.Uri,
             Username = actor.Username,
             DisplayName = actor.DisplayName,
@@ -285,7 +285,7 @@ public class FediverseCachingService(
     {
         var cacheKey = GetRelationshipCacheKey(actorId, targetActorId);
         await cache.RemoveAsync(cacheKey);
-        logger.LogDebug("Invalidated relationship cache: {ActorId} -> {TargetActorId}", actorId, targetActorId);
+        logger.LogDebug("Invalidated relationship cache: {ActorId} -> {TargetPublisherId}", actorId, targetActorId);
     }
 
     public async Task InvalidateActorAsync(Guid actorId, string? username = null, string? instanceDomain = null, string? uri = null)
@@ -370,7 +370,7 @@ public class CachedInstance
 public class CachedRelationship
 {
     public Guid ActorId { get; set; }
-    public Guid TargetActorId { get; set; }
+    public Guid TargetPublisherId { get; set; }
     public bool IsFollowing { get; set; }
     public bool IsFollowedBy { get; set; }
     public bool IsPending { get; set; }

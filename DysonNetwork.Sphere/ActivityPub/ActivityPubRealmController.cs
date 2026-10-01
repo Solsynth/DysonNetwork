@@ -98,17 +98,17 @@ public class ActivityPubRealmController(
 
         var relationships = await db.FediverseRelationships
             .Where(r => r.RealmId == realm.Id && r.State == RelationshipState.Accepted)
-            .Include(r => r.Actor)
+            .Include(r => r.Publisher)
             .Take(limit ?? 20)
             .ToListAsync();
 
         var items = relationships
-            .Where(r => r.Actor != null)
+            .Where(r => r.Publisher != null)
             .Select(r => new ActivityPubActor
             {
-                Id = r.Actor!.Uri,
+                Id = r.Publisher.Uri,
                 Type = "Person",
-                Name = r.Actor.DisplayName ?? r.Actor.Username
+                Name = r.Publisher.DisplayName ?? r.Publisher.Username
             })
             .ToList();
 
@@ -186,7 +186,7 @@ public class ActivityPubRealmController(
         
         var existingFollow = await db.FediverseRelationships
             .FirstOrDefaultAsync(r => 
-                r.TargetActorId == actor.Id && 
+                r.TargetPublisherId == actor.Id && 
                 r.RealmId == realm.Id &&
                 r.State == RelationshipState.Accepted);
 
@@ -197,8 +197,8 @@ public class ActivityPubRealmController(
 
         var relationship = new SnFediverseRelationship
         {
-            ActorId = actor.Id,
-            TargetActorId = actor.Id,
+            PublisherId = actor.Id,
+            TargetPublisherId = actor.Id,
             RealmId = realm.Id,
             State = RelationshipState.Accepted,
             FollowedAt = SystemClock.Instance.GetCurrentInstant()
@@ -255,8 +255,8 @@ public class ActivityPubRealmController(
         var actor = await GetOrCreateActorAsync(actorUri);
         var relationship = await db.FediverseRelationships
             .FirstOrDefaultAsync(r => 
-                r.ActorId == actor.Id && 
-                r.TargetActorId == actor.Id &&
+                r.PublisherId == actor.Id && 
+                r.TargetPublisherId == actor.Id &&
                 r.RealmId == realm.Id);
 
         if (relationship != null)
@@ -269,7 +269,7 @@ public class ActivityPubRealmController(
         return Ok(new { status = "undone" });
     }
 
-    private async Task<SnFediverseActor> GetOrCreateActorAsync(string actorUri)
+    private async Task<SnPublisher> GetOrCreateActorAsync(string actorUri)
     {
         var uri = new Uri(actorUri);
         var instance = await db.FediverseInstances
@@ -306,17 +306,17 @@ public class ActivityPubRealmController(
 
         var followers = await db.FediverseRelationships
             .Where(r => r.RealmId == realm.Id && r.State == RelationshipState.Accepted)
-            .Include(r => r.Actor)
+            .Include(r => r.Publisher)
             .ToListAsync();
 
         foreach (var follower in followers)
         {
-            if (follower.Actor?.InboxUri == null) continue;
+            if (follower.Publisher?.InboxUri == null) continue;
             await deliveryService.EnqueueActivityDeliveryAsync(
                 "Announce",
                 announceActivity,
                 communityActorUrl,
-                follower.Actor.InboxUri,
+                follower.Publisher.InboxUri,
                 announceActivity["id"]?.ToString() ?? ""
             );
         }

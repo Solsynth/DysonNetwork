@@ -869,7 +869,7 @@ public class PostActionController(
             {
                 { "post_id", post.Id.ToString() },
                 { "reaction", request.Symbol },
-                { "post_kind", post.PublisherId.HasValue ? "publisher" : "personal" }
+                { "post_kind", post.PublisherId != Guid.Empty ? "publisher" : "personal" }
             },
             userAgent: Request.Headers.UserAgent,
             ipAddress: Request.GetClientIpAddress()
@@ -1153,8 +1153,8 @@ public class PostActionController(
             return NotFound();
 
         var accountId = Guid.Parse(currentUser.Id);
-        if (post.PublisherId == null ||
-            !await pub.IsMemberWithRole(post.PublisherId.Value, accountId, PublisherMemberRole.Editor))
+        if (post.PublisherId == Guid.Empty ||
+            !await pub.IsMemberWithRole(post.PublisherId, accountId, PublisherMemberRole.Editor))
             return StatusCode(403, ApiError.Unauthorized("You are not an editor of this publisher", forbidden: true));
 
         if (request.Mode == Shared.Models.PostPinMode.RealmPage && post.RealmId != null)
@@ -1210,8 +1210,8 @@ public class PostActionController(
             return NotFound();
 
         var accountId = Guid.Parse(currentUser.Id);
-        if (post.PublisherId == null ||
-            !await pub.IsMemberWithRole(post.PublisherId.Value, accountId, PublisherMemberRole.Editor))
+        if (post.PublisherId == Guid.Empty ||
+            !await pub.IsMemberWithRole(post.PublisherId, accountId, PublisherMemberRole.Editor))
             return StatusCode(403, ApiError.Unauthorized("You are not an editor of this publisher", forbidden: true));
 
         if (post is { PinMode: Shared.Models.PostPinMode.RealmPage, RealmId: not null })
@@ -1319,7 +1319,7 @@ public class PostActionController(
 
         if (post.Visibility is Shared.Models.PostVisibility.CloseFriendsOnly or Shared.Models.PostVisibility.Friends)
         {
-            if (post.PublisherId is null)
+            if (post.PublisherId == Guid.Empty)
                 return BadRequest(new ApiError { Code = "POST_VISIBILITY_REQUIRES_PUBLISHER", Message = "CloseFriendsOnly and Friends visibility require a publisher.", Status = 400 });
         }
         if (request.Type is not null)
@@ -1908,7 +1908,7 @@ public class PostActionController(
         var post = await db
             .Posts.Where(e => e.Id == id)
             .Include(e => e.Publisher)
-            .Include(e => e.Actor)
+            .Include(e => e.Publisher)
             .FilterWithVisibility(currentUser, userFriends, userPublishers)
             .FirstOrDefaultAsync();
         if (post is null)
@@ -1937,13 +1937,13 @@ public class PostActionController(
             return BadRequest(new ApiError { Code = "POST_BOOST_PUBLISHER_REQUIRED", Message = "You need a publisher to boost posts.", Status = 400 });
 
         var existingBoost = await db.Boosts
-            .FirstOrDefaultAsync(b => b.PostId == post.Id && b.Actor.PublisherId == userPublisher.Id);
+            .FirstOrDefaultAsync(b => b.PostId == post.Id && b.PublisherId == userPublisher.Id);
 
         if (existingBoost != null)
             return BadRequest(new ApiError { Code = "POST_ALREADY_BOOSTED", Message = "You have already boosted this post.", Status = 400 });
 
         var localActor = await db.FediverseActors
-            .FirstOrDefaultAsync(a => a.PublisherId == userPublisher.Id);
+            .FirstOrDefaultAsync(a => a.Id == userPublisher.Id);
 
         if (localActor is null)
             return BadRequest(new ApiError { Code = "POST_BOOST_ACTOR_NOT_FOUND", Message = "Publisher does not have an ActivityPub actor.", Status = 400 });
@@ -1951,7 +1951,7 @@ public class PostActionController(
         var boost = new SnBoost
         {
             PostId = post.Id,
-            ActorId = localActor.Id,
+            PublisherId = localActor.Id,
             Content = request?.Content,
             BoostedAt = SystemClock.Instance.GetCurrentInstant()
         };
@@ -2020,13 +2020,13 @@ public class PostActionController(
             return BadRequest(new ApiError { Code = "POST_UNBOOST_PUBLISHER_REQUIRED", Message = "You need a publisher to unboost posts.", Status = 400 });
 
         var localActor = await db.FediverseActors
-            .FirstOrDefaultAsync(a => a.PublisherId == userPublisher.Id);
+            .FirstOrDefaultAsync(a => a.Id == userPublisher.Id);
 
         if (localActor is null)
             return BadRequest(new ApiError { Code = "POST_UNBOOST_ACTOR_NOT_FOUND", Message = "Publisher does not have an ActivityPub actor.", Status = 400 });
 
         var boost = await db.Boosts
-            .FirstOrDefaultAsync(b => b.PostId == id && b.ActorId == localActor.Id);
+            .FirstOrDefaultAsync(b => b.PostId == id && b.PublisherId == localActor.Id);
 
         if (boost is null)
             return NotFound();
@@ -2071,7 +2071,7 @@ public class PostActionController(
         Response.Headers.Append("X-Total", totalCount.ToString());
 
         var boosts = await query
-            .Include(b => b.Actor)
+            .Include(b => b.Publisher)
             .OrderByDescending(b => b.BoostedAt)
             .Skip(offset)
             .Take(take)

@@ -720,7 +720,7 @@ public class PublisherController(
 
         // Send ActivityPub Update activity if actor exists
         var actor = await db.FediverseActors.FirstOrDefaultAsync(a =>
-            a.PublisherId == publisher.Id
+            a.Id == publisher.Id
         );
 
         if (actor != null)

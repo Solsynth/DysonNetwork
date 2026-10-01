@@ -182,7 +182,7 @@ public partial class ActivityPubDiscoveryService(
         }
     }
 
-    public async Task<SnFediverseActor?> DiscoverActorAsync(string query)
+    public async Task<SnPublisher?> DiscoverActorAsync(string query)
     {
         var (username, domain) = ParseHandle(query);
         if (username == null || domain == null)
@@ -195,7 +195,7 @@ public partial class ActivityPubDiscoveryService(
         return await GetActorFromWebfingerAsync(actorUri, username, domain, avatarUrl);
     }
 
-    public async Task<List<SnFediverseActor>> SearchActorsAsync(
+    public async Task<List<SnPublisher>> SearchActorsAsync(
         string query,
         int limit = 20,
         bool includeRemoteDiscovery = true
@@ -221,12 +221,12 @@ public partial class ActivityPubDiscoveryService(
             if (actorUri == null) return localResults;
             var remoteActor = await GetActorFromWebfingerAsync(actorUri, username, domain, avatarUrl);
             if (remoteActor == null || localResults.Any(a => a.Uri == actorUri)) return localResults;
-            var combined = new List<SnFediverseActor>(localResults) { remoteActor };
+            var combined = new List<SnPublisher>(localResults) { remoteActor };
             return combined.Take(limit).ToList();
         }
     }
 
-    private async Task<SnFediverseActor?> GetActorFromWebfingerAsync(
+    private async Task<SnPublisher?> GetActorFromWebfingerAsync(
         string actorUri,
         string username,
         string domain,
@@ -277,7 +277,7 @@ public partial class ActivityPubDiscoveryService(
             }
 
             // Create new actor and fetch full data
-            var actor = new SnFediverseActor
+            var actor = new SnPublisher
             {
                 Uri = actorUri,
                 Username = username,
@@ -289,7 +289,7 @@ public partial class ActivityPubDiscoveryService(
 
             try
             {
-                db.FediverseActors.Add(actor);
+                db.Publishers.Add(actor);
                 await db.SaveChangesAsync();
                 await FetchActorDataAsync(actor);
                 return actor;
@@ -767,7 +767,7 @@ public partial class ActivityPubDiscoveryService(
         return 0;
     }
 
-    private async Task<SnFediverseActor?> StoreActorAsync(
+    private async Task<SnPublisher?> StoreActorAsync(
         string actorUri,
         string username,
         string domain,
@@ -807,7 +807,7 @@ public partial class ActivityPubDiscoveryService(
                 await db.SaveChangesAsync();
             }
 
-            var actor = new SnFediverseActor
+            var actor = new SnPublisher
             {
                 Uri = actorUri,
                 Username = username,
@@ -818,7 +818,7 @@ public partial class ActivityPubDiscoveryService(
 
             try
             {
-                db.FediverseActors.Add(actor);
+                db.Publishers.Add(actor);
                 await db.SaveChangesAsync();
                 logger.LogInformation("Successfully stored actor from Webfinger: {Username}@{Domain}", username, domain);
                 await FetchActorDataAsync(actor);
@@ -860,7 +860,7 @@ public partial class ActivityPubDiscoveryService(
         }
     }
 
-    public async Task FetchActorDataAsync(SnFediverseActor actor)
+    public async Task FetchActorDataAsync(SnPublisher actor)
     {
         try
         {
@@ -920,7 +920,7 @@ public partial class ActivityPubDiscoveryService(
                 return;
             }
 
-            actor.Type = actorData.GetValueOrDefault("type")?.ToString() ?? "Person";
+            actor.ActorType = actorData.GetValueOrDefault("type")?.ToString() ?? "Person";
             actor.DisplayName = actorData.GetValueOrDefault("name")?.ToString();
             actor.Bio = actorData.GetValueOrDefault("summary")?.ToString();
             actor.InboxUri = actorData.GetValueOrDefault("inbox")?.ToString();
@@ -969,10 +969,10 @@ public partial class ActivityPubDiscoveryService(
         }
     }
 
-    private async Task DeleteActorAndRelatedDataAsync(SnFediverseActor actor)
+    private async Task DeleteActorAndRelatedDataAsync(SnPublisher actor)
     {
         var postsWithActor = await db.Posts
-            .Where(p => p.ActorId == actor.Id)
+            .Where(p => p.PublisherId == actor.Id)
             .ToListAsync();
         if (postsWithActor.Count > 0)
         {
@@ -980,7 +980,7 @@ public partial class ActivityPubDiscoveryService(
             db.Posts.RemoveRange(postsWithActor);
         }
 
-        db.FediverseActors.Remove(actor);
+        db.Publishers.Remove(actor);
         await db.SaveChangesAsync();
         logger.LogInformation("Successfully cleaned up actor and related data: {ActorUri}", actor.Uri);
     }
@@ -989,7 +989,7 @@ public partial class ActivityPubDiscoveryService(
     /// Fetch actor stats (followers, following, posts count) from ActivityPub collection endpoints.
     /// This is more reliable than using counts from the actor object itself.
     /// </summary>
-    public async Task FetchActorStatsAsync(SnFediverseActor actor)
+    public async Task FetchActorStatsAsync(SnPublisher actor)
     {
         try
         {
@@ -1157,7 +1157,7 @@ public partial class ActivityPubDiscoveryService(
         }
     }
 
-    public async Task<SnFediverseActor?> GetOrCreateActorAsync(string actorUri, string? username = null, Guid? instanceId = null)
+    public async Task<SnPublisher?> GetOrCreateActorAsync(string actorUri, string? username = null, Guid? instanceId = null)
     {
         var actor = await db.FediverseActors
             .IgnoreQueryFilters()
@@ -1176,7 +1176,7 @@ public partial class ActivityPubDiscoveryService(
         return null;
     }
 
-    public async Task<SnFediverseActor> GetOrCreateActorWithDataAsync(string actorUri, string username, Guid instanceId)
+    public async Task<SnPublisher> GetOrCreateActorWithDataAsync(string actorUri, string username, Guid instanceId)
     {
         var actor = await db.FediverseActors
             .IgnoreQueryFilters()
@@ -1196,7 +1196,7 @@ public partial class ActivityPubDiscoveryService(
             return actor;
         }
 
-        actor = new SnFediverseActor
+        actor = new SnPublisher
         {
             Uri = actorUri,
             Username = username,
@@ -1206,7 +1206,7 @@ public partial class ActivityPubDiscoveryService(
 
         try
         {
-            db.FediverseActors.Add(actor);
+            db.Publishers.Add(actor);
             await db.SaveChangesAsync();
             await FetchActorDataAsync(actor);
             return actor;

@@ -57,7 +57,6 @@ public class AppDatabase(
     public DbSet<SnRealmPostModerationLog> RealmPostModerationLogs { get; set; } = null!;
 
     public DbSet<SnFediverseInstance> FediverseInstances { get; set; } = null!;
-    public DbSet<SnFediverseActor> FediverseActors { get; set; } = null!;
     public DbSet<SnFediverseRelationship> FediverseRelationships { get; set; } = null!;
     public DbSet<SnFediverseModerationRule> FediverseModerationRules { get; set; } = null!;
     public DbSet<SnFediverseKey> FediverseKeys { get; set; } = null!;
@@ -69,6 +68,13 @@ public class AppDatabase(
     public DbSet<SnLiveStream> LiveStreams { get; set; } = null!;
     public DbSet<SnLiveStreamChatMessage> LiveStreamChatMessages { get; set; } = null!;
     public DbSet<SnLiveStreamAward> LiveStreamAwards { get; set; } = null!;
+
+    /// <summary>
+    /// Publishers that participate in the fediverse: remote actors (<see cref="PublisherType.Fediverse"/>)
+    /// and local publishers that have ActivityPub enabled (a <see cref="SnPublisher.Uri"/> is set).
+    /// </summary>
+    public IQueryable<SnPublisher> FediverseActors =>
+        Publishers.Where(p => p.Type == PublisherType.Fediverse || p.Uri != null);
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
@@ -145,6 +151,17 @@ public class AppDatabase(
             .HasForeignKey(d => d.PublisherId)
             .OnDelete(DeleteBehavior.Cascade);
 
+        modelBuilder.Entity<SnPublisher>()
+            .HasIndex(p => new { p.Uri, p.DeletedAt })
+            .IsUnique()
+            .HasFilter("uri IS NOT NULL");
+
+        modelBuilder.Entity<SnPublisher>()
+            .HasOne(p => p.Instance)
+            .WithMany()
+            .HasForeignKey(p => p.InstanceId)
+            .OnDelete(DeleteBehavior.SetNull);
+
         modelBuilder.Entity<SnPost>()
             .HasOne(p => p.RepliedPost)
             .WithMany()
@@ -160,6 +177,11 @@ public class AppDatabase(
             .WithMany()
             .HasForeignKey(p => p.ChainedPostId)
             .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<SnPost>()
+            .HasOne(p => p.Publisher)
+            .WithMany(p => p.Posts)
+            .HasForeignKey(p => p.PublisherId)
+            .OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<SnPost>()
             .HasOne(p => p.QuoteAuthorization)
             .WithMany()
@@ -264,21 +286,15 @@ public class AppDatabase(
             .HasForeignKey(s => s.CollectionId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        modelBuilder.Entity<SnFediverseActor>()
-            .HasOne(a => a.Instance)
-            .WithMany(i => i.Actors)
-            .HasForeignKey(a => a.InstanceId)
-            .OnDelete(DeleteBehavior.Cascade);
-
         modelBuilder.Entity<SnFediverseRelationship>()
-            .HasOne(r => r.Actor)
-            .WithMany(a => a.FollowingRelationships)
-            .HasForeignKey(r => r.ActorId)
+            .HasOne(r => r.Publisher)
+            .WithMany()
+            .HasForeignKey(r => r.PublisherId)
             .OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<SnFediverseRelationship>()
-            .HasOne(r => r.TargetActor)
-            .WithMany(a => a.FollowerRelationships)
-            .HasForeignKey(r => r.TargetActorId)
+            .HasOne(r => r.TargetPublisher)
+            .WithMany()
+            .HasForeignKey(r => r.TargetPublisherId)
             .OnDelete(DeleteBehavior.Cascade);
 
         modelBuilder.Entity<SnBoost>()
@@ -287,15 +303,21 @@ public class AppDatabase(
             .HasForeignKey(b => b.PostId)
             .OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<SnBoost>()
-            .HasOne(b => b.Actor)
+            .HasOne(b => b.Publisher)
             .WithMany()
-            .HasForeignKey(b => b.ActorId)
+            .HasForeignKey(b => b.PublisherId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        modelBuilder.Entity<SnQuoteAuthorization>()
-            .HasOne(q => q.Author)
+        modelBuilder.Entity<SnPostReaction>()
+            .HasOne(r => r.Publisher)
             .WithMany()
-            .HasForeignKey(q => q.AuthorId)
+            .HasForeignKey(r => r.PublisherId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        modelBuilder.Entity<SnQuoteAuthorization>()
+            .HasOne(q => q.Publisher)
+            .WithMany()
+            .HasForeignKey(q => q.PublisherId)
             .OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<SnQuoteAuthorization>()
             .HasOne(q => q.TargetPost)

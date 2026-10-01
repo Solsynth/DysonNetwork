@@ -15,11 +15,10 @@ public class ActivityRenderer(IConfiguration configuration, AppDatabase db)
 
     public static readonly string PublicTo = "https://www.w3.org/ns/activitystreams#Public";
 
-    public async Task<SnFediverseActor?> GetLocalActorAsync(Guid publisherId)
+    public async Task<SnPublisher?> GetLocalActorAsync(Guid publisherId)
     {
-        return await db.FediverseActors
-            .Include(a => a.Instance)
-            .FirstOrDefaultAsync(a => a.PublisherId == publisherId);
+        return await db.Publishers
+            .FirstOrDefaultAsync(a => a.Id == publisherId && a.Uri != null);
     }
 
     public async Task<Dictionary<string, object>> CreatePostObject(
@@ -63,19 +62,14 @@ public class ActivityRenderer(IConfiguration configuration, AppDatabase db)
             var repliedPost = await db.Posts
                 .Where(p => p.Id == post.RepliedPostId)
                 .Include(p => p.Publisher)
-                .Include(p => p.Actor)
                 .FirstOrDefaultAsync();
             post.RepliedPost = repliedPost;
 
-            if (repliedPost?.Publisher != null)
-            {
-                var actor = await GetLocalActorAsync(repliedPost.PublisherId!.Value);
-                if (actor?.FollowersUri != null)
-                    postReceivers.Add(actor.FollowersUri);
-            }
-
-            if (repliedPost?.Actor?.FollowersUri != null)
-                postReceivers.Add(post.Actor!.FollowersUri!);
+            var repliedActor = repliedPost != null
+                ? await GetLocalActorAsync(repliedPost.PublisherId)
+                : null;
+            if (repliedActor?.FollowersUri != null)
+                postReceivers.Add(repliedActor.FollowersUri);
         }
 
         var attachments = post.Attachments.Select(a =>
@@ -143,9 +137,7 @@ public class ActivityRenderer(IConfiguration configuration, AppDatabase db)
 
             if (forwardedPost != null)
             {
-                var postAuthor = forwardedPost.Publisher != null
-                    ? await GetLocalActorAsync(forwardedPost.PublisherId!.Value)
-                    : forwardedPost.Actor;
+                var postAuthor = await GetLocalActorAsync(forwardedPost.PublisherId);
 
                 if (postAuthor != null)
                 {
@@ -188,7 +180,7 @@ public class ActivityRenderer(IConfiguration configuration, AppDatabase db)
         return postObject;
     }
 
-    public ASPerson RenderPerson(SnFediverseActor actor)
+    public ASPerson RenderPerson(SnPublisher actor)
     {
         var person = new ASPerson
         {

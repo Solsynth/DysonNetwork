@@ -43,11 +43,6 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnName("activity_pub_uri")
                         .HasJsonPropertyName("activity_pub_uri");
 
-                    b.Property<Guid>("ActorId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("actor_id")
-                        .HasJsonPropertyName("actor_id");
-
                     b.Property<Instant>("BoostedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("boosted_at")
@@ -71,6 +66,11 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnName("post_id")
                         .HasJsonPropertyName("post_id");
 
+                    b.Property<Guid>("PublisherId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("publisher_id")
+                        .HasJsonPropertyName("publisher_id");
+
                     b.Property<Instant>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
@@ -84,190 +84,13 @@ namespace DysonNetwork.Sphere.Migrations
                     b.HasKey("Id")
                         .HasName("pk_boosts");
 
-                    b.HasIndex("ActorId")
-                        .HasDatabaseName("ix_boosts_actor_id");
-
                     b.HasIndex("PostId")
                         .HasDatabaseName("ix_boosts_post_id");
 
+                    b.HasIndex("PublisherId")
+                        .HasDatabaseName("ix_boosts_publisher_id");
+
                     b.ToTable("boosts", (string)null);
-                });
-
-            modelBuilder.Entity("DysonNetwork.Shared.Models.SnFediverseActor", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id")
-                        .HasJsonPropertyName("id");
-
-                    b.Property<string>("AvatarUrl")
-                        .HasMaxLength(2048)
-                        .HasColumnType("character varying(2048)")
-                        .HasColumnName("avatar_url")
-                        .HasJsonPropertyName("avatar_url");
-
-                    b.Property<string>("Bio")
-                        .HasMaxLength(4096)
-                        .HasColumnType("character varying(4096)")
-                        .HasColumnName("bio")
-                        .HasJsonPropertyName("bio");
-
-                    b.Property<Instant>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<Instant?>("DeletedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("deleted_at");
-
-                    b.Property<string>("DisplayName")
-                        .HasMaxLength(2048)
-                        .HasColumnType("character varying(2048)")
-                        .HasColumnName("display_name")
-                        .HasJsonPropertyName("display_name");
-
-                    b.Property<string>("FeaturedUri")
-                        .HasMaxLength(2048)
-                        .HasColumnType("character varying(2048)")
-                        .HasColumnName("featured_uri")
-                        .HasJsonPropertyName("featured_uri");
-
-                    b.Property<string>("FollowersUri")
-                        .HasMaxLength(2048)
-                        .HasColumnType("character varying(2048)")
-                        .HasColumnName("followers_uri")
-                        .HasJsonPropertyName("followers_uri");
-
-                    b.Property<string>("FollowingUri")
-                        .HasMaxLength(2048)
-                        .HasColumnType("character varying(2048)")
-                        .HasColumnName("following_uri")
-                        .HasJsonPropertyName("following_uri");
-
-                    b.Property<string>("HeaderUrl")
-                        .HasMaxLength(2048)
-                        .HasColumnType("character varying(2048)")
-                        .HasColumnName("header_url")
-                        .HasJsonPropertyName("header_url");
-
-                    b.Property<string>("InboxUri")
-                        .HasMaxLength(2048)
-                        .HasColumnType("character varying(2048)")
-                        .HasColumnName("inbox_uri")
-                        .HasJsonPropertyName("inbox_uri");
-
-                    b.Property<Guid>("InstanceId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("instance_id")
-                        .HasJsonPropertyName("instance_id");
-
-                    b.Property<bool>("IsBot")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_bot")
-                        .HasJsonPropertyName("is_bot");
-
-                    b.Property<bool>("IsCommunity")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_community")
-                        .HasJsonPropertyName("is_community");
-
-                    b.Property<bool>("IsDiscoverable")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_discoverable")
-                        .HasJsonPropertyName("is_discoverable");
-
-                    b.Property<bool>("IsLocked")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_locked")
-                        .HasJsonPropertyName("is_locked");
-
-                    b.Property<Instant?>("LastActivityAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("last_activity_at")
-                        .HasJsonPropertyName("last_activity_at");
-
-                    b.Property<Instant?>("LastFetchedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("last_fetched_at")
-                        .HasJsonPropertyName("last_fetched_at");
-
-                    b.Property<Dictionary<string, object>>("Metadata")
-                        .HasColumnType("jsonb")
-                        .HasColumnName("metadata")
-                        .HasJsonPropertyName("metadata");
-
-                    b.Property<Instant?>("OutboxFetchedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("outbox_fetched_at")
-                        .HasJsonPropertyName("outbox_fetched_at");
-
-                    b.Property<string>("OutboxUri")
-                        .HasMaxLength(2048)
-                        .HasColumnType("character varying(2048)")
-                        .HasColumnName("outbox_uri")
-                        .HasJsonPropertyName("outbox_uri");
-
-                    b.Property<string>("PublicKey")
-                        .HasMaxLength(8192)
-                        .HasColumnType("character varying(8192)")
-                        .HasColumnName("public_key")
-                        .HasJsonPropertyName("public_key");
-
-                    b.Property<string>("PublicKeyId")
-                        .HasMaxLength(2048)
-                        .HasColumnType("character varying(2048)")
-                        .HasColumnName("public_key_id")
-                        .HasJsonPropertyName("public_key_id");
-
-                    b.Property<Guid?>("PublisherId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("publisher_id")
-                        .HasJsonPropertyName("publisher_id");
-
-                    b.Property<Guid?>("RealmId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("realm_id")
-                        .HasJsonPropertyName("realm_id");
-
-                    b.Property<string>("Type")
-                        .IsRequired()
-                        .HasMaxLength(2048)
-                        .HasColumnType("character varying(2048)")
-                        .HasColumnName("type")
-                        .HasJsonPropertyName("type");
-
-                    b.Property<Instant>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at");
-
-                    b.Property<string>("Uri")
-                        .IsRequired()
-                        .HasMaxLength(2048)
-                        .HasColumnType("character varying(2048)")
-                        .HasColumnName("uri")
-                        .HasJsonPropertyName("uri");
-
-                    b.Property<string>("Username")
-                        .IsRequired()
-                        .HasMaxLength(256)
-                        .HasColumnType("character varying(256)")
-                        .HasColumnName("username")
-                        .HasJsonPropertyName("username");
-
-                    b.HasKey("Id")
-                        .HasName("pk_fediverse_actors");
-
-                    b.HasIndex("InstanceId")
-                        .HasDatabaseName("ix_fediverse_actors_instance_id");
-
-                    b.HasIndex("Uri", "DeletedAt")
-                        .IsUnique()
-                        .HasDatabaseName("ix_fediverse_actors_uri_deleted_at");
-
-                    b.ToTable("fediverse_actors", (string)null);
-
-                    b.HasAnnotation("Relational:JsonPropertyName", "actor");
                 });
 
             modelBuilder.Entity("DysonNetwork.Shared.Models.SnFediverseInstance", b =>
@@ -394,72 +217,6 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasDatabaseName("ix_fediverse_instances_domain_deleted_at");
 
                     b.ToTable("fediverse_instances", (string)null);
-
-                    b.HasAnnotation("Relational:JsonPropertyName", "instance");
-                });
-
-            modelBuilder.Entity("DysonNetwork.Shared.Models.SnFediverseRelationship", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<Guid>("ActorId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("actor_id");
-
-                    b.Property<Instant>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<Instant?>("DeletedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("deleted_at");
-
-                    b.Property<Instant?>("FollowedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("followed_at");
-
-                    b.Property<bool>("IsBlocking")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_blocking");
-
-                    b.Property<bool>("IsMuting")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_muting");
-
-                    b.Property<Guid?>("RealmId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("realm_id");
-
-                    b.Property<string>("RejectReason")
-                        .HasMaxLength(4096)
-                        .HasColumnType("character varying(4096)")
-                        .HasColumnName("reject_reason");
-
-                    b.Property<int>("State")
-                        .HasColumnType("integer")
-                        .HasColumnName("state");
-
-                    b.Property<Guid>("TargetActorId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("target_actor_id");
-
-                    b.Property<Instant>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at");
-
-                    b.HasKey("Id")
-                        .HasName("pk_fediverse_relationships");
-
-                    b.HasIndex("ActorId")
-                        .HasDatabaseName("ix_fediverse_relationships_actor_id");
-
-                    b.HasIndex("TargetActorId")
-                        .HasDatabaseName("ix_fediverse_relationships_target_actor_id");
-
-                    b.ToTable("fediverse_relationships", (string)null);
                 });
 
             modelBuilder.Entity("DysonNetwork.Shared.Models.SnPost", b =>
@@ -468,10 +225,6 @@ namespace DysonNetwork.Sphere.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid")
                         .HasColumnName("id");
-
-                    b.Property<Guid?>("ActorId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("actor_id");
 
                     b.Property<List<SnCloudFileReferenceObject>>("Attachments")
                         .IsRequired()
@@ -570,7 +323,7 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("published_at");
 
-                    b.Property<Guid?>("PublisherId")
+                    b.Property<Guid>("PublisherId")
                         .HasColumnType("uuid")
                         .HasColumnName("publisher_id");
 
@@ -646,9 +399,6 @@ namespace DysonNetwork.Sphere.Migrations
 
                     b.HasKey("Id")
                         .HasName("pk_posts");
-
-                    b.HasIndex("ActorId")
-                        .HasDatabaseName("ix_posts_actor_id");
 
                     b.HasIndex("ChainedPostId")
                         .HasDatabaseName("ix_posts_chained_post_id");
@@ -1055,10 +805,6 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("account_id");
 
-                    b.Property<Guid?>("ActorId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("actor_id");
-
                     b.Property<int>("Attitude")
                         .HasColumnType("integer")
                         .HasColumnName("attitude");
@@ -1084,6 +830,10 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("post_id");
 
+                    b.Property<Guid?>("PublisherId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("publisher_id");
+
                     b.Property<string>("Symbol")
                         .IsRequired()
                         .HasMaxLength(256)
@@ -1097,11 +847,11 @@ namespace DysonNetwork.Sphere.Migrations
                     b.HasKey("Id")
                         .HasName("pk_post_reactions");
 
-                    b.HasIndex("ActorId")
-                        .HasDatabaseName("ix_post_reactions_actor_id");
-
                     b.HasIndex("PostId")
                         .HasDatabaseName("ix_post_reactions_post_id");
+
+                    b.HasIndex("PublisherId")
+                        .HasDatabaseName("ix_post_reactions_publisher_id");
 
                     b.ToTable("post_reactions", (string)null);
                 });
@@ -1272,6 +1022,16 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("account_id");
 
+                    b.Property<string>("ActorType")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("actor_type");
+
+                    b.Property<string>("AvatarUrl")
+                        .HasMaxLength(2048)
+                        .HasColumnType("character varying(2048)")
+                        .HasColumnName("avatar_url");
+
                     b.Property<SnCloudFileReferenceObject>("Background")
                         .HasColumnType("jsonb")
                         .HasColumnName("background");
@@ -1289,13 +1049,75 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("deleted_at");
 
+                    b.Property<string>("FeaturedUri")
+                        .HasMaxLength(2048)
+                        .HasColumnType("character varying(2048)")
+                        .HasColumnName("featured_uri");
+
+                    b.Property<string>("FollowersUri")
+                        .HasMaxLength(2048)
+                        .HasColumnType("character varying(2048)")
+                        .HasColumnName("followers_uri");
+
+                    b.Property<string>("FollowingUri")
+                        .HasMaxLength(2048)
+                        .HasColumnType("character varying(2048)")
+                        .HasColumnName("following_uri");
+
                     b.Property<bool?>("GatekeptFollows")
                         .HasColumnType("boolean")
                         .HasColumnName("gatekept_follows");
 
+                    b.Property<string>("HeaderUrl")
+                        .HasMaxLength(2048)
+                        .HasColumnType("character varying(2048)")
+                        .HasColumnName("header_url");
+
+                    b.Property<string>("InboxUri")
+                        .HasMaxLength(2048)
+                        .HasColumnType("character varying(2048)")
+                        .HasColumnName("inbox_uri");
+
+                    b.Property<string>("InstanceDomain")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("instance_domain");
+
+                    b.Property<Guid?>("InstanceId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("instance_id");
+
+                    b.Property<bool>("IsBot")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_bot");
+
+                    b.Property<bool>("IsCommunity")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_community");
+
+                    b.Property<bool>("IsDiscoverable")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_discoverable");
+
+                    b.Property<bool>("IsLocked")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_locked");
+
+                    b.Property<Instant?>("LastActivityAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_activity_at");
+
+                    b.Property<Instant?>("LastFetchedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_fetched_at");
+
                     b.Property<Dictionary<string, object>>("Meta")
                         .HasColumnType("jsonb")
                         .HasColumnName("meta");
+
+                    b.Property<Dictionary<string, object>>("Metadata")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("metadata");
 
                     b.Property<bool?>("ModerateSubscription")
                         .HasColumnType("boolean")
@@ -1313,6 +1135,15 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnType("character varying(256)")
                         .HasColumnName("nick");
 
+                    b.Property<Instant?>("OutboxFetchedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("outbox_fetched_at");
+
+                    b.Property<string>("OutboxUri")
+                        .HasMaxLength(2048)
+                        .HasColumnType("character varying(2048)")
+                        .HasColumnName("outbox_uri");
+
                     b.Property<Guid?>("PayoutWalletId")
                         .HasColumnType("uuid")
                         .HasColumnName("payout_wallet_id");
@@ -1320,6 +1151,16 @@ namespace DysonNetwork.Sphere.Migrations
                     b.Property<SnCloudFileReferenceObject>("Picture")
                         .HasColumnType("jsonb")
                         .HasColumnName("picture");
+
+                    b.Property<string>("PublicKey")
+                        .HasMaxLength(8192)
+                        .HasColumnType("character varying(8192)")
+                        .HasColumnName("public_key");
+
+                    b.Property<string>("PublicKeyId")
+                        .HasMaxLength(2048)
+                        .HasColumnType("character varying(2048)")
+                        .HasColumnName("public_key_id");
 
                     b.Property<double>("Rating")
                         .HasColumnType("double precision")
@@ -1345,6 +1186,16 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
 
+                    b.Property<string>("Uri")
+                        .HasMaxLength(2048)
+                        .HasColumnType("character varying(2048)")
+                        .HasColumnName("uri");
+
+                    b.Property<string>("Username")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("username");
+
                     b.Property<SnVerificationMark>("Verification")
                         .HasColumnType("jsonb")
                         .HasColumnName("verification");
@@ -1352,11 +1203,21 @@ namespace DysonNetwork.Sphere.Migrations
                     b.HasKey("Id")
                         .HasName("pk_publishers");
 
+                    b.HasIndex("InstanceId")
+                        .HasDatabaseName("ix_publishers_instance_id");
+
                     b.HasIndex("Name", "DeletedAt")
                         .IsUnique()
                         .HasDatabaseName("ix_publishers_name_deleted_at");
 
+                    b.HasIndex("Uri", "DeletedAt")
+                        .IsUnique()
+                        .HasDatabaseName("ix_publishers_uri_deleted_at")
+                        .HasFilter("uri IS NOT NULL");
+
                     b.ToTable("publishers", (string)null);
+
+                    b.HasAnnotation("Relational:JsonPropertyName", "publisher");
                 });
 
             modelBuilder.Entity("DysonNetwork.Shared.Models.SnPublisherFeature", b =>
@@ -1658,10 +1519,6 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.Property<Guid>("AuthorId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("author_id");
-
                     b.Property<Instant>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -1691,6 +1548,10 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("is_valid");
 
+                    b.Property<Guid>("PublisherId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("publisher_id");
+
                     b.Property<Guid?>("QuotePostId")
                         .HasColumnType("uuid")
                         .HasColumnName("quote_post_id");
@@ -1710,8 +1571,8 @@ namespace DysonNetwork.Sphere.Migrations
                     b.HasKey("Id")
                         .HasName("pk_quote_authorizations");
 
-                    b.HasIndex("AuthorId")
-                        .HasDatabaseName("ix_quote_authorizations_author_id");
+                    b.HasIndex("PublisherId")
+                        .HasDatabaseName("ix_quote_authorizations_publisher_id");
 
                     b.HasIndex("QuotePostId")
                         .HasDatabaseName("ix_quote_authorizations_quote_post_id");
@@ -2567,11 +2428,6 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnName("id")
                         .HasJsonPropertyName("id");
 
-                    b.Property<Guid?>("ActorId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("actor_id")
-                        .HasJsonPropertyName("actor_id");
-
                     b.Property<string>("Algorithm")
                         .IsRequired()
                         .HasMaxLength(32)
@@ -2623,8 +2479,8 @@ namespace DysonNetwork.Sphere.Migrations
                     b.HasKey("Id")
                         .HasName("pk_fediverse_keys");
 
-                    b.HasIndex("ActorId")
-                        .HasDatabaseName("ix_fediverse_keys_actor_id");
+                    b.HasIndex("PublisherId")
+                        .HasDatabaseName("ix_fediverse_keys_publisher_id");
 
                     b.HasIndex("KeyId", "DeletedAt")
                         .IsUnique()
@@ -2725,6 +2581,70 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasDatabaseName("ix_fediverse_moderation_rules_domain");
 
                     b.ToTable("fediverse_moderation_rules", (string)null);
+                });
+
+            modelBuilder.Entity("DysonNetwork.Sphere.Models.SnFediverseRelationship", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Instant>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Instant?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Instant?>("FollowedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("followed_at");
+
+                    b.Property<bool>("IsBlocking")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_blocking");
+
+                    b.Property<bool>("IsMuting")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_muting");
+
+                    b.Property<Guid>("PublisherId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("publisher_id");
+
+                    b.Property<Guid?>("RealmId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("realm_id");
+
+                    b.Property<string>("RejectReason")
+                        .HasMaxLength(4096)
+                        .HasColumnType("character varying(4096)")
+                        .HasColumnName("reject_reason");
+
+                    b.Property<int>("State")
+                        .HasColumnType("integer")
+                        .HasColumnName("state");
+
+                    b.Property<Guid>("TargetPublisherId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("target_publisher_id");
+
+                    b.Property<Instant>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_fediverse_relationships");
+
+                    b.HasIndex("PublisherId")
+                        .HasDatabaseName("ix_fediverse_relationships_publisher_id");
+
+                    b.HasIndex("TargetPublisherId")
+                        .HasDatabaseName("ix_fediverse_relationships_target_publisher_id");
+
+                    b.ToTable("fediverse_relationships", (string)null);
                 });
 
             modelBuilder.Entity("DysonNetwork.Sphere.Models.SnLiveStream", b =>
@@ -3231,13 +3151,6 @@ namespace DysonNetwork.Sphere.Migrations
 
             modelBuilder.Entity("DysonNetwork.Shared.Models.SnBoost", b =>
                 {
-                    b.HasOne("DysonNetwork.Shared.Models.SnFediverseActor", "Actor")
-                        .WithMany()
-                        .HasForeignKey("ActorId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_boosts_fediverse_actors_actor_id");
-
                     b.HasOne("DysonNetwork.Shared.Models.SnPost", "Post")
                         .WithMany()
                         .HasForeignKey("PostId")
@@ -3245,51 +3158,20 @@ namespace DysonNetwork.Sphere.Migrations
                         .IsRequired()
                         .HasConstraintName("fk_boosts_posts_post_id");
 
-                    b.Navigation("Actor");
+                    b.HasOne("DysonNetwork.Shared.Models.SnPublisher", "Publisher")
+                        .WithMany()
+                        .HasForeignKey("PublisherId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_boosts_publishers_publisher_id");
 
                     b.Navigation("Post");
-                });
 
-            modelBuilder.Entity("DysonNetwork.Shared.Models.SnFediverseActor", b =>
-                {
-                    b.HasOne("DysonNetwork.Shared.Models.SnFediverseInstance", "Instance")
-                        .WithMany("Actors")
-                        .HasForeignKey("InstanceId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_fediverse_actors_fediverse_instances_instance_id");
-
-                    b.Navigation("Instance");
-                });
-
-            modelBuilder.Entity("DysonNetwork.Shared.Models.SnFediverseRelationship", b =>
-                {
-                    b.HasOne("DysonNetwork.Shared.Models.SnFediverseActor", "Actor")
-                        .WithMany("FollowingRelationships")
-                        .HasForeignKey("ActorId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_fediverse_relationships_fediverse_actors_actor_id");
-
-                    b.HasOne("DysonNetwork.Shared.Models.SnFediverseActor", "TargetActor")
-                        .WithMany("FollowerRelationships")
-                        .HasForeignKey("TargetActorId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_fediverse_relationships_fediverse_actors_target_actor_id");
-
-                    b.Navigation("Actor");
-
-                    b.Navigation("TargetActor");
+                    b.Navigation("Publisher");
                 });
 
             modelBuilder.Entity("DysonNetwork.Shared.Models.SnPost", b =>
                 {
-                    b.HasOne("DysonNetwork.Shared.Models.SnFediverseActor", "Actor")
-                        .WithMany()
-                        .HasForeignKey("ActorId")
-                        .HasConstraintName("fk_posts_fediverse_actors_actor_id");
-
                     b.HasOne("DysonNetwork.Shared.Models.SnPost", "ChainedPost")
                         .WithMany()
                         .HasForeignKey("ChainedPostId")
@@ -3305,6 +3187,8 @@ namespace DysonNetwork.Sphere.Migrations
                     b.HasOne("DysonNetwork.Shared.Models.SnPublisher", "Publisher")
                         .WithMany("Posts")
                         .HasForeignKey("PublisherId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
                         .HasConstraintName("fk_posts_publishers_publisher_id");
 
                     b.HasOne("DysonNetwork.Shared.Models.SnQuoteAuthorization", "QuoteAuthorization")
@@ -3318,8 +3202,6 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasForeignKey("RepliedPostId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .HasConstraintName("fk_posts_posts_replied_post_id");
-
-                    b.Navigation("Actor");
 
                     b.Navigation("ChainedPost");
 
@@ -3440,11 +3322,6 @@ namespace DysonNetwork.Sphere.Migrations
 
             modelBuilder.Entity("DysonNetwork.Shared.Models.SnPostReaction", b =>
                 {
-                    b.HasOne("DysonNetwork.Shared.Models.SnFediverseActor", "Actor")
-                        .WithMany()
-                        .HasForeignKey("ActorId")
-                        .HasConstraintName("fk_post_reactions_fediverse_actors_actor_id");
-
                     b.HasOne("DysonNetwork.Shared.Models.SnPost", "Post")
                         .WithMany("Reactions")
                         .HasForeignKey("PostId")
@@ -3452,9 +3329,15 @@ namespace DysonNetwork.Sphere.Migrations
                         .IsRequired()
                         .HasConstraintName("fk_post_reactions_posts_post_id");
 
-                    b.Navigation("Actor");
+                    b.HasOne("DysonNetwork.Shared.Models.SnPublisher", "Publisher")
+                        .WithMany()
+                        .HasForeignKey("PublisherId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_post_reactions_publishers_publisher_id");
 
                     b.Navigation("Post");
+
+                    b.Navigation("Publisher");
                 });
 
             modelBuilder.Entity("DysonNetwork.Shared.Models.SnPostSponsorBid", b =>
@@ -3490,6 +3373,17 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasConstraintName("fk_post_tags_publishers_owner_publisher_id");
 
                     b.Navigation("OwnerPublisher");
+                });
+
+            modelBuilder.Entity("DysonNetwork.Shared.Models.SnPublisher", b =>
+                {
+                    b.HasOne("DysonNetwork.Shared.Models.SnFediverseInstance", "Instance")
+                        .WithMany()
+                        .HasForeignKey("InstanceId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_publishers_fediverse_instances_instance_id");
+
+                    b.Navigation("Instance");
                 });
 
             modelBuilder.Entity("DysonNetwork.Shared.Models.SnPublisherFeature", b =>
@@ -3581,12 +3475,12 @@ namespace DysonNetwork.Sphere.Migrations
 
             modelBuilder.Entity("DysonNetwork.Shared.Models.SnQuoteAuthorization", b =>
                 {
-                    b.HasOne("DysonNetwork.Shared.Models.SnFediverseActor", "Author")
+                    b.HasOne("DysonNetwork.Shared.Models.SnPublisher", "Publisher")
                         .WithMany()
-                        .HasForeignKey("AuthorId")
+                        .HasForeignKey("PublisherId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
-                        .HasConstraintName("fk_quote_authorizations_fediverse_actors_author_id");
+                        .HasConstraintName("fk_quote_authorizations_publishers_publisher_id");
 
                     b.HasOne("DysonNetwork.Shared.Models.SnPost", "QuotePost")
                         .WithMany()
@@ -3600,7 +3494,7 @@ namespace DysonNetwork.Sphere.Migrations
                         .OnDelete(DeleteBehavior.SetNull)
                         .HasConstraintName("fk_quote_authorizations_posts_target_post_id");
 
-                    b.Navigation("Author");
+                    b.Navigation("Publisher");
 
                     b.Navigation("QuotePost");
 
@@ -3693,12 +3587,33 @@ namespace DysonNetwork.Sphere.Migrations
 
             modelBuilder.Entity("DysonNetwork.Sphere.Models.SnFediverseKey", b =>
                 {
-                    b.HasOne("DysonNetwork.Shared.Models.SnFediverseActor", "Actor")
+                    b.HasOne("DysonNetwork.Shared.Models.SnPublisher", "Publisher")
                         .WithMany()
-                        .HasForeignKey("ActorId")
-                        .HasConstraintName("fk_fediverse_keys_fediverse_actors_actor_id");
+                        .HasForeignKey("PublisherId")
+                        .HasConstraintName("fk_fediverse_keys_publishers_publisher_id");
 
-                    b.Navigation("Actor");
+                    b.Navigation("Publisher");
+                });
+
+            modelBuilder.Entity("DysonNetwork.Sphere.Models.SnFediverseRelationship", b =>
+                {
+                    b.HasOne("DysonNetwork.Shared.Models.SnPublisher", "Publisher")
+                        .WithMany()
+                        .HasForeignKey("PublisherId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_fediverse_relationships_publishers_publisher_id");
+
+                    b.HasOne("DysonNetwork.Shared.Models.SnPublisher", "TargetPublisher")
+                        .WithMany()
+                        .HasForeignKey("TargetPublisherId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_fediverse_relationships_publishers_target_publisher_id");
+
+                    b.Navigation("Publisher");
+
+                    b.Navigation("TargetPublisher");
                 });
 
             modelBuilder.Entity("DysonNetwork.Sphere.Models.SnLiveStream", b =>
@@ -3791,18 +3706,6 @@ namespace DysonNetwork.Sphere.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_post_tag_links_post_tags_tags_id");
-                });
-
-            modelBuilder.Entity("DysonNetwork.Shared.Models.SnFediverseActor", b =>
-                {
-                    b.Navigation("FollowerRelationships");
-
-                    b.Navigation("FollowingRelationships");
-                });
-
-            modelBuilder.Entity("DysonNetwork.Shared.Models.SnFediverseInstance", b =>
-                {
-                    b.Navigation("Actors");
                 });
 
             modelBuilder.Entity("DysonNetwork.Shared.Models.SnPost", b =>

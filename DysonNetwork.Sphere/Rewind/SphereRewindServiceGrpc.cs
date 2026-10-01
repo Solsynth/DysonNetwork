@@ -32,8 +32,7 @@ public class SphereRewindServiceGrpc(
         var mostLovedPublisherClue = await db
             .PostReactions.Where(a => a.CreatedAt >= startDate && a.CreatedAt < endDate)
             .Where(p => p.AccountId == accountId && p.Attitude == PostReactionAttitude.Positive)
-            .Where(p => p.Post.PublisherId.HasValue)
-            .GroupBy(p => p.Post.PublisherId!.Value)
+            .GroupBy(p => p.Post.PublisherId)
             .OrderByDescending(g => g.Count())
             .Select(g => new { PublisherId = g.Key, ReactionCount = g.Count() })
             .FirstOrDefaultAsync();
@@ -52,8 +51,7 @@ public class SphereRewindServiceGrpc(
             .Where(pr =>
                 pr.Attitude == PostReactionAttitude.Positive
                 && pr.AccountId.HasValue
-                && pr.Post.PublisherId.HasValue
-                && publishers.Contains(pr.Post.PublisherId.Value)
+                && publishers.Contains(pr.Post.PublisherId)
             )
             .GroupBy(pr => pr.AccountId!.Value)
             .OrderByDescending(g => g.Count())
@@ -65,12 +63,12 @@ public class SphereRewindServiceGrpc(
 
         var posts = db
             .Posts.Where(a => a.CreatedAt >= startDate && a.CreatedAt < endDate)
-            .Where(p => p.PublisherId.HasValue && publishers.Contains(p.PublisherId.Value))
+            .Where(p => publishers.Contains(p.PublisherId))
             .AsQueryable();
         var postTotalCount = await posts.CountAsync();
         var postTotalUpvotes = await db
             .PostReactions.Where(a => a.CreatedAt >= startDate && a.CreatedAt < endDate)
-            .Where(p => p.Post.PublisherId.HasValue && publishers.Contains(p.Post.PublisherId.Value))
+            .Where(p => publishers.Contains(p.Post.PublisherId))
             .Where(r => r.Attitude == PostReactionAttitude.Positive)
             .CountAsync();
         var mostPopularPost = await posts
