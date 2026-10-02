@@ -916,6 +916,19 @@ public class PublisherController(
         public Instant? ExpiredAt { get; set; }
     }
 
+    public class UpdateFediverseActorRequest
+    {
+        /// <summary>ActivityPub actor type: Person, Service, Group, Organization or Application.</summary>
+        [MaxLength(64)]
+        public string? ActorType { get; set; }
+
+        /// <summary>Maps to ActivityPub <c>manuallyApprovesFollowers</c>: new followers need approval.</summary>
+        public bool? IsLocked { get; set; }
+
+        /// <summary>Maps to ActivityPub <c>discoverable</c>.</summary>
+        public bool? IsDiscoverable { get; set; }
+    }
+
     [HttpPost("{name}/features")]
     [Authorize]
     [AskPermission(PermissionKeys.PublishersFeaturesManage)]
@@ -1118,6 +1131,77 @@ public class PublisherController(
         catch (InvalidOperationException ex)
         {
             return BadRequest(new ApiError { Code = "PUBLISHER_FEDIVERSE_ENABLE_FAILED", Message = ex.Message, Status = 400 });
+        }
+    }
+
+    [HttpPatch("{name}/fediverse")]
+    [Authorize]
+    [AskPermission(PermissionKeys.PublishersFediverseManage)]
+    public async Task<ActionResult<FediverseStatus>> UpdateFediverseActor(
+        string name,
+        [FromBody] UpdateFediverseActorRequest request
+    )
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
+
+        var accountId = Guid.Parse(currentUser.Id);
+
+        var publisher = await db.Publishers.Where(p => p.Name.ToLower() == name.ToLowerInvariant()).FirstOrDefaultAsync();
+        if (publisher is null)
+            return NotFound();
+
+        if (!await ps.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.Manager))
+            return StatusCode(
+                403,
+                ApiError.Unauthorized("You need at least be manager to change fediverse settings for this publisher.", forbidden: true)
+            );
+
+        try
+        {
+            await ps.UpdateFediverseActorAsync(
+                publisher.Id,
+                accountId,
+                new FediverseActorSettings
+                {
+                    ActorType = request.ActorType,
+                    IsLocked = request.IsLocked,
+                    IsDiscoverable = request.IsDiscoverable,
+                }
+            );
+
+            var status = await ps.GetFediverseStatusAsync(publisher.Id);
+
+            // Let remote instances pick up the new actor type / approval settings.
+            var updated = await ps.GetLocalActorAsync(publisher.Id);
+            if (updated?.Uri != null)
+            {
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        using var scope = factory.CreateScope();
+                        var deliveryService = scope.ServiceProvider.GetRequiredService<ActivityPubDeliveryService>();
+                        await deliveryService.SendUpdateActorActivityAsync(updated);
+                    }
+                    catch (Exception ex)
+                    {
+                        using var errorScope = factory.CreateScope();
+                        var errorLogger = errorScope.ServiceProvider.GetRequiredService<ILogger<ActivityPubDeliveryService>>();
+                        errorLogger.LogError(ex, "Error sending ActivityPub Update actor activity for publisher {PublisherId}", publisher.Id);
+                    }
+                });
+            }
+
+            return Ok(status);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new ApiError { Code = "PUBLISHER_FEDIVERSE_UPDATE_FAILED", Message = ex.Message, Status = 400 });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(403, ApiError.Unauthorized(ex.Message, forbidden: true));
         }
     }
 

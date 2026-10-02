@@ -69,6 +69,58 @@ public class ActivityPubDeliveryService(
         );
     }
 
+    public async Task<bool> SendRejectActivityAsync(
+        SnPublisher actor,
+        string followerActorUri,
+        string? reason = null
+    )
+    {
+        var actorUrl = actor.Uri;
+        var followerActor = await db.FediverseActors.FirstOrDefaultAsync(a =>
+            a.Uri == followerActorUri
+        );
+
+        if (followerActor?.InboxUri == null)
+        {
+            logger.LogWarning(
+                "[Delivery] Follower actor or inbox not found: {Uri}",
+                followerActorUri
+            );
+            return false;
+        }
+
+        var activityId = $"{actorUrl}/rejects/{Guid.NewGuid()}";
+        var activity = new Dictionary<string, object>
+        {
+            ["@context"] = "https://www.w3.org/ns/activitystreams",
+            ["id"] = activityId,
+            ["type"] = "Reject",
+            ["actor"] = actorUrl,
+            ["object"] = new Dictionary<string, object>
+            {
+                ["type"] = "Follow",
+                ["actor"] = followerActorUri,
+                ["object"] = actorUrl,
+            },
+        };
+
+        if (!string.IsNullOrEmpty(reason))
+            activity["summary"] = reason;
+
+        logger.LogInformation(
+            "[Delivery] Sending Reject to {Inbox} from {Actor}",
+            followerActor.InboxUri,
+            actorUrl
+        );
+        return await EnqueueActivityDeliveryAsync(
+            "Reject",
+            activity,
+            actorUrl,
+            followerActor.InboxUri,
+            activityId
+        );
+    }
+
     public async Task<bool> SendFollowActivityAsync(Guid publisherId, string targetActorUri)
     {
         var localActor = await objFactory.GetLocalActorAsync(publisherId);
@@ -379,6 +431,9 @@ public class ActivityPubDeliveryService(
                 ["owner"] = actorUrl,
                 ["publicKeyPem"] = actor.PublicKey,
             },
+            ["manuallyApprovesFollowers"] = actor.IsLocked,
+            ["discoverable"] = actor.IsDiscoverable,
+            ["bot"] = actor.IsBot,
         };
 
         if (publisher.Picture != null)

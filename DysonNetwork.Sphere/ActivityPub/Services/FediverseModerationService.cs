@@ -109,6 +109,73 @@ public class FediverseModerationService
         return result;
     }
 
+    /// <summary>
+    /// Checks actor-scoped rules (<see cref="FediverseModerationRuleType.ActorSuspend"/> /
+    /// <see cref="FediverseModerationRuleType.ActorAllow"/>) against a full actor URI.
+    /// An explicit allow rule always wins, so operators can carve an actor out of a domain rule.
+    /// </summary>
+    public async Task<FediverseModerationResult> CheckActorRuleAsync(string? actorUri)
+    {
+        await EnsureRulesCachedAsync();
+
+        var result = new FediverseModerationResult();
+
+        if (string.IsNullOrEmpty(actorUri))
+            return result;
+
+        var enabledRules = cachedRules!
+            .Where(r => r.IsEnabled && !string.IsNullOrEmpty(r.Domain))
+            .OrderBy(r => r.Priority)
+            .ToList();
+
+        foreach (var rule in enabledRules.Where(r => r.Type == FediverseModerationRuleType.ActorAllow))
+        {
+            if (!MatchesActorUri(actorUri, rule.Domain!, rule.IsRegex))
+                continue;
+
+            logger.LogDebug("Actor {ActorUri} explicitly allowed by rule {RuleName}", actorUri, rule.Name);
+            return result;
+        }
+
+        foreach (var rule in enabledRules.Where(r => r.Type == FediverseModerationRuleType.ActorSuspend))
+        {
+            if (!MatchesActorUri(actorUri, rule.Domain!, rule.IsRegex))
+                continue;
+
+            result.IsSuspended = true;
+            result.IsBlocked = true;
+            result.MatchedRuleName = rule.Name;
+            result.MatchedDomain = ExtractDomainFromUri(actorUri);
+            result.Action = rule.Action;
+            ApplyAction(rule.Action, result);
+
+            logger.LogInformation("Actor {ActorUri} suspended by rule {RuleName}", actorUri, rule.Name);
+            return result;
+        }
+
+        return result;
+    }
+
+    private static bool MatchesActorUri(string actorUri, string pattern, bool isRegex)
+    {
+        if (isRegex)
+        {
+            try
+            {
+                return Regex.IsMatch(actorUri, pattern, RegexOptions.IgnoreCase, TimeSpan.FromMilliseconds(100));
+            }
+            catch (RegexMatchTimeoutException)
+            {
+                return false;
+            }
+        }
+
+        return string.Equals(
+            actorUri.TrimEnd('/'),
+            pattern.TrimEnd('/'),
+            StringComparison.OrdinalIgnoreCase);
+    }
+
     public async Task<FediverseModerationResult> CheckInstanceAsync(string domain)
     {
         await EnsureRulesCachedAsync();

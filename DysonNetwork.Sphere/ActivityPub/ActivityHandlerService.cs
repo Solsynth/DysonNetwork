@@ -59,6 +59,13 @@ public class ActivityHandlerService(
             return ActivityResult.Rejected;
         }
 
+        var actorRule = await moderationService.CheckActorRuleAsync(actorUri);
+        if (actorRule.IsSuspended)
+        {
+            logger.LogWarning("[Inbox] Suspended actor {Actor}. Rule: {Rule}", actorUri, actorRule.MatchedRuleName);
+            return ActivityResult.Rejected;
+        }
+
         logger.LogInformation("[Inbox] Processing {Type} from {Actor}", activityType, actorUri);
 
         try
@@ -142,6 +149,11 @@ public class ActivityHandlerService(
         var existing = await db.PublisherSubscriptions
             .FirstOrDefaultAsync(r => r.FollowerPublisherId == actor.Id && r.PublisherId == targetActor.Id);
 
+        // A locked actor (ActivityPub manuallyApprovesFollowers) or a publisher that gates
+        // subscriptions must not auto-accept: queue the follow for a manager to review.
+        if (targetActor.IsLocked || targetActor.IsModerateSubscription)
+            return await QueueFollowForApprovalAsync(actor, targetActor, actorUri, objectUri, existing);
+
         switch (existing?.State)
         {
             case PublisherSubscriptionState.Accepted:
@@ -167,6 +179,54 @@ public class ActivityHandlerService(
 
         await db.SaveChangesAsync();
         await deliveryService.SendAcceptActivityAsync(targetActor, actorUri);
+        return ActivityResult.Success;
+    }
+
+    private async Task<ActivityResult> QueueFollowForApprovalAsync(
+        SnPublisher actor,
+        SnPublisher targetActor,
+        string actorUri,
+        string objectUri,
+        SnPublisherSubscription? existing
+    )
+    {
+        if (existing?.State == PublisherSubscriptionState.Accepted)
+        {
+            logger.LogInformation(
+                "Follow already accepted, keeping it despite locked actor: {Actor} -> {Target}",
+                actorUri,
+                objectUri);
+            return ActivityResult.Success;
+        }
+
+        var reason = targetActor.IsLocked
+            ? "Actor manually approves followers"
+            : "Subscriptions require approval";
+
+        if (existing == null)
+        {
+            existing = new SnPublisherSubscription
+            {
+                FollowerPublisherId = actor.Id,
+                PublisherId = targetActor.Id,
+                State = PublisherSubscriptionState.Pending,
+            };
+            db.PublisherSubscriptions.Add(existing);
+        }
+        else
+        {
+            existing.State = PublisherSubscriptionState.Pending;
+            existing.EndedAt = null;
+            existing.RejectReason = null;
+        }
+
+        await db.SaveChangesAsync();
+
+        logger.LogInformation(
+            "Queued follow for approval: {Actor} -> {Target} ({Reason})",
+            actorUri,
+            objectUri,
+            reason);
         return ActivityResult.Success;
     }
 
@@ -706,6 +766,22 @@ public class ActivityHandlerService(
     private async Task<SnPublisher> ResolveOrCreateActorAsync(string actorUri)
     {
         var domain = ExtractDomain(actorUri);
+
+        // Never mirror our own domain. A local actor lives on the publisher row itself, so
+        // creating one here would duplicate the publisher and later collide with the unique
+        // (uri, deleted_at) index when the real publisher is re-enabled.
+        if (string.Equals(domain, Domain, StringComparison.OrdinalIgnoreCase))
+        {
+            var localActor = await db.FediverseActors
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(a => a.Uri == actorUri);
+
+            if (localActor == null || localActor.DeletedAt != null)
+                throw new InvalidOperationException($"Local actor not found for URI {actorUri}");
+
+            return localActor;
+        }
+
         var instance = await db.FediverseInstances.FirstOrDefaultAsync(i => i.Domain == domain);
 
         if (instance == null)

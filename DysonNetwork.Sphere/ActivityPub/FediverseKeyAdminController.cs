@@ -90,6 +90,20 @@ public class FediverseKeyAdminController(
         });
     }
 
+    [HttpPost("actor/{actorId:guid}/ensure")]
+    public async Task<ActionResult> EnsureKey(Guid actorId)
+    {
+        var actor = await db.Publishers.FindAsync(actorId);
+        if (actor == null)
+            return NotFound(new ApiError { Code = "FEDIVERSE_ACTOR_NOT_FOUND", Message = "Actor not found.", Status = 404 });
+
+        var success = await keyMigrationService.EnsureKeyExistsForActorAsync(actorId);
+        if (!success)
+            return BadRequest(new ApiError { Code = "FEDIVERSE_KEY_ENSURE_FAILED", Message = "Failed to ensure key.", Status = 400 });
+
+        return Ok(new { message = "Key ensured successfully" });
+    }
+
     [HttpPost("actor/{actorId:guid}/regenerate")]
     public async Task<ActionResult> RegenerateKey(Guid actorId)
     {
@@ -97,7 +111,7 @@ public class FediverseKeyAdminController(
         if (actor == null)
             return NotFound(new ApiError { Code = "FEDIVERSE_ACTOR_NOT_FOUND", Message = "Actor not found.", Status = 404 });
 
-        var success = await keyMigrationService.EnsureKeyExistsForActorAsync(actorId);
+        var success = await keyMigrationService.RotateKeyForActorAsync(actorId);
         if (!success)
             return BadRequest(new ApiError { Code = "FEDIVERSE_KEY_REGENERATE_FAILED", Message = "Failed to regenerate key.", Status = 400 });
 

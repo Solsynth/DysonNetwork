@@ -24,11 +24,44 @@ public class FediverseStatus
     public string? ActorUri { get; set; }
 }
 
+/// <summary>
+/// Mutable ActivityPub actor settings a publisher manager is allowed to change.
+/// Null members are left untouched.
+/// </summary>
+public class FediverseActorSettings
+{
+    public string? ActorType { get; set; }
+    public bool? IsLocked { get; set; }
+    public bool? IsDiscoverable { get; set; }
+}
+
+public static class FediverseActorTypes
+{
+    public const string Person = "Person";
+    public const string Service = "Service";
+    public const string Group = "Group";
+    public const string Organization = "Organization";
+    public const string Application = "Application";
+
+    private static readonly HashSet<string> Supported = new(StringComparer.Ordinal)
+    {
+        Person,
+        Service,
+        Group,
+        Organization,
+        Application,
+    };
+
+    public static bool IsValid(string? actorType) =>
+        !string.IsNullOrEmpty(actorType) && Supported.Contains(actorType);
+}
+
 public class PublisherService(
     AppDatabase db,
     DySocialCreditService.DySocialCreditServiceClient socialCredits,
     DyExperienceService.DyExperienceServiceClient experiences,
     PublisherRatingService ratingService,
+    ActivityPubDeliveryService deliveryService,
     ICacheService cache,
     ILocalizationService localization,
     RemoteAccountService remoteAccounts,
@@ -511,6 +544,7 @@ public class PublisherService(
     {
         var request = await db.PublisherSubscriptions
             .Include(r => r.Publisher)
+            .Include(r => r.FollowerPublisher)
             .FirstOrDefaultAsync(r => r.Id == requestId);
 
         if (request == null)
@@ -529,12 +563,20 @@ public class PublisherService(
 
         await db.SaveChangesAsync();
 
+        // A federated follower keeps waiting until it receives an Accept.
+        if (ShouldNotifyFederatedFollower(request))
+        {
+            await deliveryService.SendAcceptActivityAsync(request.Publisher!, request.FollowerPublisher!.Uri!);
+        }
+
         return request;
     }
 
     public async Task<SnPublisherSubscription> RejectFollowRequest(Guid requestId, Guid reviewerAccountId, string? reason = null)
     {
         var request = await db.PublisherSubscriptions
+            .Include(r => r.Publisher)
+            .Include(r => r.FollowerPublisher)
             .FirstOrDefaultAsync(r => r.Id == requestId);
 
         if (request == null)
@@ -549,12 +591,48 @@ public class PublisherService(
         request.RejectReason = reason;
         await db.SaveChangesAsync();
 
+        // Tell the remote instance the follow was rejected, otherwise it keeps
+        // waiting for an Accept that never arrives.
+        if (ShouldNotifyFederatedFollower(request))
+        {
+            await deliveryService.SendRejectActivityAsync(request.Publisher!, request.FollowerPublisher!.Uri!, reason);
+        }
+
         return request;
+    }
+
+    /// <summary>
+    /// True when a pending follow was initiated by a genuinely remote actor against one of our own
+    /// actors. Outbound follows we sent to a remote instance (still pending their Accept) must be
+    /// ignored, as must purely local account subscriptions.
+    /// </summary>
+    private bool ShouldNotifyFederatedFollower(SnPublisherSubscription request)
+    {
+        var follower = request.FollowerPublisher;
+        var target = request.Publisher;
+
+        if (follower?.Uri == null || target?.Uri == null)
+            return false;
+
+        return IsRemoteActor(follower) && !IsRemoteActor(target);
+    }
+
+    private bool IsRemoteActor(SnPublisher actor)
+    {
+        if (string.IsNullOrEmpty(actor.Uri))
+            return false;
+
+        if (string.Equals(actor.InstanceDomain, Domain, StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        return !Uri.TryCreate(actor.Uri, UriKind.Absolute, out var uri)
+            || !string.Equals(uri.Host, Domain, StringComparison.OrdinalIgnoreCase);
     }
 
     public async Task<List<SnPublisherSubscription>> GetPendingFollowRequests(Guid publisherId)
     {
         return await db.PublisherSubscriptions
+            .Include(r => r.FollowerPublisher)
             .Where(r => r.PublisherId == publisherId && r.State == PublisherSubscriptionState.Pending)
             .OrderBy(r => r.CreatedAt)
             .ToListAsync();
@@ -1277,6 +1355,58 @@ public class PublisherService(
         await db.SaveChangesAsync();
 
         return true;
+    }
+
+    public async Task<SnPublisher?> UpdateFediverseActorAsync(
+        Guid publisherId,
+        Guid requesterAccountId,
+        FediverseActorSettings settings
+    )
+    {
+        var member = await db.PublisherMembers
+            .Where(m => m.PublisherId == publisherId && m.AccountId == requesterAccountId)
+            .FirstOrDefaultAsync();
+
+        if (member == null || member.Role < PublisherMemberRole.Manager)
+            throw new UnauthorizedAccessException(
+                "You need at least Manager role to change fediverse settings for this publisher");
+
+        var publisher = await db.Publishers
+            .FirstOrDefaultAsync(p => p.Id == publisherId);
+
+        if (publisher == null)
+            throw new InvalidOperationException("Publisher not found");
+
+        if (publisher.Uri == null)
+            throw new InvalidOperationException("Fediverse is not enabled for this publisher");
+
+        if (settings.ActorType != null)
+        {
+            if (!FediverseActorTypes.IsValid(settings.ActorType))
+                throw new InvalidOperationException(
+                    $"Unsupported actor type '{settings.ActorType}'. Supported: Person, Service, Group, Organization, Application");
+
+            publisher.ActorType = settings.ActorType;
+        }
+
+        if (settings.IsLocked != null)
+            publisher.IsLocked = settings.IsLocked.Value;
+
+        if (settings.IsDiscoverable != null)
+            publisher.IsDiscoverable = settings.IsDiscoverable.Value;
+
+        publisher.LastActivityAt = SystemClock.Instance.GetCurrentInstant();
+
+        await db.SaveChangesAsync();
+
+        logger.LogInformation(
+            "Updated fediverse actor settings for publisher {PublisherId}: type={ActorType}, locked={IsLocked}, discoverable={IsDiscoverable}",
+            publisherId,
+            publisher.ActorType,
+            publisher.IsLocked,
+            publisher.IsDiscoverable);
+
+        return publisher;
     }
 
     public async Task<FediverseStatus?> GetFediverseStatusAsync(Guid publisherId, Guid? requesterAccountId = null)

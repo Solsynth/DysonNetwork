@@ -14,6 +14,18 @@ public enum FediverseModerationRuleType
     KeywordBlock = 3,
     KeywordAllow = 4,
     ReportThreshold = 5,
+
+    /// <summary>
+    /// Suspends a single remote actor. <see cref="SnFediverseModerationRule.Domain"/> holds the
+    /// full actor URI (an exact match unless <see cref="SnFediverseModerationRule.IsRegex"/> is set).
+    /// </summary>
+    ActorSuspend = 6,
+
+    /// <summary>
+    /// Explicitly allows a single remote actor, taking precedence over <see cref="ActorSuspend"/>.
+    /// <see cref="SnFediverseModerationRule.Domain"/> holds the actor URI.
+    /// </summary>
+    ActorAllow = 7,
 }
 
 public enum FediverseModerationAction

@@ -84,7 +84,7 @@ public class ActivityPubController : ControllerBase
                 },
             ],
             Id = actorUrl,
-            Type = "Person",
+            Type = publisher.ActorType ?? "Person",
             Name = publisher.Nick,
             PreferredUsername = publisher.Name,
             Summary = publisher.Bio,
@@ -119,6 +119,9 @@ public class ActivityPubController : ControllerBase
                 Owner = actorUrl,
                 PublicKeyPem = publicKeyPem,
             },
+            ManuallyApprovesFollowers = publisher.IsLocked,
+            Discoverable = publisher.IsDiscoverable,
+            Bot = publisher.IsBot,
         };
 
         return Ok(actor);
@@ -700,6 +703,15 @@ public class ActivityPubActor
 
     [JsonPropertyName("publicKey")]
     public ActivityPubPublicKey? PublicKey { get; set; }
+
+    [JsonPropertyName("manuallyApprovesFollowers")]
+    public bool? ManuallyApprovesFollowers { get; set; }
+
+    [JsonPropertyName("discoverable")]
+    public bool? Discoverable { get; set; }
+
+    [JsonPropertyName("bot")]
+    public bool? Bot { get; set; }
 }
 
 public class ActivityPubPublicKey

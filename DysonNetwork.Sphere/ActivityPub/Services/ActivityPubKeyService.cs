@@ -135,7 +135,7 @@ public class ActivityPubKeyService(
         if (actor == null)
             return;
 
-        await UpdateKeyForActorAsync(actor);
+        await UpdateKeyForActorAsync(actor, force: true);
     }
 
     public async Task<(string publicKeyPem, string privateKeyPem)?> GetKeyPairForActorAsync(Guid actorId)
@@ -159,13 +159,13 @@ public class ActivityPubKeyService(
             .FirstOrDefaultAsync(k => k.PublisherId == publisherId);
     }
 
-    public async Task UpdateKeyForActorAsync(SnPublisher actor)
+    public async Task UpdateKeyForActorAsync(SnPublisher actor, bool force = false)
     {
         var actorLock = ActorLocks.GetOrAdd(actor.Id, _ => new SemaphoreSlim(1, 1));
         await actorLock.WaitAsync();
         try
         {
-            await UpdateKeyForActorInternalAsync(actor);
+            await UpdateKeyForActorInternalAsync(actor, force);
         }
         finally
         {
@@ -173,12 +173,12 @@ public class ActivityPubKeyService(
         }
     }
 
-    private async Task UpdateKeyForActorInternalAsync(SnPublisher actor)
+    private async Task UpdateKeyForActorInternalAsync(SnPublisher actor, bool force = false)
     {
         var existingKey = await db.FediverseKeys
             .FirstOrDefaultAsync(k => k.PublisherId == actor.Id);
 
-        if (existingKey != null && !string.IsNullOrEmpty(existingKey.PrivateKeyPem))
+        if (existingKey != null && !string.IsNullOrEmpty(existingKey.PrivateKeyPem) && !force)
         {
             logger.LogInformation("Actor already has a key pair: {ActorUri}", actor.Uri);
             return;
@@ -206,8 +206,18 @@ public class ActivityPubKeyService(
             db.FediverseKeys.Add(key);
         }
 
+        // Keep the actor document in sync with the key material actually used for signing,
+        // otherwise the served public key no longer matches the private key.
+        if (!string.IsNullOrEmpty(actor.Uri))
+        {
+            actor.PublicKey = publicKey;
+            actor.PublicKeyId = $"{actor.Uri}#main-key";
+        }
+
         await db.SaveChangesAsync();
-        logger.LogInformation("Generated new key pair for actor: {ActorUri}", actor.Uri);
+        logger.LogInformation(
+            force ? "Rotated key pair for actor: {ActorUri}" : "Generated new key pair for actor: {ActorUri}",
+            actor.Uri);
     }
 
     public async Task StoreRemoteKeyAsync(string keyId, string keyPem, Guid actorId)

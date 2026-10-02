@@ -135,6 +135,22 @@ public class KeyMigrationService(
         return key != null;
     }
 
+    public async Task<bool> RotateKeyForActorAsync(Guid actorId)
+    {
+        var actor = await db.Publishers.FindAsync(actorId);
+        if (actor == null)
+            return false;
+
+        if (string.IsNullOrEmpty(actor.Uri))
+        {
+            logger.LogWarning("Actor {ActorId} has no ActivityPub URI, cannot rotate key", actorId);
+            return false;
+        }
+
+        await keyService.RotateKeyAsync(actorId);
+        return true;
+    }
+
     public async Task<KeyAuditResult> AuditKeysAsync()
     {
         var result = new KeyAuditResult();

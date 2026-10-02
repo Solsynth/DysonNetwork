@@ -176,6 +176,116 @@ public class FediverseModerationController(
         var result = await moderationService.CheckActorAsync(request.ActorUri, request.Content, request.ActorDomain);
         return Ok(result);
     }
+
+    [HttpPost("check-actor-rule")]
+    [AskPermission(PermissionKeys.FediverseModerationCheck)]
+    public async Task<ActionResult<FediverseModerationResult>> CheckActorRule([FromBody] CheckActorRequest request)
+    {
+        var result = await moderationService.CheckActorRuleAsync(request.ActorUri);
+        return Ok(result);
+    }
+
+    [HttpGet("actors")]
+    [AskPermission(PermissionKeys.FediverseModerationRulesManage)]
+    public async Task<ActionResult<List<SnFediverseModerationRule>>> ListActorRules(
+        [FromQuery] bool? enabledOnly = null
+    )
+    {
+        var query = db.FediverseModerationRules
+            .Where(r => r.Type == FediverseModerationRuleType.ActorSuspend
+                || r.Type == FediverseModerationRuleType.ActorAllow);
+
+        if (enabledOnly == true)
+        {
+            var now = SystemClock.Instance.GetCurrentInstant();
+            query = query.Where(r => r.IsEnabled)
+                .Where(r => r.ExpiresAt == null || r.ExpiresAt > now);
+        }
+
+        var rules = await query
+            .OrderBy(r => r.Priority)
+            .ToListAsync();
+
+        return Ok(rules);
+    }
+
+    /// <summary>
+    /// Suspends a single remote actor by URI. Idempotent: re-suspending an actor reuses its rule.
+    /// </summary>
+    [HttpPost("actors/suspend")]
+    [AskPermission(PermissionKeys.FediverseModerationRulesManage)]
+    public async Task<ActionResult<SnFediverseModerationRule>> SuspendActor([FromBody] SuspendActorRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.ActorUri))
+            return BadRequest(new ApiError { Code = "FEDIVERSE_ACTOR_URI_REQUIRED", Message = "Actor URI is required.", Status = 400 });
+
+        if (!Uri.TryCreate(request.ActorUri, UriKind.Absolute, out var parsed) || parsed.Scheme != Uri.UriSchemeHttps)
+            return BadRequest(new ApiError { Code = "FEDIVERSE_ACTOR_URI_INVALID", Message = "Actor URI must be an absolute https URI.", Status = 400 });
+
+        var actorUri = request.ActorUri.TrimEnd('/');
+        var now = SystemClock.Instance.GetCurrentInstant();
+
+        var rule = await db.FediverseModerationRules
+            .FirstOrDefaultAsync(r => r.Type == FediverseModerationRuleType.ActorSuspend && r.Domain == actorUri);
+
+        if (rule == null)
+        {
+            rule = new SnFediverseModerationRule
+            {
+                Id = Guid.NewGuid(),
+                Name = string.IsNullOrWhiteSpace(request.Name) ? $"Suspend {actorUri}" : request.Name,
+                Description = request.Reason,
+                Type = FediverseModerationRuleType.ActorSuspend,
+                Action = FediverseModerationAction.Suspend,
+                Domain = actorUri,
+                IsEnabled = true,
+                Priority = request.Priority ?? 0,
+                IsSystemRule = false,
+                CreatedAt = now,
+                UpdatedAt = now
+            };
+
+            db.FediverseModerationRules.Add(rule);
+        }
+        else
+        {
+            if (rule.IsSystemRule)
+                return BadRequest(new ApiError { Code = "FEDIVERSE_RULE_SYSTEM_NOT_MODIFIABLE", Message = "Cannot modify system rules.", Status = 400 });
+
+            if (!string.IsNullOrWhiteSpace(request.Name)) rule.Name = request.Name;
+            if (request.Reason != null) rule.Description = request.Reason;
+            if (request.Priority != null) rule.Priority = request.Priority.Value;
+            rule.IsEnabled = true;
+            rule.ExpiresAt = null;
+            rule.UpdatedAt = now;
+        }
+
+        await db.SaveChangesAsync();
+        moderationService.InvalidateCache();
+
+        return Ok(rule);
+    }
+
+    /// <summary>
+    /// Lifts a per-actor suspension by removing its rule.
+    /// </summary>
+    [HttpDelete("actors/suspend/{id:guid}")]
+    [AskPermission(PermissionKeys.FediverseModerationRulesManage)]
+    public async Task<IActionResult> UnsuspendActor(Guid id)
+    {
+        var rule = await db.FediverseModerationRules.FindAsync(id);
+        if (rule is null || rule.Type != FediverseModerationRuleType.ActorSuspend)
+            return NotFound(new ApiError { Code = "FEDIVERSE_RULE_NOT_FOUND", Message = "Actor suspension rule not found.", Status = 404 });
+
+        if (rule.IsSystemRule)
+            return BadRequest(new ApiError { Code = "FEDIVERSE_RULE_SYSTEM_NOT_DELETABLE", Message = "Cannot delete system rules.", Status = 400 });
+
+        db.FediverseModerationRules.Remove(rule);
+        await db.SaveChangesAsync();
+        moderationService.InvalidateCache();
+
+        return NoContent();
+    }
 }
 
 public class CreateFediverseModerationRuleRequest
@@ -221,4 +331,12 @@ public class CheckActorRequest
     public string? ActorUri { get; set; }
     public string? Content { get; set; }
     public string? ActorDomain { get; set; }
+}
+
+public class SuspendActorRequest
+{
+    public string ActorUri { get; set; } = string.Empty;
+    public string? Name { get; set; }
+    public string? Reason { get; set; }
+    public int? Priority { get; set; }
 }

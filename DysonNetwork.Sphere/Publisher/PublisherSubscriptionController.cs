@@ -484,6 +484,7 @@ public class PublisherSubscriptionController(
         Response.Headers["X-Total"] = total.ToString();
 
         var subscriptions = await query
+            .Include(s => s.FollowerPublisher)
             .OrderBy(s => s.CreatedAt)
             .Skip(offset)
             .Take(take)

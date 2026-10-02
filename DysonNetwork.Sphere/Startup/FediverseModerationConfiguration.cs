@@ -110,6 +110,8 @@ public static class FediverseModerationConfiguration
             "keywordblock" or "keyword_block" or "keyword" => FediverseModerationRuleType.KeywordBlock,
             "keywordallow" or "keyword_allow" => FediverseModerationRuleType.KeywordAllow,
             "reportthreshold" or "report_threshold" => FediverseModerationRuleType.ReportThreshold,
+            "actorsuspend" or "actor_suspend" => FediverseModerationRuleType.ActorSuspend,
+            "actorallow" or "actor_allow" => FediverseModerationRuleType.ActorAllow,
             _ => FediverseModerationRuleType.DomainBlock
         };
     }
