@@ -640,27 +640,13 @@ public class AccountEventService(
 
     public async Task<bool> CheckInBackdatedIsAvailable(SnAccount user, Instant backdated)
     {
-        var aDay = Duration.FromDays(1);
-        var backdatedStart = backdated.ToDateTimeUtc().Date.ToInstant();
-        var backdatedEnd = backdated.Plus(aDay).ToDateTimeUtc().Date.ToInstant();
+        var backdatedDate = backdated.InUtc().Date;
+        var backdatedStart = backdatedDate.AtStartOfDayInZone(DateTimeZone.Utc).ToInstant();
+        var backdatedEnd = backdatedDate.PlusDays(1).AtStartOfDayInZone(DateTimeZone.Utc).ToInstant();
 
-        var backdatedDate = backdated.ToDateTimeUtc();
-        var backdatedMonthStart = new DateTime(
-            backdatedDate.Year,
-            backdatedDate.Month,
-            1,
-            0,
-            0,
-            0
-        ).ToInstant();
-        var backdatedMonthEnd = new DateTime(
-            backdatedDate.Year,
-            backdatedDate.Month,
-            DateTime.DaysInMonth(backdatedDate.Year, backdatedDate.Month),
-            23,
-            59,
-            59
-        ).ToInstant();
+        var monthStart = new LocalDate(backdatedDate.Year, backdatedDate.Month, 1);
+        var backdatedMonthStart = monthStart.AtStartOfDayInZone(DateTimeZone.Utc).ToInstant();
+        var backdatedMonthEnd = monthStart.PlusMonths(1).AtStartOfDayInZone(DateTimeZone.Utc).ToInstant();
 
         // The first check, if that day already has a check-in
         var lastCheckIn = await db
