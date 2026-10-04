@@ -489,7 +489,10 @@ public class ActivityHandlerService(
             PublisherId = actor.Id,
             Language = GetString(objectDict, "language"),
             Type = objectType == "Article" ? PostType.Article : PostType.Moment,
-            Visibility = PostVisibility.Public
+            Visibility = PostVisibility.Public,
+            Attachments = ActivityPubAttachmentConverter.FromActivityStream(
+                objectDict.GetValueOrDefault("attachment")
+            )
         };
 
         var inReplyTo = GetString(objectDict, "inReplyTo");
@@ -647,6 +650,11 @@ public class ActivityHandlerService(
         post.Title = GetString(objectDict, "name");
         post.Content = GetString(objectDict, "content");
         post.EditedAt = ParseInstant(GetValue(objectDict, "updated")) ?? SystemClock.Instance.GetCurrentInstant();
+
+        if (objectDict.ContainsKey("attachment"))
+            post.Attachments = ActivityPubAttachmentConverter.FromActivityStream(
+                objectDict.GetValueOrDefault("attachment")
+            );
 
         await db.SaveChangesAsync();
 
@@ -863,7 +871,10 @@ public class ActivityHandlerService(
                 PublishedAt = ParseInstant(GetValue(objectDict, "published")),
                 PublisherId = actor.Id,
                 Type = objectType == "Article" ? PostType.Article : PostType.Moment,
-                Visibility = PostVisibility.Public
+                Visibility = PostVisibility.Public,
+                Attachments = ActivityPubAttachmentConverter.FromActivityStream(
+                    objectDict.GetValueOrDefault("attachment")
+                )
             };
 
             var inReplyTo = GetString(objectDict, "inReplyTo");
@@ -924,28 +935,7 @@ public class ActivityHandlerService(
             return obj;
 
         if (value is JsonElement { ValueKind: JsonValueKind.Object } element)
-        {
-            var result = new Dictionary<string, object>();
-            foreach (var prop in element.EnumerateObject())
-            {
-                result[prop.Name] = prop.Value.ValueKind switch
-                {
-                    JsonValueKind.String => prop.Value.GetString() ?? "",
-                    JsonValueKind.Number => prop.Value.TryGetInt64(out var l) ? l : prop.Value.GetDouble(),
-                    JsonValueKind.True => true,
-                    JsonValueKind.False => false,
-                    JsonValueKind.Object => GetJsonObject(prop.Value),
-                    JsonValueKind.Array => prop.Value.EnumerateArray().Select<JsonElement, object>(e => e.ValueKind switch
-                    {
-                        JsonValueKind.String => e.GetString() ?? "",
-                        JsonValueKind.Object => GetJsonObject(e),
-                        _ => e.ToString()
-                    }).ToList(),
-                    _ => prop.Value.ToString()
-                };
-            }
-            return result;
-        }
+            return GetJsonObject(element);
 
         return null;
     }
@@ -954,18 +944,22 @@ public class ActivityHandlerService(
     {
         var result = new Dictionary<string, object>();
         foreach (var prop in element.EnumerateObject())
-        {
-            result[prop.Name] = prop.Value.ValueKind switch
-            {
-                JsonValueKind.String => prop.Value.GetString() ?? "",
-                JsonValueKind.Number => prop.Value.TryGetInt64(out var l) ? l : prop.Value.GetDouble(),
-                JsonValueKind.True => true,
-                JsonValueKind.False => false,
-                JsonValueKind.Object => GetJsonObject(prop.Value),
-                _ => prop.Value.ToString()
-            };
-        }
+            result[prop.Name] = GetJsonValue(prop.Value);
         return result;
+    }
+
+    private static object GetJsonValue(JsonElement element)
+    {
+        return element.ValueKind switch
+        {
+            JsonValueKind.String => element.GetString() ?? "",
+            JsonValueKind.Number => element.TryGetInt64(out var l) ? l : element.GetDouble(),
+            JsonValueKind.True => true,
+            JsonValueKind.False => false,
+            JsonValueKind.Object => GetJsonObject(element),
+            JsonValueKind.Array => element.EnumerateArray().Select(GetJsonValue).ToList(),
+            _ => element.ToString()
+        };
     }
 
     private static Instant? ParseInstant(object? value)

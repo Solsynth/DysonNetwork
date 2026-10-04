@@ -366,7 +366,7 @@ dotnet ef database update
     "boosted_at": "2026-03-27T09:30:00Z",
     "activity_pub_uri": "https://mastodon.social/users/booster/statuses/123",
     "original_post": { ... },
-    "original_actor": { ... }
+    "original_publisher": { ... }
   }
 }
 ```

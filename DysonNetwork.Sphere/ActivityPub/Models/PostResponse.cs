@@ -21,8 +21,8 @@ public class BoostInfo
     [JsonPropertyName("original_post")]
     public SnPost OriginalPost { get; set; } = null!;
 
-    [JsonPropertyName("original_actor")]
-    public SnPublisher? OriginalActor { get; set; }
+    [JsonPropertyName("original_publisher")]
+    public SnPublisher? OriginalPublisher { get; set; }
 }
 
 public class PostResponse : SnPost

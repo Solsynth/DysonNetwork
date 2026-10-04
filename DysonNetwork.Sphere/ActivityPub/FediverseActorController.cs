@@ -333,7 +333,7 @@ public class FediverseActorController(
                     ActivityPubUri = b.ActivityPubUri,
                     WebUrl = b.WebUrl,
                     OriginalPost = b.Post,
-                    OriginalActor = b.Post.Publisher,
+                    OriginalPublisher = b.Post.Publisher,
                 },
                 IsCached = true,
             })
@@ -556,7 +556,7 @@ public class FediverseActorController(
         public string? OriginalActorDisplayName { get; set; }
         public string? OriginalActorUri { get; set; }
         public string? OriginalActorAvatarUrl { get; set; }
-        public List<SnCloudFileReferenceObject>? Attachments { get; set; }
+        public List<SnCloudFileReferenceObject> Attachments { get; set; } = [];
 
         public static RemotePost FromActivityStream(
             Dictionary<string, object> obj,
@@ -609,7 +609,9 @@ public class FediverseActorController(
             }
 
             // Parse attachments
-            var attachments = ParseAttachments(obj.GetValueOrDefault("attachment"));
+            var attachments = ActivityPubAttachmentConverter.FromActivityStream(
+                obj.GetValueOrDefault("attachment")
+            );
 
             return new RemotePost
             {
@@ -651,31 +653,32 @@ public class FediverseActorController(
 
         public PostResponse ToPostResponse(SnPublisher actor)
         {
-            var domain = ExtractDomain(OriginalActorUri ?? ActorUri ?? actor.Uri)
-                ?? actor.Instance?.Domain
-                ?? "unknown";
-            // Build a complete-enough actor so mobile clients can deserialize
-            // without null String cast failures (full_handle, instance.id, etc.).
-            var originalInstance = new SnFediverseInstance
-            {
-                Id = actor.Instance?.Id ?? Guid.Empty,
-                Domain = domain,
-                Name = actor.Instance?.Name,
-                Software = actor.Instance?.Software,
-            };
-            var originalActor = new SnPublisher
-            {
-                Id = Guid.Empty,
-                Username = OriginalActorUsername ?? ActorUsername ?? actor.Username ?? "unknown",
-                DisplayName = OriginalActorDisplayName ?? ActorDisplayName ?? actor.DisplayName,
-                AvatarUrl = OriginalActorAvatarUrl ?? ActorAvatarUrl ?? actor.AvatarUrl,
-                Uri = OriginalActorUri ?? ActorUri ?? actor.Uri ?? "",
-                InstanceId = originalInstance.Id,
-                Instance = originalInstance,
-            };
-
             if (IsBoost)
             {
+                var domain = ExtractDomain(OriginalActorUri ?? ActorUri ?? actor.Uri)
+                    ?? actor.Instance?.Domain
+                    ?? actor.InstanceDomain
+                    ?? "unknown";
+                // The boosted note's author is usually not the boosting publisher, and its own
+                // publisher row may not be mirrored yet, so build a complete-enough remote
+                // publisher from the attributedTo data. Clients read name/full_handle/
+                // instance_domain without null handling.
+                var originalUsername = OriginalActorUsername ?? ActorUsername ?? actor.Username ?? "unknown";
+                var originalPublisher = new SnPublisher
+                {
+                    Id = Guid.Empty,
+                    Type = PublisherType.Fediverse,
+                    Name = originalUsername,
+                    Username = originalUsername,
+                    DisplayName = OriginalActorDisplayName ?? ActorDisplayName ?? actor.DisplayName,
+                    AvatarUrl = OriginalActorAvatarUrl ?? ActorAvatarUrl ?? actor.AvatarUrl,
+                    HeaderUrl = actor.HeaderUrl,
+                    Uri = OriginalActorUri ?? ActorUri ?? actor.Uri ?? "",
+                    InstanceDomain = domain,
+                    InstanceId = actor.Instance?.Id,
+                    Instance = actor.Instance,
+                };
+
                 // For boosts, return the original post data with boost info
                 return new PostResponse
                 {
@@ -691,7 +694,7 @@ public class FediverseActorController(
                     PublisherId = actor.Id,
                     Publisher = actor,
                     PinMode = null,
-                    Attachments = Attachments ?? [],
+                    Attachments = Attachments,
                     BoostInfo = new BoostInfo
                     {
                         BoostId = Guid.Empty,
@@ -706,14 +709,14 @@ public class FediverseActorController(
                             Description = Description,
                             PublishedAt = PublishedAt,
                         },
-                        OriginalActor = originalActor,
+                        OriginalPublisher = originalPublisher,
                     },
                     IsCached = false,
                 };
             }
             else
             {
-                // For regular posts, return as the post by the original author
+                // For regular posts the remote publisher row is the author.
                 return new PostResponse
                 {
                     Id = Guid.Empty,
@@ -725,10 +728,10 @@ public class FediverseActorController(
                     Type = PostType.Moment,
                     PublishedAt = PublishedAt,
                     Visibility = PostVisibility.Public,
-                    PublisherId = Guid.Empty,
-                    Publisher = originalActor,
+                    PublisherId = actor.Id,
+                    Publisher = actor,
                     PinMode = null,
-                    Attachments = Attachments ?? [],
+                    Attachments = Attachments,
                     BoostInfo = null,
                     IsCached = false,
                 };
@@ -747,76 +750,6 @@ public class FediverseActorController(
             {
                 return null;
             }
-        }
-
-        private static List<SnCloudFileReferenceObject>? ParseAttachments(object? value)
-        {
-            if (value == null)
-                return null;
-
-            var attachments = value switch
-            {
-                JsonElement { ValueKind: JsonValueKind.Array } element
-                    => element.EnumerateArray().Select(e => ConvertJsonElementToDict(e)).ToList(),
-                List<Dictionary<string, object>> list => list,
-                _ => null
-            };
-
-            return attachments?.Select(dict => new SnCloudFileReferenceObject
-            {
-                Id = Guid.NewGuid().ToString(),
-                Name = dict.GetValueOrDefault("name")?.ToString()
-                    ?? dict.GetValueOrDefault("url")?.ToString()
-                    ?? string.Empty,
-                Url = dict.GetValueOrDefault("url")?.ToString(),
-                // Clients require non-null mime/hash; ActivityPub Document attachments
-                // often omit both, so fill safe defaults for remote outbox posts.
-                MimeType = dict.GetValueOrDefault("mediaType")?.ToString()
-                    ?? dict.GetValueOrDefault("mimeType")?.ToString()
-                    ?? "application/octet-stream",
-                Hash = dict.GetValueOrDefault("hash")?.ToString() ?? string.Empty,
-                Width = TryGetIntFromDict(dict, "width"),
-                Height = TryGetIntFromDict(dict, "height"),
-                Blurhash = dict.GetValueOrDefault("blurhash")?.ToString(),
-                FileMeta = new Dictionary<string, object?>(),
-                UserMeta = new Dictionary<string, object?>(),
-                Size = TryGetIntFromDict(dict, "size") ?? 0,
-                HasCompression = false,
-                CreatedAt = Instant.FromDateTimeOffset(DateTimeOffset.UtcNow),
-                UpdatedAt = Instant.FromDateTimeOffset(DateTimeOffset.UtcNow)
-            }).ToList();
-        }
-
-        private static Dictionary<string, object> ConvertJsonElementToDict(JsonElement element)
-        {
-            var dict = new Dictionary<string, object>();
-            foreach (var prop in element.EnumerateObject())
-            {
-                dict[prop.Name] = prop.Value.ValueKind switch
-                {
-                    JsonValueKind.String => prop.Value.GetString() ?? "",
-                    JsonValueKind.Number => prop.Value.GetDouble(),
-                    JsonValueKind.True => true,
-                    JsonValueKind.False => false,
-                    JsonValueKind.Null => null!,
-                    JsonValueKind.Object => ConvertJsonElementToDict(prop.Value),
-                    JsonValueKind.Array => prop.Value.EnumerateArray()
-                        .Select(ConvertJsonElementToDict).ToList(),
-                    _ => prop.Value.ToString()
-                };
-            }
-            return dict;
-        }
-
-        private static int? TryGetIntFromDict(Dictionary<string, object> dict, string key)
-        {
-            var value = dict.GetValueOrDefault(key);
-            if (value == null) return null;
-            if (value is JsonElement element && element.ValueKind == JsonValueKind.Number)
-                return element.GetInt32();
-            if (value is int i) return i;
-            if (value is double d) return (int)d;
-            return null;
         }
 
         private static Instant? ParseInstantValue(object? value)
