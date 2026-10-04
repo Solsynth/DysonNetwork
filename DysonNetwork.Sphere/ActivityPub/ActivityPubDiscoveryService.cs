@@ -206,7 +206,7 @@ public partial class ActivityPubDiscoveryService(
             .Where(a => a.Instance.Domain != Domain) // Exclude localhost
             .Where(a =>
                 a.Username.Contains(query) ||
-                a.DisplayName != null && a.DisplayName.Contains(query))
+                a.Nick.Contains(query))
             .OrderByDescending(a => a.LastActivityAt ?? a.CreatedAt)
             .Take(limit)
             .ToListAsync();

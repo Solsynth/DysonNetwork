@@ -54,7 +54,7 @@ public class FediverseActorCleanupJob(
             var incompleteActors = await db.FediverseActors
                 .Where(a => a.Type == PublisherType.Fediverse)
                 .Where(a => a.Uri != null)
-                .Where(a => string.IsNullOrWhiteSpace(a.Bio) || string.IsNullOrWhiteSpace(a.DisplayName))
+                .Where(a => string.IsNullOrWhiteSpace(a.Bio) || string.IsNullOrWhiteSpace(a.Nick))
                 .OrderBy(a => a.LastFetchedAt ?? a.CreatedAt)
                 .Take(batchSize)
                 .ToListAsync();
