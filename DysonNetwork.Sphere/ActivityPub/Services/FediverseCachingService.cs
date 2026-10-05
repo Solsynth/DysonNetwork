@@ -21,10 +21,15 @@ public class FediverseCachingService(
     private static readonly TimeSpan SearchCacheTtl = TimeSpan.FromMinutes(5);
     private static readonly TimeSpan RelationshipCacheTtl = TimeSpan.FromMinutes(2);
 
-    private string GetActorHandleCacheKey(string username, string instanceDomain) =>
-        $"actor:handle:{username.ToLowerInvariant()}@{instanceDomain.ToLowerInvariant()}";
+    // Remote publishers mirrored by the actor merge can briefly have no username / uri, so these
+    // return null instead of throwing when the identity is not populated yet.
+    private static string? GetActorHandleCacheKey(string? username, string? instanceDomain) =>
+        string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(instanceDomain)
+            ? null
+            : $"actor:handle:{username.ToLowerInvariant()}@{instanceDomain.ToLowerInvariant()}";
 
-    private string GetActorUriCacheKey(string uri) => $"actor:uri:{uri.ToLowerInvariant()}";
+    private static string? GetActorUriCacheKey(string? uri) =>
+        string.IsNullOrWhiteSpace(uri) ? null : $"actor:uri:{uri.ToLowerInvariant()}";
 
     private string GetActorIdCacheKey(Guid id) => $"actor:id:{id}";
 
@@ -39,6 +44,9 @@ public class FediverseCachingService(
     public async Task<CachedActor?> GetActorByHandleAsync(string username, string instanceDomain)
     {
         var cacheKey = GetActorHandleCacheKey(username, instanceDomain);
+        if (cacheKey == null)
+            return null;
+
         var cached = await cache.GetAsync<CachedActor>(cacheKey);
         if (cached != null)
         {
@@ -52,6 +60,9 @@ public class FediverseCachingService(
     public async Task<CachedActor?> GetActorByUriAsync(string uri)
     {
         var cacheKey = GetActorUriCacheKey(uri);
+        if (cacheKey == null)
+            return null;
+
         var cached = await cache.GetAsync<CachedActor>(cacheKey);
         if (cached != null)
         {
@@ -98,14 +109,15 @@ public class FediverseCachingService(
             Metadata = actor.Metadata
         };
 
-        var handleCacheKey = GetActorHandleCacheKey(actor.Username, instanceDomain);
-        var uriCacheKey = GetActorUriCacheKey(actor.Uri);
-        var idCacheKey = GetActorIdCacheKey(actor.Id);
+        var keys = new List<string> { GetActorIdCacheKey(actor.Id) };
+        if (GetActorHandleCacheKey(actor.Username, instanceDomain) is { } handleCacheKey)
+            keys.Add(handleCacheKey);
+        if (GetActorUriCacheKey(actor.Uri) is { } uriCacheKey)
+            keys.Add(uriCacheKey);
 
         await Task.WhenAll(
-            cache.SetWithGroupsAsync(handleCacheKey, cached, new[] { ActorCacheGroup }, ActorCacheTtl),
-            cache.SetWithGroupsAsync(uriCacheKey, cached, new[] { ActorCacheGroup }, ActorCacheTtl),
-            cache.SetWithGroupsAsync(idCacheKey, cached, new[] { ActorCacheGroup }, ActorCacheTtl)
+            keys.Select(key =>
+                cache.SetWithGroupsAsync(key, cached, new[] { ActorCacheGroup }, ActorCacheTtl))
         );
 
         logger.LogDebug("Cached actor: {Username}@{Domain}", actor.Username, instanceDomain);
