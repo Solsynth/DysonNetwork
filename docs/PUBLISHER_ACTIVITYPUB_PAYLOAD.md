@@ -94,3 +94,7 @@ Clients MUST prefer `url` when it is set and otherwise build the file endpoint f
 `picture` / `background` for mirrored fediverse actors (those are addressed by `url`), then
 drops both columns. Local publishers keep their existing `picture` / `background` cloud file
 reference; their ActivityPub icon/image URL is rebuilt from the file id at render time.
+
+`scripts/restore-fediverse-identity.sql` restores the identity that `20261001094753` left NULL on
+mirrored publishers. It detects whether the legacy columns are still present and writes the images
+into the matching shape, so it can run either before or after this migration.
