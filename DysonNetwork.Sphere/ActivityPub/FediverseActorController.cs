@@ -179,8 +179,8 @@ public class FediverseActorController(
                     Username = actor.Username,
                     DisplayName = actor.DisplayName,
                     Bio = actor.Bio,
-                    AvatarUrl = actor.AvatarUrl,
-                    HeaderUrl = actor.HeaderUrl,
+                    AvatarUrl = actor.Picture?.Url,
+                    HeaderUrl = actor.Background?.Url,
                     IsBot = actor.IsBot,
                     IsLocked = actor.IsLocked,
                     IsDiscoverable = actor.IsDiscoverable,
@@ -624,7 +624,7 @@ public class FediverseActorController(
                 ActorUsername = actorUsername ?? actor.Username,
                 ActorDisplayName = actor.DisplayName,
                 ActorUri = actorUri ?? actor.Uri,
-                ActorAvatarUrl = actor.AvatarUrl,
+                ActorAvatarUrl = actor.Picture?.Url,
                 IsBoost = false,
                 Attachments = attachments,
             };
@@ -647,7 +647,7 @@ public class FediverseActorController(
             original.ActorUsername = actor.Username;
             original.ActorDisplayName = actor.DisplayName;
             original.ActorUri = actor.Uri;
-            original.ActorAvatarUrl = actor.AvatarUrl;
+            original.ActorAvatarUrl = actor.Picture?.Url;
             return original;
         }
 
@@ -671,8 +671,10 @@ public class FediverseActorController(
                     Name = originalUsername,
                     Username = originalUsername,
                     DisplayName = OriginalActorDisplayName ?? ActorDisplayName ?? actor.DisplayName,
-                    AvatarUrl = OriginalActorAvatarUrl ?? ActorAvatarUrl ?? actor.AvatarUrl,
-                    HeaderUrl = actor.HeaderUrl,
+                    Picture = (OriginalActorAvatarUrl ?? ActorAvatarUrl ?? actor.Picture?.Url) is { } originalAvatarUrl
+                        ? SnCloudFileReferenceObject.FromExternalUrl(originalAvatarUrl)
+                        : null,
+                    Background = actor.Background,
                     Uri = OriginalActorUri ?? ActorUri ?? actor.Uri ?? "",
                     InstanceDomain = domain,
                     InstanceId = actor.Instance?.Id,
@@ -917,23 +919,36 @@ public class FediverseActorController(
                 }
                 : null;
 
+        var handle = !string.IsNullOrWhiteSpace(cached.Username)
+            ? cached.Username
+            : $"actor-{cached.Id.ToString()[..8]}";
+        var instanceDomain = cached.InstanceDomain ?? instance?.Domain;
+
         return new SnPublisher
         {
             Id = cached.Id,
             Type = PublisherType.Fediverse,
+            ActorType = cached.Type,
+            // publishers.name is the unique slug; mirror rows use username@domain
+            Name = instanceDomain is null ? handle : $"{handle}@{instanceDomain}",
+            Nick = cached.DisplayName ?? handle,
             Uri = cached.Uri,
-            Username = cached.Username,
-            DisplayName = cached.DisplayName,
+            Username = handle,
             Bio = cached.Bio,
-            AvatarUrl = cached.AvatarUrl,
-            HeaderUrl = cached.HeaderUrl,
+            Picture = cached.AvatarUrl is null
+                ? null
+                : SnCloudFileReferenceObject.FromExternalUrl(cached.AvatarUrl),
+            Background = cached.HeaderUrl is null
+                ? null
+                : SnCloudFileReferenceObject.FromExternalUrl(cached.HeaderUrl),
             IsBot = cached.IsBot,
             IsLocked = cached.IsLocked,
             IsDiscoverable = cached.IsDiscoverable,
-            InstanceId = instance?.Id ?? Guid.Empty,
+            InstanceId = instance?.Id,
+            InstanceDomain = instanceDomain,
             Instance =
                 instance
-                ?? new SnFediverseInstance { Domain = cached.InstanceDomain ?? "localhost" },
+                ?? new SnFediverseInstance { Domain = instanceDomain ?? "localhost" },
             FollowersCount = cached.FollowersCount,
             FollowingCount = cached.FollowingCount,
             PostCount = cached.PostCount,
@@ -1030,7 +1045,7 @@ public class FediverseActorController(
             PublisherName = ownedPublishers.FirstOrDefault(p => p.Id == a.Id)?.Name ?? "Unknown",
             FediverseHandle = $"{a.Username}@{a.Instance?.Domain}",
             FediverseUri = a.Uri,
-            AvatarUrl = a.AvatarUrl,
+            AvatarUrl = a.Picture?.Url,
             IsEnabled = true,
             FollowersCount = a.FollowersCount,
             FollowingCount = a.FollowingCount,

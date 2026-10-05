@@ -209,14 +209,14 @@ public class ActivityRenderer(IConfiguration configuration, AppDatabase db)
             };
         }
 
-        if (!string.IsNullOrEmpty(actor.AvatarUrl))
+        if (actor.Picture?.ResolveUrl(FileBaseUrl) is { } avatarUrl)
         {
-            person.Icon = new ASObject { Id = actor.AvatarUrl, Type = "Image", Url = actor.AvatarUrl };
+            person.Icon = new ASObject { Id = avatarUrl, Type = "Image", Url = avatarUrl };
         }
 
-        if (!string.IsNullOrEmpty(actor.HeaderUrl))
+        if (actor.Background?.ResolveUrl(FileBaseUrl) is { } headerUrl)
         {
-            person.Image = new ASObject { Id = actor.HeaderUrl, Type = "Image", Url = actor.HeaderUrl };
+            person.Image = new ASObject { Id = headerUrl, Type = "Image", Url = headerUrl };
         }
 
         return person;

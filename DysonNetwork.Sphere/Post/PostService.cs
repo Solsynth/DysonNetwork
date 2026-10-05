@@ -2971,47 +2971,13 @@ public partial class PostService(
             .Publishers.Where(e => publisherIds.Contains(e.Id))
             .ToDictionaryAsync(e => e.Id);
 
-        static SnPublisher ClonePublisher(SnPublisher publisher)
-        {
-            return new SnPublisher
-            {
-                Id = publisher.Id,
-                Type = publisher.Type,
-                Name = publisher.Name,
-                Nick = publisher.Nick,
-                Bio = publisher.Bio,
-                Picture = publisher.Picture,
-                Background = publisher.Background,
-                Verification = publisher.Verification,
-                Meta = publisher.Meta,
-                AccountId = publisher.AccountId,
-                RealmId = publisher.RealmId,
-                Realm = publisher.Realm,
-                Account = publisher.Account,
-                RealmNick = publisher.RealmNick,
-                RealmBio = publisher.RealmBio,
-                RealmExperience = publisher.RealmExperience,
-                RealmLevel = publisher.RealmLevel,
-                RealmLevelingProgress = publisher.RealmLevelingProgress,
-                RealmLabel = publisher.RealmLabel,
-                ShadowbanReason = publisher.ShadowbanReason,
-                ShadowbannedAt = publisher.ShadowbannedAt,
-                GatekeptFollows = publisher.GatekeptFollows,
-                ModerateSubscription = publisher.ModerateSubscription,
-                Rating = publisher.Rating,
-                CreatedAt = publisher.CreatedAt,
-                UpdatedAt = publisher.UpdatedAt,
-                DeletedAt = publisher.DeletedAt,
-            };
-        }
-
         foreach (var post in posts)
         {
             if (
                 post.PublisherId != Guid.Empty
                 && publishers.TryGetValue(post.PublisherId, out var publisher)
             )
-                post.Publisher = ClonePublisher(publisher);
+                post.Publisher = PublisherSnapshot.Clone(publisher);
 
             if (
                 post.RepliedPost?.PublisherId != null
@@ -3020,7 +2986,7 @@ public partial class PostService(
                     out var repliedPublisher
                 )
             )
-                post.RepliedPost.Publisher = ClonePublisher(repliedPublisher);
+                post.RepliedPost.Publisher = PublisherSnapshot.Clone(repliedPublisher);
 
             if (
                 post.ForwardedPost?.PublisherId != null
@@ -3029,7 +2995,7 @@ public partial class PostService(
                     out var forwardedPublisher
                 )
             )
-                post.ForwardedPost.Publisher = ClonePublisher(forwardedPublisher);
+                post.ForwardedPost.Publisher = PublisherSnapshot.Clone(forwardedPublisher);
 
         }
 

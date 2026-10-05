@@ -35,8 +35,8 @@ public class FediverseActorWithFollowStatus : SnPublisher
             PublicKeyId = actor.PublicKeyId,
             PublicKey = actor.PublicKey,
             Metadata = actor.Metadata,
-            AvatarUrl = actor.AvatarUrl,
-            HeaderUrl = actor.HeaderUrl,
+            Picture = actor.Picture,
+            Background = actor.Background,
             IsBot = actor.IsBot,
             IsLocked = actor.IsLocked,
             IsDiscoverable = actor.IsDiscoverable,
@@ -255,7 +255,7 @@ public class ActivityPubFollowController(
                     Username = existingActor.Username,
                     DisplayName = existingActor.DisplayName,
                     Bio = existingActor.Bio,
-                    AvatarUrl = existingActor.AvatarUrl,
+                    AvatarUrl = existingActor.Picture?.Url,
                     InstanceDomain = existingActor.Instance.Domain,
                     PublicKeyExists = !string.IsNullOrEmpty(existingActor.PublicKey),
                     LastActivityAt = existingActor.LastActivityAt,
@@ -320,7 +320,9 @@ public class ActivityPubFollowController(
 
             actor.DisplayName = displayName;
             actor.Bio = bio;
-            actor.AvatarUrl = avatarUrl;
+            actor.Picture = string.IsNullOrWhiteSpace(avatarUrl)
+                ? null
+                : SnCloudFileReferenceObject.FromExternalUrl(avatarUrl);
             if (!string.IsNullOrEmpty(publicKeyPem))
             {
                 actor.PublicKey = publicKeyPem;

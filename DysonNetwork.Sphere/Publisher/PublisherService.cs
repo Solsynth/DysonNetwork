@@ -1285,8 +1285,6 @@ public class PublisherService(
 
         var (privateKey, publicKey) = HttpSignature.GenerateKeyPair();
 
-        var assetsBaseUrl = configuration["ActivityPub:FileBaseUrl"] ?? $"https://{Domain}/files";
-
         var actorUrl = $"https://{Domain}/activitypub/actors/{publisher.Name}";
 
         publisher.Uri = actorUrl;
@@ -1301,8 +1299,6 @@ public class PublisherService(
         publisher.FeaturedUri = $"{actorUrl}/featured";
         publisher.PublicKeyId = $"{actorUrl}#main-key";
         publisher.PublicKey = publicKey;
-        publisher.AvatarUrl = publisher.Picture != null ? $"{assetsBaseUrl}/{publisher.Picture.Id}" : null;
-        publisher.HeaderUrl = publisher.Background != null ? $"{assetsBaseUrl}/{publisher.Background.Id}" : null;
         publisher.LastActivityAt = SystemClock.Instance.GetCurrentInstant();
 
         await db.SaveChangesAsync();
@@ -1349,8 +1345,6 @@ public class PublisherService(
         publisher.FeaturedUri = null;
         publisher.PublicKeyId = null;
         publisher.PublicKey = null;
-        publisher.AvatarUrl = null;
-        publisher.HeaderUrl = null;
 
         await db.SaveChangesAsync();
 

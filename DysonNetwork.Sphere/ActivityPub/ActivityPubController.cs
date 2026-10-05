@@ -96,21 +96,21 @@ public class ActivityPubController : ControllerBase
             Published = publisher.CreatedAt,
             Url = $"https://{Domain}/publishers/{publisher.Name}",
             Icon =
-                publisher.Picture != null
+                publisher.Picture is { } icon && icon.ResolveUrl(assetsBaseUrl) is { } iconUrl
                     ? new ActivityPubImage
                     {
                         Type = "Image",
-                        MediaType = publisher.Picture.MimeType,
-                        Url = $"{assetsBaseUrl}/{publisher.Picture.Id}",
+                        MediaType = icon.MimeType,
+                        Url = iconUrl,
                     }
                     : null,
             Image =
-                publisher.Background != null
+                publisher.Background is { } header && header.ResolveUrl(assetsBaseUrl) is { } headerUrl
                     ? new ActivityPubImage
                     {
                         Type = "Image",
-                        MediaType = publisher.Background.MimeType,
-                        Url = $"{assetsBaseUrl}/{publisher.Background.Id}",
+                        MediaType = header.MimeType,
+                        Url = headerUrl,
                     }
                     : null,
             PublicKey = new ActivityPubPublicKey

@@ -404,10 +404,6 @@ public class ActivityPubDeliveryService(
         actor.DisplayName = publisher.Nick;
         actor.Bio = publisher.Bio;
         actor.Username = publisher.Name;
-        actor.AvatarUrl =
-            publisher.Picture != null ? $"{AssetsBaseUrl}/{publisher.Picture.Id}" : null;
-        actor.HeaderUrl =
-            publisher.Background != null ? $"{AssetsBaseUrl}/{publisher.Background.Id}" : null;
         actor.LastActivityAt = SystemClock.Instance.GetCurrentInstant();
 
         var actorUrl = actor.Uri;
@@ -436,23 +432,23 @@ public class ActivityPubDeliveryService(
             ["bot"] = actor.IsBot,
         };
 
-        if (publisher.Picture != null)
+        if (publisher.Picture is { } picture && picture.ResolveUrl(AssetsBaseUrl) is { } avatarUrl)
         {
             actorObject["icon"] = new Dictionary<string, object?>
             {
                 ["type"] = "Image",
-                ["mediaType"] = publisher.Picture.MimeType,
-                ["url"] = $"{AssetsBaseUrl}/{publisher.Picture.Id}",
+                ["mediaType"] = picture.MimeType,
+                ["url"] = avatarUrl,
             };
         }
 
-        if (publisher.Background != null)
+        if (publisher.Background is { } background && background.ResolveUrl(AssetsBaseUrl) is { } headerUrl)
         {
             actorObject["image"] = new Dictionary<string, object?>
             {
                 ["type"] = "Image",
-                ["mediaType"] = publisher.Background.MimeType,
-                ["url"] = $"{AssetsBaseUrl}/{publisher.Background.Id}",
+                ["mediaType"] = background.MimeType,
+                ["url"] = headerUrl,
             };
         }
 
@@ -1168,8 +1164,6 @@ public class ActivityPubDeliveryService(
             await db.SaveChangesAsync();
         }
 
-        var assetsBaseUrl = configuration["ActivityPub:FileBaseUrl"] ?? $"https://{Domain}/files";
-
         publisher.Uri = actorUrl;
         publisher.ActorType ??= "Person";
         publisher.Username ??= publisher.Name;
@@ -1178,10 +1172,6 @@ public class ActivityPubDeliveryService(
         publisher.OutboxUri = $"{actorUrl}/outbox";
         publisher.FollowersUri = $"{actorUrl}/followers";
         publisher.FollowingUri = $"{actorUrl}/following";
-        publisher.AvatarUrl ??=
-            publisher.Picture != null ? $"{assetsBaseUrl}/{publisher.Picture.Id}" : null;
-        publisher.HeaderUrl ??=
-            publisher.Background != null ? $"{assetsBaseUrl}/{publisher.Background.Id}" : null;
         publisher.InstanceId = instance.Id;
         publisher.InstanceDomain = instance.Domain;
 

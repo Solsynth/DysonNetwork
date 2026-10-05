@@ -281,7 +281,7 @@ public partial class ActivityPubDiscoveryService(
             {
                 Uri = actorUri,
                 Username = username,
-                AvatarUrl = webfingerAvatarUrl,
+                Picture = ExternalImage(webfingerAvatarUrl),
                 InstanceId = instance.Id,
                 Instance = instance,
                 LastFetchedAt = NodaTime.SystemClock.Instance.GetCurrentInstant()
@@ -811,7 +811,7 @@ public partial class ActivityPubDiscoveryService(
             {
                 Uri = actorUri,
                 Username = username,
-                AvatarUrl = webfingerAvatarUrl,
+                Picture = ExternalImage(webfingerAvatarUrl),
                 InstanceId = instance.Id,
                 LastFetchedAt = NodaTime.SystemClock.Instance.GetCurrentInstant()
             };
@@ -928,8 +928,13 @@ public partial class ActivityPubDiscoveryService(
             actor.FollowersUri = actorData.GetValueOrDefault("followers")?.ToString();
             actor.FollowingUri = actorData.GetValueOrDefault("following")?.ToString();
             actor.FeaturedUri = actorData.GetValueOrDefault("featured")?.ToString();
-            actor.AvatarUrl = ExtractAvatarUrl(actorData.GetValueOrDefault("icon")) ?? actor.AvatarUrl;
-            actor.HeaderUrl = ExtractImageUrl(actorData.GetValueOrDefault("image"));
+            var fetchedAvatarUrl = ExtractAvatarUrl(actorData.GetValueOrDefault("icon"));
+            if (fetchedAvatarUrl != null)
+                actor.Picture = SnCloudFileReferenceObject.FromExternalUrl(fetchedAvatarUrl);
+            var fetchedHeaderUrl = ExtractImageUrl(actorData.GetValueOrDefault("image"));
+            actor.Background = fetchedHeaderUrl is null
+                ? null
+                : SnCloudFileReferenceObject.FromExternalUrl(fetchedHeaderUrl);
             actor.PublicKeyId = ExtractPublicKeyId(actorData.GetValueOrDefault("publicKey"));
             actor.PublicKey = ExtractPublicKeyPem(actorData.GetValueOrDefault("publicKey"));
             actor.IsBot = actorData.GetValueOrDefault("type")?.ToString() == "Service";
@@ -1078,6 +1083,9 @@ public partial class ActivityPubDiscoveryService(
     {
         return ExtractAvatarUrl(imageData);
     }
+
+    private static SnCloudFileReferenceObject? ExternalImage(string? url) =>
+        string.IsNullOrWhiteSpace(url) ? null : SnCloudFileReferenceObject.FromExternalUrl(url);
 
     private static string? ExtractPublicKeyId(object? publicKeyData)
     {
