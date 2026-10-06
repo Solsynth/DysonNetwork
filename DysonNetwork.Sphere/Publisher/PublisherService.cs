@@ -395,12 +395,16 @@ public class PublisherService(
     /// consecutive posting days, and the first/last publish timestamps.
     /// Drafts, scheduled and soft deleted posts are not counted. Cached for an hour.
     /// </summary>
-    public async Task<PublisherContentStats> GetPublisherContentStats(Guid publisherId)
+    public async Task<PublisherContentStats?> GetPublisherContentStats(string name)
     {
-        var cacheKey = string.Format(PublisherContentStatsCacheKey, publisherId);
+        var lowerName = name.ToLowerInvariant();
+        var cacheKey = string.Format(PublisherContentStatsCacheKey, lowerName);
         var cached = await cache.GetAsync<PublisherContentStats>(cacheKey);
         if (cached is not null)
             return cached;
+
+        var publisher = await db.Publishers.FirstOrDefaultAsync(e => e.Name.ToLower() == lowerName);
+        if (publisher is null) return null;
 
         var stats = await db.Database
             .SqlQuery<PublisherContentStats>(
@@ -421,7 +425,7 @@ public class PublisherService(
                         END AS word_count,
                         jsonb_array_length(attachments) AS attachment_count
                     FROM posts
-                    WHERE publisher_id = {publisherId}
+                    WHERE publisher_id = {publisher.Id}
                         AND deleted_at IS NULL
                         AND drafted_at IS NULL
                         AND published_at IS NOT NULL

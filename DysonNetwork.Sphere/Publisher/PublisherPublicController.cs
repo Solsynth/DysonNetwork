@@ -153,6 +153,17 @@ public class PublisherPublicController(
         return Ok(stats);
     }
 
+    [HttpGet("{name}/content-stats")]
+    public async Task<
+        ActionResult<PublisherService.PublisherContentStats>
+    > GetPublisherContentStats(string name)
+    {
+        var stats = await ps.GetPublisherContentStats(name);
+        if (stats is null)
+            return NotFound();
+        return Ok(stats);
+    }
+
     [HttpGet("of/{accountId:guid}")]
     public async Task<ActionResult<List<SnPublisher>>> GetAccountManagedPublishers(Guid accountId)
     {
