@@ -40,6 +40,36 @@ public class ActivityPubController : ControllerBase
 
     private string Domain => _configuration["ActivityPub:Domain"] ?? "localhost";
 
+    private string SiteUrl
+    {
+        get
+        {
+            var siteUrl = _configuration["SiteUrl"];
+            return string.IsNullOrWhiteSpace(siteUrl) ? $"https://{Domain}" : siteUrl.TrimEnd('/');
+        }
+    }
+
+    private bool IsWebRequest()
+    {
+        var accept = Request.Headers.Accept.ToString();
+        var userAgent = Request.Headers.UserAgent.ToString();
+
+        if (accept.Contains("application/activity+json", StringComparison.OrdinalIgnoreCase))
+            return false;
+        if (accept.Contains("application/ld+json", StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        return userAgent.Contains("Mozilla", StringComparison.OrdinalIgnoreCase)
+            || accept.Contains("text/html", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private RedirectResult RedirectToWebUi(string path)
+    {
+        var target = $"{SiteUrl}{path}";
+        _logger.LogDebug("Redirecting non-ActivityPub request {Path} to {Target}", Request.Path, target);
+        return Redirect(target);
+    }
+
     [HttpGet("")]
     [Produces("application/activity+json")]
     [ProducesResponseType(typeof(ActivityPubActor), StatusCodes.Status200OK)]
@@ -51,6 +81,9 @@ public class ActivityPubController : ControllerBase
     )]
     public async Task<ActionResult<ActivityPubActor>> GetActor(string username)
     {
+        if (IsWebRequest())
+            return RedirectToWebUi($"/publishers/{Uri.EscapeDataString(username)}");
+
         var publisher = await _db
             .Publishers.Include(p => p.Members)
             .FirstOrDefaultAsync(p => p.Name.ToLower() == username.ToLowerInvariant());
@@ -181,6 +214,9 @@ public class ActivityPubController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetObject(Guid id)
     {
+        if (IsWebRequest())
+            return RedirectToWebUi($"/posts/{id}");
+
         var post = await _db
             .Posts.Include(p => p.Publisher)
             .Include(p => p.Tags)
@@ -216,6 +252,9 @@ public class ActivityPubController : ControllerBase
     )]
     public async Task<IActionResult> GetOutbox(string username, [FromQuery] string? page)
     {
+        if (IsWebRequest())
+            return RedirectToWebUi($"/publishers/{Uri.EscapeDataString(username)}");
+
         if (!TryParseCollectionPage(page, out var pageNumber))
             return BadRequest(new ApiError { Code = "ACTIVITYPUB_INVALID_PAGE", Message = "Page must be a positive integer or 'true'.", Status = 400 });
 
@@ -379,6 +418,9 @@ public class ActivityPubController : ControllerBase
     )]
     public async Task<IActionResult> GetFollowers(string username, [FromQuery] int? page)
     {
+        if (IsWebRequest())
+            return RedirectToWebUi($"/publishers/{Uri.EscapeDataString(username)}");
+
         var publisher = await _db.Publishers.FirstOrDefaultAsync(p => p.Name.ToLower() == username.ToLowerInvariant());
 
         if (publisher == null)
@@ -446,6 +488,9 @@ public class ActivityPubController : ControllerBase
     )]
     public async Task<IActionResult> GetFollowing(string username, [FromQuery] int? page)
     {
+        if (IsWebRequest())
+            return RedirectToWebUi($"/publishers/{Uri.EscapeDataString(username)}");
+
         var publisher = await _db.Publishers.FirstOrDefaultAsync(p => p.Name.ToLower() == username.ToLowerInvariant());
 
         if (publisher == null)
@@ -548,6 +593,9 @@ public class ActivityPubController : ControllerBase
     )]
     public async Task<IActionResult> GetFeatured(string username, [FromQuery] int? page)
     {
+        if (IsWebRequest())
+            return RedirectToWebUi($"/publishers/{Uri.EscapeDataString(username)}");
+
         var publisher = await _db.Publishers.FirstOrDefaultAsync(p => p.Name.ToLower() == username.ToLowerInvariant());
 
         if (publisher == null)
