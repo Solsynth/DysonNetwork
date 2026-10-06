@@ -87,6 +87,46 @@ public class PostController(
         return (gatekeptPublisherIds.Count > 0 ? gatekeptPublisherIds : null, subscriberPublisherIds, closeFriendPublisherIds);
     }
 
+    private static List<string> ParsePublisherNames(string? pubName)
+    {
+        if (string.IsNullOrWhiteSpace(pubName))
+            return [];
+
+        return pubName
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(name => name.ToLowerInvariant())
+            .Distinct()
+            .ToList();
+    }
+
+    private async Task<(List<SnPublisher> Publishers, List<string> MissingNames)> ResolvePublishersByNamesAsync(
+        List<string> names)
+    {
+        if (names.Count == 0)
+            return ([], []);
+
+        var publishers = await db.Publishers
+            .Where(p => names.Contains(p.Name.ToLower()))
+            .ToListAsync();
+        var resolvedNames = publishers.Select(p => p.Name.ToLowerInvariant()).ToHashSet();
+        var missingNames = names.Where(name => !resolvedNames.Contains(name)).ToList();
+
+        return (publishers, missingNames);
+    }
+
+    private static ApiError PublisherNotFoundError(string code, IReadOnlyList<string> missingNames)
+    {
+        return new ApiError
+        {
+            Code = code,
+            Message = missingNames.Count == 1 ? "Publisher not found." : "Publishers not found.",
+            Status = 404,
+            Detail = missingNames.Count == 1
+                ? $"No publisher named \"{missingNames[0]}\" exists."
+                : $"Publishers not found: {string.Join(", ", missingNames)}."
+        };
+    }
+
     private async Task<HashSet<Guid>> GetCloseFriendPublisherIdsAsync(
         List<Guid> publisherIds,
         DyAccount? currentUser)
@@ -307,21 +347,27 @@ public class PostController(
         var userPublishers = await pub.GetUserPublishers(accountId);
         var publisherIds = userPublishers.Select(p => p.Id).ToList();
 
-        if (pubName is not null)
-        {
-            var selectedPublisher = await pub.GetPublisherByName(pubName);
-            if (selectedPublisher is null)
-                return NotFound();
-            if (
-                !await pub.IsMemberWithRole(
-                    selectedPublisher.Id,
-                    accountId,
-                    PublisherMemberRole.Editor
-                )
-            )
-                return StatusCode(403, ApiError.Unauthorized("You need at least be an editor to view drafts.", forbidden: true));
+        var (requestedPublishers, missingPublisherNames) = await ResolvePublishersByNamesAsync(
+            ParsePublisherNames(pubName)
+        );
+        if (missingPublisherNames.Count > 0)
+            return NotFound(PublisherNotFoundError("PUBLISHER_NOT_FOUND", missingPublisherNames));
 
-            publisherIds = [selectedPublisher.Id];
+        if (requestedPublishers.Count > 0)
+        {
+            foreach (var selectedPublisher in requestedPublishers)
+            {
+                if (
+                    !await pub.IsMemberWithRole(
+                        selectedPublisher.Id,
+                        accountId,
+                        PublisherMemberRole.Editor
+                    )
+                )
+                    return StatusCode(403, ApiError.Unauthorized("You need at least be an editor to view drafts.", forbidden: true));
+            }
+
+            publisherIds = requestedPublishers.Select(p => p.Id).ToList();
         }
 
         var query = db
@@ -491,11 +537,13 @@ public class PostController(
         var publicRealmIds = publicRealms.Select(r => r.Id).ToList();
         var visibleRealmIds = userRealms.Concat(publicRealmIds).Distinct().ToList();
 
-        var publisher = pubName == null
-            ? null
-            : await pub.GetPublisherByName(pubName);
-        if (pubName is not null && publisher is null)
-            return NotFound(new ApiError { Code = "PUBLISHER_NOT_FOUND", Message = "Publisher not found.", Status = 404 });
+        var (publishers, missingPublisherNames) = await ResolvePublishersByNamesAsync(
+            ParsePublisherNames(pubName)
+        );
+        if (missingPublisherNames.Count > 0)
+            return NotFound(PublisherNotFoundError("PUBLISHER_NOT_FOUND", missingPublisherNames));
+        var publisherIds = publishers.Select(p => p.Id).ToList();
+        var hasPublisherFilter = publisherIds.Count > 0;
         var realm = realmName == null ? null : await rs.GetRealmBySlug(realmName);
         var defaultSearchEngine = configuration["Posts:SearchEngineDefault"] ?? "semantic";
         var searchContext = CreatePostSearchContext(queryTerm);
@@ -519,8 +567,8 @@ public class PostController(
             .Where(p => p.FediverseUri == null)
             .Where(p => p.ChainedPostId == null)
             .AsQueryable();
-        if (publisher != null)
-            query = query.Where(p => p.PublisherId == publisher.Id);
+        if (hasPublisherFilter)
+            query = query.Where(p => publisherIds.Contains(p.PublisherId));
         if (type != null)
             query = query.Where(p => p.Type == (Shared.Models.PostType)type);
         if (categories is { Count: > 0 })
@@ -532,7 +580,7 @@ public class PostController(
 
         if (realm != null)
             query = query.Where(p => p.RealmId == realm.Id);
-        else if (string.IsNullOrWhiteSpace(pubName))
+        else if (!hasPublisherFilter)
             query = query.Where(p =>
                 p.RealmId == null || visibleRealmIds.Contains(p.RealmId.Value)
             );
@@ -547,7 +595,7 @@ public class PostController(
             case true when realm != null:
                 query = query.Where(p => p.PinMode == Shared.Models.PostPinMode.RealmPage);
                 break;
-            case true when publisher != null:
+            case true when hasPublisherFilter:
                 query = query.Where(p => p.PinMode == Shared.Models.PostPinMode.PublisherPage);
                 break;
             case true:
@@ -577,8 +625,8 @@ public class PostController(
             );
         }
 
-        var publisherIdsInQuery = publisher != null
-            ? new List<Guid> { publisher.Id }
+        var publisherIdsInQuery = hasPublisherFilter
+            ? publisherIds
             : await query.Where(p => p.PublisherId != Guid.Empty).Select(p => p.PublisherId).Distinct().ToListAsync();
 
         HashSet<Guid>? gatekeptPublisherIds = null;
@@ -631,7 +679,7 @@ public class PostController(
             blockedAccountIds,
             mutedAccountIds.ToHashSet(),
             closeFriendPublisherIds,
-            showQuietPublic: pubName is not null
+            showQuietPublic: hasPublisherFilter
         );
 
         if (shadowbannedPublisherIds != null && shadowbannedPublisherIds.Count > 0)
@@ -700,15 +748,16 @@ public class PostController(
 
         var totalCount = await query.CountAsync();
 
-        if (pubName is not null && totalCount == 0 && publisher is not null)
+        if (hasPublisherFilter && totalCount == 0 && publishers.Count == 1)
         {
-            var publisherAccountId = publisher.AccountId;
+            var singlePublisher = publishers[0];
+            var publisherAccountId = singlePublisher.AccountId;
             
-            if (publisher.IsGatekept)
+            if (singlePublisher.IsGatekept)
             {
                 var isSubscriber = currentUser is not null
                     && subscriberPublisherIds is not null
-                    && subscriberPublisherIds.Contains(publisher.Id);
+                    && subscriberPublisherIds.Contains(singlePublisher.Id);
                 
                 if (!isSubscriber)
                 {
@@ -729,14 +778,14 @@ public class PostController(
                     return StatusCode(403, new ApiError
                     {
                         Code = "PUBLISHER_GATEKEPT",
-                        Message = $"{publisher.Name}'s posts are only available to subscribers.",
+                        Message = $"{singlePublisher.Name}'s posts are only available to subscribers.",
                         Status = 403,
                         Detail = publisherOwnerName is not null
                             ? $"Subscribe to {publisherOwnerName}'s publisher to access their posts."
                             : "Subscribe to this publisher to access their posts.",
                         Meta = new Dictionary<string, object?>
                         {
-                            ["publisher"] = publisher.Name,
+                            ["publisher"] = singlePublisher.Name,
                             ["is_gatekept"] = true,
                             ["requires_subscription"] = true
                         }
@@ -762,7 +811,7 @@ public class PostController(
                         Status = 403,
                         Meta = new Dictionary<string, object?>
                         {
-                            ["publisher"] = publisher.Name,
+                            ["publisher"] = singlePublisher.Name,
                             ["is_blocked"] = true,
                             ["blocked_by_publisher"] = isBlockedByPublisher
                         }
@@ -770,7 +819,7 @@ public class PostController(
                 }
             }
             
-            if (currentUser is null && publisher.IsGatekept)
+            if (currentUser is null && singlePublisher.IsGatekept)
             {
                 return StatusCode(401, new ApiError
                 {
@@ -780,7 +829,7 @@ public class PostController(
                     Detail = "This publisher requires subscribers to be authenticated.",
                     Meta = new Dictionary<string, object?>
                     {
-                        ["publisher"] = publisher.Name,
+                        ["publisher"] = singlePublisher.Name,
                         ["is_gatekept"] = true,
                         ["requires_authentication"] = true
                     }
@@ -1010,11 +1059,13 @@ public class PostController(
         var publicRealmIds = publicRealms.Select(r => r.Id).ToList();
         var visibleRealmIds = userRealms.Concat(publicRealmIds).Distinct().ToList();
 
-        var publisher = pubName == null
-            ? null
-            : await pub.GetPublisherByName(pubName);
-        if (pubName is not null && publisher is null)
-            return NotFound(new ApiError { Code = "POST_PUBLISHER_NOT_FOUND", Message = "Publisher not found.", Status = 404 });
+        var (publishers, missingPublisherNames) = await ResolvePublishersByNamesAsync(
+            ParsePublisherNames(pubName)
+        );
+        if (missingPublisherNames.Count > 0)
+            return NotFound(PublisherNotFoundError("POST_PUBLISHER_NOT_FOUND", missingPublisherNames));
+        var publisherIds = publishers.Select(p => p.Id).ToList();
+        var hasPublisherFilter = publisherIds.Count > 0;
         var realm = realmName == null ? null : await rs.GetRealmBySlug(realmName);
 
         Instant? periodStart = periodStartTime.HasValue
@@ -1039,8 +1090,8 @@ public class PostController(
             .Where(p => p.FediverseUri == null)
             .Where(p => p.ChainedPostId == null);
 
-        if (publisher != null)
-            baseQuery = baseQuery.Where(p => p.PublisherId == publisher.Id);
+        if (hasPublisherFilter)
+            baseQuery = baseQuery.Where(p => publisherIds.Contains(p.PublisherId));
         if (type != null)
             baseQuery = baseQuery.Where(p => p.Type == (Shared.Models.PostType)type);
         if (categories is { Count: > 0 })
@@ -1052,7 +1103,7 @@ public class PostController(
 
         if (realm != null)
             baseQuery = baseQuery.Where(p => p.RealmId == realm.Id);
-        else if (string.IsNullOrWhiteSpace(pubName))
+        else if (!hasPublisherFilter)
             baseQuery = baseQuery.Where(p => p.RealmId == null || visibleRealmIds.Contains(p.RealmId.Value));
 
         if (periodStart != null)
@@ -1065,7 +1116,7 @@ public class PostController(
             case true when realm != null:
                 baseQuery = baseQuery.Where(p => p.PinMode == Shared.Models.PostPinMode.RealmPage);
                 break;
-            case true when publisher != null:
+            case true when hasPublisherFilter:
                 baseQuery = baseQuery.Where(p => p.PinMode == Shared.Models.PostPinMode.PublisherPage);
                 break;
             case true:
@@ -1178,11 +1229,13 @@ public class PostController(
         var publicRealmIds = publicRealms.Select(r => r.Id).ToList();
         var visibleRealmIds = userRealms.Concat(publicRealmIds).Distinct().ToList();
 
-        var publisher = pubName == null
-            ? null
-            : await pub.GetPublisherByName(pubName);
-        if (pubName is not null && publisher is null)
-            return NotFound(new ApiError { Code = "POST_PUBLISHER_NOT_FOUND", Message = "Publisher not found.", Status = 404 });
+        var (publishers, missingPublisherNames) = await ResolvePublishersByNamesAsync(
+            ParsePublisherNames(pubName)
+        );
+        if (missingPublisherNames.Count > 0)
+            return NotFound(PublisherNotFoundError("POST_PUBLISHER_NOT_FOUND", missingPublisherNames));
+        var publisherIds = publishers.Select(p => p.Id).ToList();
+        var hasPublisherFilter = publisherIds.Count > 0;
         var realm = realmName == null ? null : await rs.GetRealmBySlug(realmName);
 
         Instant? periodStart = periodStartTime.HasValue
@@ -1207,8 +1260,8 @@ public class PostController(
             .Where(p => p.FediverseUri == null)
             .Where(p => p.ChainedPostId == null);
 
-        if (publisher != null)
-            baseQuery = baseQuery.Where(p => p.PublisherId == publisher.Id);
+        if (hasPublisherFilter)
+            baseQuery = baseQuery.Where(p => publisherIds.Contains(p.PublisherId));
         if (type != null)
             baseQuery = baseQuery.Where(p => p.Type == (Shared.Models.PostType)type);
         if (categories is { Count: > 0 })
@@ -1220,7 +1273,7 @@ public class PostController(
 
         if (realm != null)
             baseQuery = baseQuery.Where(p => p.RealmId == realm.Id);
-        else if (string.IsNullOrWhiteSpace(pubName))
+        else if (!hasPublisherFilter)
             baseQuery = baseQuery.Where(p => p.RealmId == null || visibleRealmIds.Contains(p.RealmId.Value));
 
         if (periodStart != null)
@@ -1233,7 +1286,7 @@ public class PostController(
             case true when realm != null:
                 baseQuery = baseQuery.Where(p => p.PinMode == Shared.Models.PostPinMode.RealmPage);
                 break;
-            case true when publisher != null:
+            case true when hasPublisherFilter:
                 baseQuery = baseQuery.Where(p => p.PinMode == Shared.Models.PostPinMode.PublisherPage);
                 break;
             case true:
