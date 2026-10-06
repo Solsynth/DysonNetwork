@@ -155,6 +155,8 @@ public static class ServiceCollectionExtensions
 
         services.AddScoped<SteamPresenceService>();
         services.AddScoped<IPresenceService, SteamPresenceService>();
+        services.AddScoped<LastFmPresenceService>();
+        services.AddScoped<IPresenceService, LastFmPresenceService>();
 
         services.AddGrpcClientWithSharedChannel<DyAccountService.DyAccountServiceClient>(
             "https://_grpc.stargate",

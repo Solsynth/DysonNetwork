@@ -2,6 +2,10 @@ using Quartz;
 
 namespace DysonNetwork.Passport.Account.Presences;
 
+// The Last.fm scan issues one throttled HTTP request per user, so a stage can
+// outlast its own interval; overlapping runs of the same stage would double the
+// request rate and race StartActivitySession on the same manual id.
+[DisallowConcurrentExecution]
 public class PresenceUpdateJob(
     IEnumerable<IPresenceService> presenceServices,
     AccountEventService accountEventService,
@@ -95,6 +99,6 @@ public class PresenceUpdateJob(
 
     private async Task<List<Guid>> GetAllUsersWithPresenceConnectionsAsync()
     {
-        return await accountEventService.GetPresenceConnectedUsersAsync("steam");
+        return await accountEventService.GetPresenceConnectedUsersAsync("steam", "lastfm");
     }
 }
