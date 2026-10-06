@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations.Schema;
 using System.Globalization;
 using DysonNetwork.Sphere.Models;
 using DysonNetwork.Shared.Cache;
@@ -306,9 +307,36 @@ public class PublisherService(
         public int SubscribersCount { get; set; }
     }
 
+    public class PublisherContentStats
+    {
+        [Column("posts_count")]
+        public int PostsCount { get; set; }
+
+        [Column("words_count")]
+        public long WordsCount { get; set; }
+
+        [Column("attachments_count")]
+        public long AttachmentsCount { get; set; }
+
+        [Column("days_posted_count")]
+        public int DaysPostedCount { get; set; }
+
+        [Column("longest_streak_days")]
+        public int LongestStreakDays { get; set; }
+
+        [Column("first_posted_at")]
+        public Instant? FirstPostedAt { get; set; }
+
+        [Column("last_posted_at")]
+        public Instant? LastPostedAt { get; set; }
+    }
+
     private const string PublisherStatsCacheKey = "publisher:{0}:stats";
+    private const string PublisherContentStatsCacheKey = "publisher:{0}:content-stats";
     private const string PublisherHeatmapCacheKey = "publisher:{0}:heatmap";
     private const string PublisherFeatureCacheKey = "publisher:{0}:feature:{1}";
+
+    private static readonly TimeSpan PublisherContentStatsCacheTtl = TimeSpan.FromHours(1);
 
     public async Task<PublisherStats?> GetPublisherStats(string name)
     {
@@ -357,6 +385,81 @@ public class PublisherService(
         };
 
         await cache.SetAsync(cacheKey, stats, TimeSpan.FromMinutes(5));
+        return stats;
+    }
+
+    /// <summary>
+    /// Aggregates the published content volume of a publisher: post count, word count of the
+    /// post bodies (whitespace-delimited tokens of the markdown content), attachment count,
+    /// number of distinct UTC days with at least one published post, the longest run of
+    /// consecutive posting days, and the first/last publish timestamps.
+    /// Drafts, scheduled and soft deleted posts are not counted. Cached for an hour.
+    /// </summary>
+    public async Task<PublisherContentStats> GetPublisherContentStats(Guid publisherId)
+    {
+        var cacheKey = string.Format(PublisherContentStatsCacheKey, publisherId);
+        var cached = await cache.GetAsync<PublisherContentStats>(cacheKey);
+        if (cached is not null)
+            return cached;
+
+        var stats = await db.Database
+            .SqlQuery<PublisherContentStats>(
+                $"""
+                WITH published_posts AS (
+                    SELECT
+                        (published_at AT TIME ZONE 'UTC')::date AS day,
+                        published_at,
+                        CASE
+                            WHEN content IS NULL OR btrim(content) = '' THEN 0
+                            ELSE array_length(
+                                regexp_split_to_array(
+                                    btrim(regexp_replace(content, '\s+', ' ', 'g')),
+                                    ' '
+                                ),
+                                1
+                            )
+                        END AS word_count,
+                        jsonb_array_length(attachments) AS attachment_count
+                    FROM posts
+                    WHERE publisher_id = {publisherId}
+                        AND deleted_at IS NULL
+                        AND drafted_at IS NULL
+                        AND published_at IS NOT NULL
+                        AND published_at <= now()
+                ),
+                daily AS (
+                    SELECT
+                        day,
+                        COUNT(*) AS posts_count,
+                        SUM(word_count) AS words_count,
+                        SUM(attachment_count) AS attachments_count,
+                        MIN(published_at) AS first_posted_at,
+                        MAX(published_at) AS last_posted_at
+                    FROM published_posts
+                    GROUP BY day
+                ),
+                streaks AS (
+                    SELECT COUNT(*) AS length
+                    FROM (
+                        SELECT day - (ROW_NUMBER() OVER (ORDER BY day))::int AS streak_group
+                        FROM daily
+                    ) groups
+                    GROUP BY streak_group
+                )
+                SELECT
+                    COALESCE(SUM(daily.posts_count), 0)::int AS posts_count,
+                    COALESCE(SUM(daily.words_count), 0)::bigint AS words_count,
+                    COALESCE(SUM(daily.attachments_count), 0)::bigint AS attachments_count,
+                    COUNT(daily.day)::int AS days_posted_count,
+                    COALESCE((SELECT MAX(length) FROM streaks), 0)::int AS longest_streak_days,
+                    MIN(daily.first_posted_at) AS first_posted_at,
+                    MAX(daily.last_posted_at) AS last_posted_at
+                FROM daily
+                """
+            )
+            .SingleAsync();
+
+        await cache.SetAsync(cacheKey, stats, PublisherContentStatsCacheTtl);
         return stats;
     }
 

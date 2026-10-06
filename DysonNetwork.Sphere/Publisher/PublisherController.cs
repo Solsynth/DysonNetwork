@@ -1398,4 +1398,23 @@ public class PublisherController(
         return Ok(pagedStats);
     }
 
+    [HttpGet("{name}/content-stats")]
+    [Authorize]
+    public async Task<
+        ActionResult<PublisherService.PublisherContentStats>
+    > GetPublisherContentStats(string name)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
+
+        var publisher = await db.Publishers.Where(p => p.Name.ToLower() == name.ToLowerInvariant()).FirstOrDefaultAsync();
+        if (publisher is null)
+            return NotFound();
+
+        var accountId = Guid.Parse(currentUser.Id);
+        if (!await ps.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.Viewer))
+            return StatusCode(403, ApiError.Unauthorized("You need at least be a viewer to view stats data for this publisher.", forbidden: true));
+
+        return Ok(await ps.GetPublisherContentStats(publisher.Id));
+    }
 }
