@@ -20,6 +20,7 @@ using DysonNetwork.Sphere.Timeline;
 using DysonNetwork.Sphere.Translation;
 using DysonNetwork.Sphere.Live;
 using DysonNetwork.Sphere.Automod;
+using DysonNetwork.Sphere.Networking;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Http.Resilience;
 using NodaTime;
@@ -38,17 +39,26 @@ public static class ServiceCollectionExtensions
             services.AddDbContext<AppDatabase>();
             services.AddHttpContextAccessor();
 
-            services.AddHttpClient();
-            services.AddHttpClient("WebReader", client =>
-            {
-                client.Timeout = TimeSpan.FromSeconds(3);
-                client.MaxResponseContentBufferSize = 10 * 1024 * 1024;
-                client.DefaultRequestHeaders.Add("User-Agent", "facebookexternalhit/1.1");
-            });
-            var activityPubClient = services.AddHttpClient("ActivityPub", client =>
-            {
-                client.Timeout = TimeSpan.FromSeconds(10);
-            });
+            // Every outbound client dials through the SSRF connect guard, so requests
+            // can never reach loopback/private/link-local/metadata addresses.
+            services
+                .AddHttpClient(string.Empty)
+                .ConfigurePrimaryHttpMessageHandler(() => SsrfGuard.CreateHandler());
+            services
+                .AddHttpClient("WebReader", client =>
+                {
+                    client.Timeout = TimeSpan.FromSeconds(3);
+                    client.MaxResponseContentBufferSize = 10 * 1024 * 1024;
+                    client.DefaultRequestHeaders.Add("User-Agent", "facebookexternalhit/1.1");
+                })
+                // The reader follows redirects itself so each hop can be re-validated.
+                .ConfigurePrimaryHttpMessageHandler(() => SsrfGuard.CreateHandler(allowAutoRedirect: false));
+            var activityPubClient = services
+                .AddHttpClient("ActivityPub", client =>
+                {
+                    client.Timeout = TimeSpan.FromSeconds(10);
+                })
+                .ConfigurePrimaryHttpMessageHandler(() => SsrfGuard.CreateHandler());
 #pragma warning disable EXTEXP0001
             activityPubClient.RemoveAllResilienceHandlers();
 #pragma warning restore EXTEXP0001

@@ -14,6 +14,7 @@ public class WebReaderController(WebReaderService reader, ILogger<WebReaderContr
     : ControllerBase
 {
     [HttpGet("link")]
+    [Authorize]
     public async Task<ActionResult<LinkEmbed>> ScrapLink([FromQuery] string url)
     {
         if (string.IsNullOrEmpty(url))

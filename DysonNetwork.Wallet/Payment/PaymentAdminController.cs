@@ -104,7 +104,7 @@ public class PaymentAdminController(
     }
 
     [HttpGet("orders")]
-    [AskPermission(PermissionKeys.OrdersView)]
+    [AskPermission(PermissionKeys.AdminWalletsOrdersView)]
     public async Task<ActionResult<List<SnWalletOrder>>> ListOrders(
         [FromQuery] Guid? walletId = null,
         [FromQuery] Guid? accountId = null,
@@ -163,7 +163,7 @@ public class PaymentAdminController(
     }
 
     [HttpGet("orders/{id:guid}")]
-    [AskPermission(PermissionKeys.OrdersView)]
+    [AskPermission(PermissionKeys.AdminWalletsOrdersView)]
     public async Task<ActionResult<SnWalletOrder>> GetOrder(Guid id)
     {
         var order = await db.PaymentOrders
@@ -180,7 +180,7 @@ public class PaymentAdminController(
     }
 
     [HttpGet("inbound-orders")]
-    [AskPermission(PermissionKeys.OrdersView)]
+    [AskPermission(PermissionKeys.AdminWalletsOrdersView)]
     public async Task<ActionResult<List<BillingRecordResponse>>> ListInboundOrders(
         [FromQuery] string? provider = null,
         [FromQuery] string? externalId = null,
@@ -233,7 +233,7 @@ public class PaymentAdminController(
     }
 
     [HttpGet("inbound-orders/{id:guid}")]
-    [AskPermission(PermissionKeys.OrdersView)]
+    [AskPermission(PermissionKeys.AdminWalletsOrdersView)]
     public async Task<ActionResult<BillingRecordResponse>> GetInboundOrder(Guid id)
     {
         var inboundOrder = await db.InboundOrders
@@ -334,15 +334,43 @@ public class PaymentAdminController(
             {
                 var payer = accounts.FirstOrDefault(x => x.Id == payerAccountId.ToString());
                 if (payer is not null)
-                    transaction.PayerWallet.Account = SnAccount.FromProtoValue(payer);
+                    transaction.PayerWallet.Account = ToAdminAccountProjection(payer);
             }
 
             if (transaction.PayeeWallet?.AccountId is Guid payeeAccountId)
             {
                 var payee = accounts.FirstOrDefault(x => x.Id == payeeAccountId.ToString());
                 if (payee is not null)
-                    transaction.PayeeWallet.Account = SnAccount.FromProtoValue(payee);
+                    transaction.PayeeWallet.Account = ToAdminAccountProjection(payee);
             }
         }
+    }
+
+    /// <summary>
+    /// Admin payment listings embed the counterparty account, which used to
+    /// carry the whole account profile (birthday, gender, timezone, location,
+    /// external identity links, contacts, ...). The admin UI only renders the
+    /// counterparty's display name, so project the wire account down to the
+    /// identity + display fields instead of the full profile.
+    /// </summary>
+    private static SnAccount ToAdminAccountProjection(DyAccount proto)
+    {
+        var accountId = ProtoMapper.GuidOrEmpty(proto.Id);
+
+        return new SnAccount
+        {
+            Id = accountId,
+            Name = proto.Name,
+            Nick = proto.Nick,
+            Region = proto.Region,
+            Profile = new SnAccountProfile
+            {
+                Id = ProtoMapper.GuidOrEmpty(proto.Profile?.Id),
+                AccountId = accountId,
+                Picture = proto.Profile?.Picture is null
+                    ? null
+                    : SnCloudFileReferenceObject.FromProtoValue(proto.Profile.Picture)
+            }
+        };
     }
 }

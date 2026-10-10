@@ -21,20 +21,34 @@ public class DevProjectController(DevProjectService ps, DeveloperService ds) : C
     );
 
     [HttpGet]
+    [Authorize]
     public async Task<IActionResult> ListProjects([FromQuery(Name = "dev")] string dev)
     {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
+
         var developer = await ds.GetDeveloperByName(dev);
         if (developer is null) return NotFound(new ApiError { Code = "DEV_PROJECT_DEVELOPER_NOT_FOUND", Message = "Developer not found", Status = 404 });
+
+        if (!await ds.IsMemberWithRole(developer.PublisherId, Guid.Parse(currentUser.Id), DyPublisherMemberRole.DyViewer))
+            return StatusCode(403, ApiError.Unauthorized("You must be a viewer of the developer to list projects", forbidden: true));
 
         var projects = await ps.GetProjectsByDeveloperAsync(developer.Id);
         return Ok(projects);
     }
 
     [HttpGet("{id:guid}")]
+    [Authorize]
     public async Task<IActionResult> GetProject([FromQuery(Name = "dev")] string dev, Guid id)
     {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized(new ApiError { Code = "UNAUTHORIZED", Message = "Authentication is required.", Status = 401 });
+
         var developer = await ds.GetDeveloperByName(dev);
         if (developer is null) return NotFound(new ApiError { Code = "DEV_PROJECT_DEVELOPER_NOT_FOUND", Message = "Developer not found", Status = 404 });
+
+        if (!await ds.IsMemberWithRole(developer.PublisherId, Guid.Parse(currentUser.Id), DyPublisherMemberRole.DyViewer))
+            return StatusCode(403, ApiError.Unauthorized("You must be a viewer of the developer to read a project", forbidden: true));
 
         var project = await ps.GetProjectAsync(id, developer.Id);
         if (project is null) return NotFound(new ApiError { Code = "DEV_PROJECT_NOT_FOUND", Message = "Project not found", Status = 404 });

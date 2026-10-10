@@ -1,9 +1,11 @@
 using System.Globalization;
+using System.Net;
 using AngleSharp;
 using AngleSharp.Dom;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Models.Embed;
 using DysonNetwork.Shared.Registry;
+using DysonNetwork.Sphere.Networking;
 
 namespace DysonNetwork.Sphere.Reader;
 
@@ -16,6 +18,7 @@ public class WebReaderService(
 {
     private const string LinkPreviewCachePrefix = "scrap:preview:";
     private const string LinkPreviewCacheGroup = "scrap:preview";
+    private const int MaxRedirectHops = 5;
 
     public async Task<ScrapedArticle> ScrapeArticleAsync(
         string url,
@@ -32,13 +35,13 @@ public class WebReaderService(
         };
     }
 
-    private static async Task<string?> FetchArticleContentAsync(
+    private async Task<string?> FetchArticleContentAsync(
         HttpClient httpClient,
         string url,
         CancellationToken cancellationToken
     )
     {
-        var response = await httpClient.GetAsync(url, cancellationToken);
+        var (response, _) = await SendValidatedAsync(httpClient, new Uri(url, UriKind.Absolute), cancellationToken);
         if (!response.IsSuccessStatusCode)
             return null;
 
@@ -47,6 +50,80 @@ public class WebReaderService(
         var context = BrowsingContext.New(config);
         var document = await context.OpenAsync(req => req.Content(html), cancellationToken);
         return document.QuerySelector("article")?.InnerHtml;
+    }
+
+    /// <summary>
+    /// Sends a GET request without letting the handler follow redirects, so every
+    /// hop can be checked before it is fetched: the target must still be http(s),
+    /// must not downgrade from https to http, and must pass the same domain trust
+    /// check as the original URL. The connect-time guard on the "WebReader" client
+    /// additionally rejects hops that resolve to non-public addresses.
+    /// </summary>
+    private async Task<(HttpResponseMessage Response, Uri FinalUri)> SendValidatedAsync(
+        HttpClient httpClient,
+        Uri uri,
+        CancellationToken cancellationToken
+    )
+    {
+        var current = uri;
+
+        for (var hop = 0; ; hop++)
+        {
+            if (hop > MaxRedirectHops)
+                throw new WebReaderException($"Too many redirects while fetching URL: {uri}");
+
+            ValidateScheme(current, null);
+            var response = await httpClient.GetAsync(current, cancellationToken);
+
+            if (!IsRedirect(response.StatusCode) || !TryGetLocation(response, current, out var next))
+                return (response, current);
+
+            ValidateScheme(next, current);
+            var validationResult = await domainBlock.ValidateUrlAsync(next.ToString());
+            if (!validationResult.IsAllowed)
+            {
+                logger.LogWarning(
+                    "Redirect target blocked: {Url}, Reason: {Reason}",
+                    next,
+                    validationResult.BlockReason
+                );
+                throw new WebReaderException($"URL is blocked: {validationResult.BlockReason}");
+            }
+
+            response.Dispose();
+            current = next;
+        }
+    }
+
+    private static void ValidateScheme(Uri next, Uri? current)
+    {
+        if (!SsrfGuard.IsAllowedScheme(next))
+            throw new WebReaderException($"URL scheme '{next.Scheme}' is not supported: {next}");
+
+        if (current is not null && SsrfGuard.IsHttpsDowngrade(current, next))
+            throw new WebReaderException($"Insecure redirect from HTTPS to HTTP is not allowed: {next}");
+    }
+
+    private static bool IsRedirect(HttpStatusCode statusCode) =>
+        statusCode is HttpStatusCode.MovedPermanently      // 301
+            or HttpStatusCode.Found                        // 302
+            or HttpStatusCode.SeeOther                     // 303
+            or HttpStatusCode.TemporaryRedirect            // 307
+            or HttpStatusCode.PermanentRedirect;           // 308
+
+    private static bool TryGetLocation(HttpResponseMessage response, Uri current, out Uri location)
+    {
+        location = current;
+
+        if (!response.Headers.TryGetValues("Location", out var values))
+            return false;
+
+        var value = values.FirstOrDefault();
+        if (value is null || !Uri.TryCreate(value, UriKind.RelativeOrAbsolute, out var parsed))
+            return false;
+
+        location = parsed.IsAbsoluteUri ? parsed : new Uri(current, parsed);
+        return true;
     }
 
     public async Task<LinkEmbed> GetLinkPreviewAsync(
@@ -82,7 +159,7 @@ public class WebReaderService(
 
         try
         {
-            var response = await httpClient.GetAsync(url, cancellationToken);
+            var (response, finalUri) = await SendValidatedAsync(httpClient, uri, cancellationToken);
             response.EnsureSuccessStatusCode();
 
             var contentType = response.Content.Headers.ContentType?.MediaType;
@@ -95,8 +172,8 @@ public class WebReaderService(
                 );
                 var nonHtmlEmbed = new LinkEmbed
                 {
-                    Url = url,
-                    Title = uri.Host,
+                    Url = finalUri.ToString(),
+                    Title = finalUri.Host,
                     ContentType = contentType
                 };
 
@@ -104,8 +181,7 @@ public class WebReaderService(
                 return nonHtmlEmbed;
             }
 
-            var finalUrl = response.RequestMessage?.RequestUri?.ToString() ?? url;
-            var finalUri = response.RequestMessage?.RequestUri ?? uri;
+            var finalUrl = finalUri.ToString();
 
             var html = await response.Content.ReadAsStringAsync(cancellationToken);
             var linkEmbed = await ExtractLinkData(finalUrl, html, finalUri);

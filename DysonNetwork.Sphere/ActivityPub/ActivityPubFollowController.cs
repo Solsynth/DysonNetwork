@@ -56,7 +56,8 @@ public class ActivityPubFollowController(
     AppDatabase db,
     IActorDiscoveryService discSrv,
     IConfiguration configuration,
-    ILogger<ActivityPubFollowController> logger
+    ILogger<ActivityPubFollowController> logger,
+    IHttpClientFactory httpClientFactory
 ) : ControllerBase
 {
     private string Domain => configuration["ActivityPub:Domain"] ?? "localhost";
@@ -266,7 +267,7 @@ public class ActivityPubFollowController(
 
         try
         {
-            var httpClient = new HttpClient();
+            var httpClient = httpClientFactory.CreateClient("ActivityPub");
             var response = await httpClient.GetAsync(actorUrl);
 
             if (!response.IsSuccessStatusCode)

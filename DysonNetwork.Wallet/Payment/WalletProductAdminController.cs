@@ -25,7 +25,7 @@ public class WalletProductAdminController(
     }
 
     [HttpGet("golds-resupply-pack")]
-    [AskPermission(PermissionKeys.OrdersView)]
+    [AskPermission(PermissionKeys.AdminWalletsProductsView)]
     public ActionResult<WalletProductAdminSummary> GetGoldsResupplyPack()
     {
         var definition = walletProducts.GetGoldsResupplyPackDefinition();
@@ -45,7 +45,7 @@ public class WalletProductAdminController(
     }
 
     [HttpPost("orders/{orderId:guid}/apply")]
-    [AskPermission(PermissionKeys.OrdersPay)]
+    [AskPermission(PermissionKeys.AdminWalletsOrdersManage)]
     public async Task<ActionResult<SnWalletOrder>> ApplyPaidWalletProductOrder(Guid orderId)
     {
         try
