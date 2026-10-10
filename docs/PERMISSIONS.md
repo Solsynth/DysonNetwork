@@ -10,6 +10,7 @@ Dyson Network uses a fine-grained, attribute-based permission model. Every mutat
 Client request
   → [Authorize] (authentication)
   → AskPermissionMiddleware (authorization)
+    → Full-scope bypass (OAuth sessions with scope `*` only)
     → OAuth scope gate (if OAuth session)
     → Superuser bypass
     → Permission node lookup (gRPC or local DB)
@@ -45,7 +46,9 @@ OAuth tokens can carry a `.*` scope that matches any key with that prefix. For e
 
 ### Full scope
 
-A token with scope `*` bypasses all permission checks (except superuser, which always bypasses).
+An **OAuth** session (type `oauth`) with scope `*` bypasses all permission checks (except superuser, which always bypasses). `PermissionScopeGate.HasFullScope()` honours the wildcard for OAuth sessions only: login, OIDC and API-key sessions ignore it and always run the permission-node lookup.
+
+Login sessions are no longer issued the wildcard: Stargate's `scopesWithFullScope` used to stamp `*` into every login session, so a type-blind wildcard check skipped the whole chain — scope gate, superuser check and permission service — for any authenticated account. Migration `0011_login_session_drop_full_scope` strips the wildcard from existing login rows, and the gate keeps its session-type guard so a wildcard arriving in a non-OAuth session can never bypass anything.
 
 ---
 
