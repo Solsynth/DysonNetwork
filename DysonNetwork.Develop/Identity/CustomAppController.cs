@@ -346,6 +346,7 @@ public class CustomAppController(
     [HttpDelete("{appId:guid}")]
     [Authorize]
     [AskPermission(PermissionKeys.CustomAppsDelete)]
+    [RequireSudo]
     public async Task<IActionResult> DeleteApp(
         [FromQuery(Name = "dev")] string dev,
         [FromQuery(Name = "proj")] Guid proj,
@@ -585,6 +586,7 @@ public class CustomAppController(
     [HttpPost("{appId:guid}/secrets")]
     [Authorize]
     [AskPermission(PermissionKeys.CustomAppsSecretsManage)]
+    [RequireSudo]
     public async Task<IActionResult> CreateSecret(
         [FromQuery(Name = "dev")] string dev,
         [FromQuery(Name = "proj")] Guid proj,
@@ -686,6 +688,7 @@ public class CustomAppController(
     [HttpDelete("{appId:guid}/secrets/{secretId:guid}")]
     [Authorize]
     [AskPermission(PermissionKeys.CustomAppsSecretsManage)]
+    [RequireSudo]
     public async Task<IActionResult> DeleteSecret(
         [FromQuery(Name = "dev")] string dev,
         [FromQuery(Name = "proj")] Guid proj,
@@ -724,6 +727,7 @@ public class CustomAppController(
     [HttpPost("{appId:guid}/secrets/{secretId:guid}/rotate")]
     [Authorize]
     [AskPermission(PermissionKeys.CustomAppsSecretsManage)]
+    [RequireSudo]
     public async Task<IActionResult> RotateSecret(
         [FromQuery(Name = "dev")] string dev,
         [FromQuery(Name = "proj")] Guid proj,

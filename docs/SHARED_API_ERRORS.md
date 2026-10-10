@@ -113,3 +113,26 @@ if (!response.ok) {
 | 403 | `FORBIDDEN` | Cloud search requires perk level 1 or higher. Offer the relevant entitlement path if the product supports it. |
 
 See [CHAT_MESSAGE_SEARCH](./CHAT_MESSAGE_SEARCH.md) for the endpoint contract.
+
+## Step-up (re-authentication) errors
+
+Endpoints annotated with `[RequireSudo]` additionally require the caller's session to be elevated. The elevation is validated live against the auth service on every request (sessions are cached for an hour on both sides of the wire, so an elevation flag mirrored onto the session would go stale), and a missing session id is a hard failure rather than an anonymous pass.
+
+| Status | Code | Client action |
+|---:|---|---|
+| 403 | `AUTH_SUDO_REQUIRED` | Prompt the user to re-authenticate, then retry the original request once. |
+| 503 | `AUTH_SUDO_UNAVAILABLE` | The elevation of the session could not be verified. Treat as transient (retry with bounded backoff); never assume the action was authorized. |
+
+A step-up denial carries the factor hint the auth service reported when it has one:
+
+```json
+{
+  "code": "AUTH_SUDO_REQUIRED",
+  "message": "This action requires re-authentication.",
+  "status": 403,
+  "traceId": "0HNF4S44V8MTT:00000001",
+  "meta": { "factor_types": "totp,password" }
+}
+```
+
+`meta.factor_types` is a comma-joined string of the factor types that can satisfy the step-up. Non-interactive credentials (`Bot <apikey>`, session type `DY_API_KEY`) can never be elevated and are always answered with `AUTH_SUDO_REQUIRED`.

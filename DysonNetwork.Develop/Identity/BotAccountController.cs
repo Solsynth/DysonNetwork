@@ -139,6 +139,7 @@ public class BotAccountController(
 
     [HttpPost]
     [AskPermission(PermissionKeys.BotAccountsCreate)]
+    [RequireSudo]
     public async Task<IActionResult> CreateBot(
         [FromQuery(Name = "dev")] string pubName,
         [FromQuery(Name = "proj")] Guid projectId,
@@ -280,6 +281,7 @@ public class BotAccountController(
 
     [HttpDelete("{botId:guid}")]
     [AskPermission(PermissionKeys.BotAccountsDelete)]
+    [RequireSudo]
     public async Task<IActionResult> DeleteBot(
         [FromQuery(Name = "dev")] string pubName,
         [FromQuery(Name = "proj")] Guid projectId,
@@ -376,6 +378,7 @@ public class BotAccountController(
 
     [HttpPost("{botId:guid}/keys")]
     [AskPermission(PermissionKeys.BotAccountsKeysManage)]
+    [RequireSudo]
     public async Task<ActionResult<SnApiKey>> CreateBotKey(
         [FromQuery(Name = "dev")] string pubName,
         [FromQuery(Name = "proj")] Guid projectId,
@@ -410,6 +413,7 @@ public class BotAccountController(
 
     [HttpPost("{botId:guid}/keys/{keyId:guid}/rotate")]
     [AskPermission(PermissionKeys.BotAccountsKeysManage)]
+    [RequireSudo]
     public async Task<ActionResult<SnApiKey>> RotateBotKey(
         [FromQuery(Name = "dev")] string pubName,
         [FromQuery(Name = "proj")] Guid projectId,
@@ -438,6 +442,7 @@ public class BotAccountController(
 
     [HttpDelete("{botId:guid}/keys/{keyId:guid}")]
     [AskPermission(PermissionKeys.BotAccountsKeysManage)]
+    [RequireSudo]
     public async Task<IActionResult> DeleteBotKey(
         [FromQuery(Name = "dev")] string pubName,
         [FromQuery(Name = "proj")] Guid projectId,
