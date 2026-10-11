@@ -169,6 +169,25 @@ If gRPC fails, times out, or returns invalid JSON, Passport logs a warning and s
 
 Rewards, check-in availability, captcha behavior, and `version < 2` legacy `tips` remain unchanged.
 
+## Streak Gold Rewards
+
+A daily check-in additionally grants gold from the wallet when the check-in extends the account's consecutive-day streak to a tier boundary. Gold uses the existing wallet currency (`WalletCurrency.GoldenPoint`, `"golds"`).
+
+| Streak length | Gold | Repeat |
+| --- | --- | --- |
+| every 7 days (7, 14, 21, …) | 1 | yes |
+| every 30 days (30, 60, 90, …) | 5 | yes |
+
+A day that completes both tiers (every 210 days) grants the sum, 6 gold. Anything below 7 days grants no gold. The grant is a single additional wallet transaction whose remark is `Check-in streak reward ({N} days) on yyyy/MM/dd`.
+
+The streak is counted in consecutive UTC calendar days that have a check-in row, walked backwards from the check-in date and stopping at the first gap. Backdated check-ins are ordinary rows, so they extend the streak like any other day.
+
+Only the daily, non-backdated check-in can earn streak gold: backdated check-ins store `RewardPoints = null` and grant no gold, and the streak they produce is only paid out on the next daily check-in that lands on a tier boundary.
+
+The gold grant is best-effort. A wallet failure is logged as a warning and never fails the check-in, matching how the source-point reward is already handled.
+
+Consequence of the existing audit stamping: `ApplyAuditableAndSoftDelete` rewrites `CreatedAt` on insert, so the backdated instant passed to `CheckInDaily` is not what is persisted. Backdated check-ins are therefore recorded on the day they are submitted, and the streak walk does not see them in the past day they were meant to fill. This predates the streak reward and is tracked separately.
+
 ## Migration
 
 The feature adds nullable `fortune_report jsonb` to `account_check_in_results`.

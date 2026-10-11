@@ -668,6 +668,91 @@ public class AccountEventService(
     }
 
     private const string CheckInLockKey = "checkin:lock:";
+    private const int CheckInWeeklyStreakDays = 7;
+    private const decimal CheckInWeeklyStreakGoldReward = 1m;
+    private const int CheckInMonthlyStreakDays = 30;
+    private const decimal CheckInMonthlyStreakGoldReward = 5m;
+    // The streak walk reads one row per checked-in day, so the lookback only
+    // has to be long enough to let the walk stop at a gap. Five years keeps the
+    // reward cadence exact for any realistic streak while bounding the query.
+    private const int CheckInStreakMaxLookbackDays = 366 * 5;
+
+    /// <summary>
+    /// Gold granted for reaching this streak length. Weekly tiers repeat every
+    /// seven days and monthly tiers every thirty, so a streak that hits both
+    /// (every 210 days) grants the sum.
+    /// </summary>
+    private static decimal GetCheckInStreakGoldReward(int streak)
+    {
+        if (streak <= 0)
+            return 0m;
+
+        var reward = 0m;
+        if (streak % CheckInWeeklyStreakDays == 0)
+            reward += CheckInWeeklyStreakGoldReward;
+        if (streak % CheckInMonthlyStreakDays == 0)
+            reward += CheckInMonthlyStreakGoldReward;
+        return reward;
+    }
+
+    /// <summary>
+    /// Consecutive UTC days ending on <paramref name="checkInDate"/> that have a
+    /// check-in, including backdated ones. The caller must have persisted the row
+    /// for <paramref name="checkInDate"/> first so the walk sees it.
+    /// </summary>
+    private async Task<int> ResolveCheckInStreak(Guid accountId, LocalDate checkInDate)
+    {
+        var windowStartDate = checkInDate.PlusDays(-(CheckInStreakMaxLookbackDays - 1));
+        var windowStart = windowStartDate.AtStartOfDayInZone(DateTimeZone.Utc).ToInstant();
+        var windowEnd = checkInDate.PlusDays(1).AtStartOfDayInZone(DateTimeZone.Utc).ToInstant();
+
+        var checkInInstants = await db
+            .AccountCheckInResults.Where(x => x.AccountId == accountId)
+            .Where(x => x.CreatedAt >= windowStart && x.CreatedAt < windowEnd)
+            .Select(x => x.CreatedAt)
+            .ToListAsync();
+        var checkInDates = checkInInstants.Select(x => x.InUtc().Date).ToHashSet();
+
+        var streak = 0;
+        for (var date = checkInDate; date >= windowStartDate && checkInDates.Contains(date); date = date.PlusDays(-1))
+            streak++;
+        return streak;
+    }
+
+    private async Task GrantCheckInStreakGoldReward(SnAccount account, LocalDate checkInDate)
+    {
+        try
+        {
+            var streak = await ResolveCheckInStreak(account.Id, checkInDate);
+            var reward = GetCheckInStreakGoldReward(streak);
+            if (reward <= 0m)
+                return;
+
+            await payment.CreateTransactionWithAccount(
+                null,
+                account.Id.ToString(),
+                WalletCurrency.GoldenPoint,
+                reward.ToString(CultureInfo.InvariantCulture),
+                $"Check-in streak reward ({streak} days) on {checkInDate:yyyy/MM/dd}"
+            );
+
+            logger.LogInformation(
+                "Granted {Reward} gold to account {AccountId} for a {Streak}-day check-in streak",
+                reward,
+                account.Id,
+                streak
+            );
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(
+                ex,
+                "Failed to grant the check-in streak gold reward for account {AccountId} on {CheckInDate}",
+                account.Id,
+                checkInDate
+            );
+        }
+    }
 
     public async Task<SnCheckInResult> CheckInDaily(
         SnAccount account,
@@ -816,6 +901,12 @@ public class AccountEventService(
 
         db.AccountCheckInResults.Add(result);
         await db.SaveChangesAsync(); // Remember to save changes to the database
+
+        // Backdated check-ins already skip the source-point reward; they must not
+        // feed the streak tier either, otherwise a backdated row recorded on an
+        // already-paid day would pay the same tier a second time.
+        if (backdated is null)
+            await GrantCheckInStreakGoldReward(account, result.CreatedAt.InUtc().Date);
 
         if (result.RewardExperience is not null)
             await experienceService.AddRecord(
