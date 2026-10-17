@@ -267,6 +267,43 @@ the update changes meaningful content: `title`, `description`, `content`, `visib
 `drafted_at`, `published_at`, or attachment membership. The first publication of a post is not
 an edit, and draft-only posts never trigger it.
 
+## Scheduled Posts
+
+A post is scheduled by setting `published_at` to a future instant and leaving `drafted_at`
+null. The post stays invisible in listings (`FilterWithVisibility` requires
+`published_at <= now`) until the publishing job picks it up.
+
+### Claim Field
+
+`SnPost.PublishNotifiedAt` records that the one-time publish side effects were dispatched:
+
+| value | meaning |
+|---|---|
+| `null` | publish side effects not dispatched yet (scheduled, or never published) |
+| set | subscriber/watch/mention notifications, indexing, federation and the realtime broadcast were dispatched |
+
+Immediate publishes set it inline in `PostService.PostAsync` / `UpdatePostAsync`. Scheduled
+posts are claimed by `ScheduledPostPublishService`, which atomically flips
+`publish_notified_at` with `ExecuteUpdateAsync` before dispatching, so a post is announced
+exactly once even with multiple Sphere instances running the job.
+
+### Job
+
+`ScheduledPostPublishJob` runs every 15 seconds. Each run:
+
+1. selects up to 100 local (`fediverse_uri IS NULL`) posts with `publish_notified_at IS NULL`,
+   `drafted_at IS NULL` and `published_at <= now`, oldest first;
+2. claims each post (guarded update; 0 rows affected means another worker or a reschedule won);
+3. publishes the `realm.activity.post_created` event for realm posts;
+4. calls `PostService.DispatchPublishSideEffects`, the same code path an immediate publish
+   uses — so subscribers of the publisher, category/tag/collection subscriptions, reply and
+   chain watchers and mentions all receive their normal notifications.
+
+Rescheduling (`PATCH /api/posts/{id}` with a new `published_at`, or
+`POST /api/posts/batch/visibility`) simply moves the time forward while
+`publish_notified_at` is still null; withdrawing the schedule back to a draft also leaves the
+post unclaimed, so nothing is announced.
+
 ## Notes
 
 - Post watches replace the former explicit `post_subscriptions` table and its
@@ -284,6 +321,10 @@ an edit, and draft-only posts never trigger it.
 - `DysonNetwork.Sphere/Post/PostWatchController.cs`
 - `DysonNetwork.Sphere/Post/PostService.cs`
 - `DysonNetwork.Sphere/Post/PostActionController.cs`
+- `DysonNetwork.Sphere/Post/ScheduledPostPublishService.cs`
+- `DysonNetwork.Sphere/Post/ScheduledPostPublishJob.cs`
+- `DysonNetwork.Sphere/Startup/ScheduledJobsConfiguration.cs`
 - `DysonNetwork.Sphere/AppDatabase.cs`
+- `DysonNetwork.Sphere/Migrations/20261017055449_AddPostPublishNotifiedAt.cs`
 - `DysonNetwork.Sphere/Migrations/20260521161833_AddPostCollectionSubscription.cs`
 - `DysonNetwork.Sphere/Publisher/PublisherSubscriptionService.cs`

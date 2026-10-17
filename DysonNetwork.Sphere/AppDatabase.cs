@@ -187,6 +187,9 @@ public class AppDatabase(
             .HasForeignKey(p => p.QuoteAuthorizationId)
             .OnDelete(DeleteBehavior.SetNull);
         modelBuilder.Entity<SnPost>()
+            .HasIndex(p => new { p.PublishNotifiedAt, p.PublishedAt })
+            .HasFilter("publish_notified_at IS NULL");
+        modelBuilder.Entity<SnPost>()
             .HasMany(p => p.Tags)
             .WithMany(t => t.Posts)
             .UsingEntity(j => j.ToTable("post_tag_links"));

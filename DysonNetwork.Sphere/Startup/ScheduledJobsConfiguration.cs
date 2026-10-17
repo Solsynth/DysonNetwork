@@ -118,6 +118,15 @@ public static class ScheduledJobsConfiguration
                 .WithCronSchedule("0 0 */6 * * ?")
             );
 
+            q.AddJob<ScheduledPostPublishJob>(opts => opts.WithIdentity("ScheduledPostPublish"));
+            q.AddTrigger(opts => opts
+                .ForJob("ScheduledPostPublish")
+                .WithIdentity("ScheduledPostPublishTrigger")
+                .WithSimpleSchedule(o => o
+                    .WithIntervalInSeconds(15)
+                    .RepeatForever())
+            );
+
             q.AddJob<PostSponsorAuctionJob>(opts => opts.WithIdentity("PostSponsorAuction"));
             q.AddTrigger(opts => opts
                 .ForJob("PostSponsorAuction")

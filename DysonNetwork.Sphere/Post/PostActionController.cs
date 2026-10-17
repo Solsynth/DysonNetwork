@@ -1816,12 +1816,14 @@ public class PostActionController(
 
                 post.PublishedAt = request.PublishedAt;
                 post.DraftedAt = null;
+                post.PublishNotifiedAt = null;
             }
 
             if (request.DraftedAt is not null)
             {
                 post.DraftedAt = request.DraftedAt;
                 post.PublishedAt = null;
+                post.PublishNotifiedAt = null;
             }
         }
 

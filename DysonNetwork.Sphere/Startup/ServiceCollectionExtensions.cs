@@ -316,6 +316,7 @@ public static class ServiceCollectionExtensions
             services.AddScoped<TimelineService>();
             services.AddScoped<AutomodService>();
             services.AddScoped<PostService>();
+            services.AddScoped<ScheduledPostPublishService>();
             services.AddScoped<PostWatchService>();
             services.AddScoped<SponsorService>();
             services.AddScoped<WebReaderService>();

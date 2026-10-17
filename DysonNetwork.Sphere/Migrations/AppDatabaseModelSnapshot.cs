@@ -319,6 +319,10 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("pin_mode");
 
+                    b.Property<Instant?>("PublishNotifiedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("publish_notified_at");
+
                     b.Property<Instant?>("PublishedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("published_at");
@@ -414,6 +418,10 @@ namespace DysonNetwork.Sphere.Migrations
 
                     b.HasIndex("RepliedPostId")
                         .HasDatabaseName("ix_posts_replied_post_id");
+
+                    b.HasIndex("PublishNotifiedAt", "PublishedAt")
+                        .HasDatabaseName("ix_posts_publish_notified_at_published_at")
+                        .HasFilter("publish_notified_at IS NULL");
 
                     b.ToTable("posts", (string)null);
                 });

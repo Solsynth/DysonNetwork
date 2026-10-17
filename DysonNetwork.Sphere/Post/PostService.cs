@@ -1216,7 +1216,7 @@ public partial class PostService(
 
     private async Task BroadcastPostUpdateAsync(SnPost post, string eventType)
     {
-        using var scope = serviceProvider.CreateScope();
+        using var scope = factory.CreateScope();
         var scopedWs = scope.ServiceProvider.GetRequiredService<RemoteWebSocketService>();
         var scopedPost = scope.ServiceProvider.GetRequiredService<PostService>();
 
@@ -1273,7 +1273,7 @@ public partial class PostService(
 
     private async Task BroadcastReactionUpdateAsync(SnPostReaction reaction, string eventType)
     {
-        using var scope = serviceProvider.CreateScope();
+        using var scope = factory.CreateScope();
         var scopedWs = scope.ServiceProvider.GetRequiredService<RemoteWebSocketService>();
         var scopedPost = scope.ServiceProvider.GetRequiredService<PostService>();
         var scopedDb = scope.ServiceProvider.GetRequiredService<AppDatabase>();
@@ -1421,7 +1421,7 @@ public partial class PostService(
         HashSet<string>? closeFriendAccountIds = null;
         if (post.Visibility == PostVisibility.CloseFriendsOnly)
         {
-            using var scope = serviceProvider.CreateScope();
+            using var scope = factory.CreateScope();
             var remoteAccounts = scope.ServiceProvider.GetRequiredService<RemoteAccountService>();
             var publisherAccountId = post.Publisher?.AccountId;
             if (publisherAccountId.HasValue)
@@ -1703,14 +1703,16 @@ public partial class PostService(
 
         await ApplyAutomaticTopicsAsync(post, tags, categories);
 
-        db.Posts.Add(post);
-        await db.SaveChangesAsync();
-
         var now = DateTime.UtcNow;
         var isPublishedNow =
             post.DraftedAt is null
             && post.PublishedAt is not null
             && post.PublishedAt.Value.ToDateTimeUtc() <= now;
+        if (isPublishedNow)
+            post.PublishNotifiedAt = SystemClock.Instance.GetCurrentInstant();
+
+        db.Posts.Add(post);
+        await db.SaveChangesAsync();
 
         if (isPublishedNow && autoChain && post.ChainedPostId == null
             && post.RepliedPostId == null && post.ForwardedPostId == null
@@ -1745,15 +1747,40 @@ public partial class PostService(
         }
 
         if (isPublishedNow)
-            _ = Task.Run(async () =>
+            DispatchPublishSideEffects(post, actor is null ? null : Guid.Parse(actor.Id));
+
+        return post;
+    }
+
+    /// <summary>
+    /// Dispatches everything that has to happen exactly once when a post becomes
+    /// published: subscriber/watch/mention notifications, indexing, ActivityPub
+    /// federation and the realtime broadcast. Immediate publishes call this from
+    /// the create/update path; scheduled posts reach it from
+    /// <see cref="ScheduledPostPublishService"/> once their publish time arrives.
+    /// </summary>
+    public void DispatchPublishSideEffects(SnPost post, Guid? actorId)
+    {
+        _ = Task.Run(async () =>
+        {
+            using var scope = factory.CreateScope();
+            try
             {
-                using var scope = factory.CreateScope();
                 var pubSub =
                     scope.ServiceProvider.GetRequiredService<PublisherSubscriptionService>();
                 await pubSub.NotifySubscriberPost(post);
-            });
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(
+                    ex,
+                    "Error when sending subscriber notifications for post {PostId}",
+                    post.Id
+                );
+            }
+        });
 
-        if (isPublishedNow && post.RepliedPostId is not null)
+        if (post.RepliedPostId is not null)
             _ = Task.Run(async () =>
             {
                 try
@@ -1770,7 +1797,7 @@ public partial class PostService(
                 }
             });
 
-        if (isPublishedNow && post.ChainedPostId is not null)
+        if (post.ChainedPostId is not null)
             _ = Task.Run(async () =>
             {
                 try
@@ -1790,7 +1817,7 @@ public partial class PostService(
                 }
             });
 
-        if (isPublishedNow && post.RepliedPost is not null)
+        if (post.RepliedPost is not null)
         {
             _ = Task.Run(async () =>
             {
@@ -1845,12 +1872,12 @@ public partial class PostService(
             });
         }
 
-        if (isPublishedNow && post.RepliedPostId.HasValue && actor is not null)
+        if (post.RepliedPostId.HasValue && actorId is not null)
         {
             flushBuffer.Enqueue(
                 new PostInterestSignal
                 {
-                    AccountId = Guid.Parse(actor.Id),
+                    AccountId = actorId.Value,
                     PostId = post.RepliedPostId.Value,
                     ScoreDelta = ReplyInterestScore,
                     SignalType = "reply",
@@ -1859,20 +1886,17 @@ public partial class PostService(
             );
         }
 
-        if (isPublishedNow)
-        {
-            // Send mention notifications in the background
-            _ = Task.Run(async () => await SendMentionNotificationsAsync(post));
+        // Send mention notifications in the background
+        _ = Task.Run(async () => await SendMentionNotificationsAsync(post));
 
-            if (post.Type != PostType.Blog)
-                _ = Task.Run(async () => await CreateLinkPreviewAsync(post));
-        }
+        if (post.Type != PostType.Blog)
+            _ = Task.Run(async () => await CreateLinkPreviewAsync(post));
 
-        if (isPublishedNow && post.Visibility == PostVisibility.Public && post.Type != PostType.Blog)
+        if (post.Visibility == PostVisibility.Public && post.Type != PostType.Blog)
             QueuePostIndex(post.Id);
 
         // Send ActivityPub Create activity in background for public posts
-        if (isPublishedNow && post.Visibility == PostVisibility.Public)
+        if (post.Visibility == PostVisibility.Public)
         {
             _ = Task.Run(async () =>
             {
@@ -1892,13 +1916,8 @@ public partial class PostService(
             });
         }
 
-        if (isPublishedNow)
-        {
-            // Broadcast real-time update to connected clients
-            _ = Task.Run(async () => await BroadcastPostUpdateAsync(post, "post.created"));
-        }
-
-        return post;
+        // Broadcast real-time update to connected clients
+        _ = Task.Run(async () => await BroadcastPostUpdateAsync(post, "post.created"));
     }
 
     public async Task<SnPost> UpdatePostAsync(
@@ -1960,6 +1979,11 @@ public partial class PostService(
             && previousPublishedAt.Value <= now;
         var isPublished =
             post.DraftedAt is null && post.PublishedAt is not null && post.PublishedAt.Value <= now;
+
+        if (isPublished && !wasPublished)
+            post.PublishNotifiedAt = now;
+        else if (!isPublished)
+            post.PublishNotifiedAt = null;
         var previousIndexText = string.Join(
             '\n',
             new[] { previousTitle, previousDescription, previousContent }.Where(x =>
@@ -1968,12 +1992,12 @@ public partial class PostService(
         );
         var currentIndexText = BuildPostIndexText(post);
         var shouldReindex =
-            isPublished
+            wasPublished
+            && isPublished
             && post.Visibility == PostVisibility.Public
             && post.Type != PostType.Blog
             && (
-                !wasPublished
-                || previousVisibility != PostVisibility.Public
+                previousVisibility != PostVisibility.Public
                 || !string.Equals(previousIndexText, currentIndexText, StringComparison.Ordinal)
             );
 
@@ -2028,115 +2052,9 @@ public partial class PostService(
         await db.SaveChangesAsync();
 
         if (!wasPublished && isPublished)
-        {
-            _ = Task.Run(async () =>
-            {
-                using var scope = factory.CreateScope();
-                var pubSub =
-                    scope.ServiceProvider.GetRequiredService<PublisherSubscriptionService>();
-                await pubSub.NotifySubscriberPost(post);
-            });
+            DispatchPublishSideEffects(post, null);
 
-            if (post.RepliedPostId is not null)
-                _ = Task.Run(async () =>
-                {
-                    try
-                    {
-                        await NotifyPostReplyWatchersAsync(post);
-                    }
-                    catch (Exception ex)
-                    {
-                        logger.LogError(
-                            ex,
-                            "Error when sending post reply watch notifications for post {PostId}",
-                            post.Id
-                        );
-                    }
-                });
-
-            if (post.ChainedPostId is not null)
-                _ = Task.Run(async () =>
-                {
-                    try
-                    {
-                        using var scope = factory.CreateScope();
-                        var watches = scope.ServiceProvider.GetRequiredService<PostWatchService>();
-                        var chainPostIds = await watches.GetChainPostIdsAsync(post.ChainedPostId.Value);
-                        await NotifyPostChainWatchersAsync(post, chainPostIds);
-                    }
-                    catch (Exception ex)
-                    {
-                        logger.LogError(
-                            ex,
-                            "Error when sending post chain watch notifications for post {PostId}",
-                            post.Id
-                        );
-                    }
-                });
-
-            if (post.RepliedPost is not null)
-            {
-                _ = Task.Run(async () =>
-                {
-                    var sender = post.Publisher;
-                    using var scope = factory.CreateScope();
-                    var pub = scope.ServiceProvider.GetRequiredService<PublisherService>();
-                    var nty =
-                        scope.ServiceProvider.GetRequiredService<DyRingService.DyRingServiceClient>();
-                    var notifyTargets =
-                        scope.ServiceProvider.GetRequiredService<DyAccountService.DyAccountServiceClient>();
-                    try
-                    {
-                        var members = await pub.GetPublisherMembers(
-                            post.RepliedPost!.PublisherId
-                        );
-                        var queryRequest = new DyGetAccountBatchRequest();
-                        queryRequest.Id.AddRange(members.Select(m => m.AccountId.ToString()));
-                        var queryResponse = await notifyTargets.GetAccountBatchAsync(queryRequest);
-                        foreach (var member in queryResponse.Accounts)
-                        {
-                            if (member is null)
-                                continue;
-                            await nty.SendPushNotificationToUserAsync(
-                                new DySendPushNotificationToUserRequest
-                                {
-                                    UserId = member.Id,
-                                    Notification = BuildPostNotification(
-                                        locale: member.Language,
-                                        topic: "post.replies",
-                                        title: localizer.Get(
-                                            "postReplyTitle",
-                                            locale: member.Language,
-                                            args: new { user = sender!.Nick }
-                                        ),
-                                        body: ChopPostForNotification(
-                                            post,
-                                            member.Language
-                                        ).content,
-                                        post: post,
-                                        extraMeta: new Dictionary<string, object?>
-                                        {
-                                            ["notification_type"] = "reply",
-                                        }
-                                    ),
-                                }
-                            );
-                        }
-                    }
-                    catch (Exception err)
-                    {
-                        logger.LogError(
-                            $"Error when sending post reactions notification: {err.Message} {err.StackTrace}"
-                        );
-                    }
-                });
-            }
-
-            // Send mention notifications in the background on publish.
-            _ = Task.Run(async () => await SendMentionNotificationsAsync(post));
-        }
-
-        if (isPublished)
+        if (isPublished && wasPublished)
         {
             if (post.Type != PostType.Blog)
                 _ = Task.Run(async () => await CreateLinkPreviewAsync(post));
@@ -2165,7 +2083,7 @@ public partial class PostService(
             QueuePostIndex(post.Id);
 
         // Send ActivityPub activity in background for published public posts
-        if (isPublished && post.Visibility == PostVisibility.Public)
+        if (wasPublished && isPublished && post.Visibility == PostVisibility.Public)
             _ = Task.Run(async () =>
             {
                 try
@@ -2173,10 +2091,7 @@ public partial class PostService(
                     using var scope = factory.CreateScope();
                     var deliveryService =
                         scope.ServiceProvider.GetRequiredService<ActivityPubDeliveryService>();
-                    if (wasPublished)
-                        await deliveryService.SendUpdateActivityAsync(post);
-                    else
-                        await deliveryService.SendCreateActivityAsync(post);
+                    await deliveryService.SendUpdateActivityAsync(post);
                 }
                 catch (Exception err)
                 {
@@ -2186,12 +2101,10 @@ public partial class PostService(
                 }
             });
 
-        if (isPublished)
+        if (wasPublished && isPublished)
         {
             // Broadcast real-time update to connected clients
-            _ = Task.Run(async () =>
-                await BroadcastPostUpdateAsync(post, wasPublished ? "post.updated" : "post.created")
-            );
+            _ = Task.Run(async () => await BroadcastPostUpdateAsync(post, "post.updated"));
         }
 
         return post;
