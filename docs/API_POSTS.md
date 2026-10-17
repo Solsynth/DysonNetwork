@@ -195,6 +195,32 @@ All fields except `post_ids` are optional. Updates are applied uniformly to all 
 | `403 Forbidden` | Not an editor of one of the affected publishers |
 | `423 Locked` | One of the posts is locked |
 
+## List Drafts and Scheduled Posts
+
+Drafts and scheduled posts share one authoring listing, ordered by the time they were last
+touched.
+
+```http
+GET /api/posts/drafts?offset=0&take=20&include_scheduled=true
+```
+
+### Query Parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `offset` | int | Pagination offset |
+| `take` | int | Page size |
+| `pub` | string? | Only list posts of these publishers (comma separated). The caller must be at least an editor of every requested publisher. |
+| `include_scheduled` | bool | Also return scheduled posts (`published_at` in the future, `drafted_at` null). Defaults to `false`, which lists drafts only. |
+
+Only posts of publishers the caller is a member of are listed, and `X-Total` carries the row
+count of the same filter. Response is a list of `SnPost` with truncated content; fetch
+`GET /api/posts/{id}` for the full body before editing.
+
+Scheduled posts stay visible here (and in the creator listing) until `published_at` arrives,
+after which the scheduled publish job announces them to subscribers and watchers and they drop
+out of this listing.
+
 ## Client Guidance
 
 - Use `/api/posts/{id}/replies` when implementing classic paged comments UI

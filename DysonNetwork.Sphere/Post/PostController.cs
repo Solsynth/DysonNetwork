@@ -337,7 +337,8 @@ public class PostController(
     public async Task<ActionResult<List<SnPost>>> ListDrafts(
         [FromQuery] int offset = 0,
         [FromQuery] int take = 20,
-        [FromQuery(Name = "pub")] string? pubName = null
+        [FromQuery(Name = "pub")] string? pubName = null,
+        [FromQuery(Name = "include_scheduled")] bool includeScheduled = false
     )
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
@@ -370,16 +371,30 @@ public class PostController(
             publisherIds = requestedPublishers.Select(p => p.Id).ToList();
         }
 
-        var query = db
+        var now = SystemClock.Instance.GetCurrentInstant();
+        IQueryable<SnPost> query = db
             .Posts.Where(p =>
-                p.DraftedAt != null && p.PublisherId != Guid.Empty && publisherIds.Contains(p.PublisherId)
+                p.PublisherId != Guid.Empty
+                && publisherIds.Contains(p.PublisherId)
+                && (
+                    p.DraftedAt != null
+                    || (
+                        includeScheduled
+                        && p.DraftedAt == null
+                        && p.PublishedAt != null
+                        && p.PublishedAt > now
+                    )
+                )
             )
             .Include(e => e.Categories)
             .Include(e => e.Tags)
             .Include(e => e.RepliedPost)
             .Include(e => e.ForwardedPost)
-            .Include(e => e.FeaturedRecords)
-            .OrderByDescending(e => e.DraftedAt ?? e.UpdatedAt);
+            .Include(e => e.FeaturedRecords);
+
+        query = includeScheduled
+            ? query.OrderByDescending(e => e.UpdatedAt)
+            : query.OrderByDescending(e => e.DraftedAt ?? e.UpdatedAt);
 
         var totalCount = await query.CountAsync();
         var posts = await query.Skip(offset).Take(take).ToListAsync();
