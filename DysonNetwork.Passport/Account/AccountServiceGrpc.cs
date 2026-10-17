@@ -16,12 +16,12 @@ namespace DysonNetwork.Passport.Account;
 public class AccountServiceGrpc(
     AppDatabase db,
     AccountEventService accountEvents,
-    RelationshipService relationships,
     RemoteSubscriptionService remoteSubscription,
     RemoteAccountContactService remoteContacts,
     AccountBoardService boardService,
     AccountService accountService,
     DyAccountService.DyAccountServiceClient padlockAccounts,
+    StargateProfileClient stargateProfiles,
     NotableDaysService notableDaysService,
     IEventBus eventBus,
     ILogger<AccountServiceGrpc> logger
@@ -33,6 +33,12 @@ public class AccountServiceGrpc(
         accountService ?? throw new ArgumentNullException(nameof(accountService));
     private readonly ILogger<AccountServiceGrpc>
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+
+    // Dialed at Stargate, not at Passport. The unkeyed DyProfileServiceClient
+    // points back at this service; the relationship RPCs are answered by
+    // Stargate, which owns the account_relationships table.
+    private readonly StargateProfileClient _stargateProfiles =
+        stargateProfiles ?? throw new ArgumentNullException(nameof(stargateProfiles));
 
     public override async Task<DyAccount> GetAccount(DyGetAccountRequest request, ServerCallContext context)
     {
@@ -164,19 +170,14 @@ public class AccountServiceGrpc(
         ServerCallContext context
     )
     {
-        var resp = new DyListRelationshipSimpleResponse();
         switch (request.RelationIdentifierCase)
         {
             case DyListRelationshipSimpleRequest.RelationIdentifierOneofCase.AccountId:
-                var accountId = Guid.Parse(request.AccountId);
-                var relationship = await relationships.ListAccountFriends(accountId);
-                resp.AccountsId.AddRange(relationship.Select(x => x.ToString()));
-                return resp;
             case DyListRelationshipSimpleRequest.RelationIdentifierOneofCase.RelatedId:
-                var relatedId = Guid.Parse(request.RelatedId);
-                var relatedRelationship = await relationships.ListAccountFriends(relatedId, true);
-                resp.AccountsId.AddRange(relatedRelationship.Select(x => x.ToString()));
-                return resp;
+                return await _stargateProfiles.ListFriendsAsync(
+                    request,
+                    cancellationToken: context.CancellationToken
+                );
             case DyListRelationshipSimpleRequest.RelationIdentifierOneofCase.None:
             default:
                 throw new RpcException(new Status(StatusCode.InvalidArgument,
@@ -188,19 +189,14 @@ public class AccountServiceGrpc(
         DyListRelationshipSimpleRequest request,
         ServerCallContext context)
     {
-        var resp = new DyListRelationshipSimpleResponse();
         switch (request.RelationIdentifierCase)
         {
             case DyListRelationshipSimpleRequest.RelationIdentifierOneofCase.AccountId:
-                var accountId = Guid.Parse(request.AccountId);
-                var relationship = await relationships.ListAccountBlocked(accountId);
-                resp.AccountsId.AddRange(relationship.Select(x => x.ToString()));
-                return resp;
             case DyListRelationshipSimpleRequest.RelationIdentifierOneofCase.RelatedId:
-                var relatedId = Guid.Parse(request.RelatedId);
-                var relatedRelationship = await relationships.ListAccountBlocked(relatedId, true);
-                resp.AccountsId.AddRange(relatedRelationship.Select(x => x.ToString()));
-                return resp;
+                return await _stargateProfiles.ListBlockedAsync(
+                    request,
+                    cancellationToken: context.CancellationToken
+                );
             case DyListRelationshipSimpleRequest.RelationIdentifierOneofCase.None:
             default:
                 throw new RpcException(new Status(StatusCode.InvalidArgument,
@@ -212,14 +208,13 @@ public class AccountServiceGrpc(
         DyListRelationshipSimpleRequest request,
         ServerCallContext context)
     {
-        var resp = new DyListRelationshipSimpleResponse();
         switch (request.RelationIdentifierCase)
         {
             case DyListRelationshipSimpleRequest.RelationIdentifierOneofCase.AccountId:
-                var accountId = Guid.Parse(request.AccountId);
-                var mutedIds = await relationships.ListAccountMuted(accountId);
-                resp.AccountsId.AddRange(mutedIds.Select(x => x.ToString()));
-                return resp;
+                return await _stargateProfiles.ListMutedAsync(
+                    request,
+                    cancellationToken: context.CancellationToken
+                );
             case DyListRelationshipSimpleRequest.RelationIdentifierOneofCase.None:
             default:
                 throw new RpcException(new Status(StatusCode.InvalidArgument,
@@ -231,14 +226,13 @@ public class AccountServiceGrpc(
         DyListRelationshipSimpleRequest request,
         ServerCallContext context)
     {
-        var resp = new DyListRelationshipSimpleResponse();
         switch (request.RelationIdentifierCase)
         {
             case DyListRelationshipSimpleRequest.RelationIdentifierOneofCase.AccountId:
-                var accountId = Guid.Parse(request.AccountId);
-                var closeFriendIds = await relationships.ListCloseFriends(accountId);
-                resp.AccountsId.AddRange(closeFriendIds.Select(x => x.ToString()));
-                return resp;
+                return await _stargateProfiles.ListCloseFriendsAsync(
+                    request,
+                    cancellationToken: context.CancellationToken
+                );
             case DyListRelationshipSimpleRequest.RelationIdentifierOneofCase.None:
             default:
                 throw new RpcException(new Status(StatusCode.InvalidArgument,
@@ -388,42 +382,18 @@ public class AccountServiceGrpc(
         ServerCallContext context
     )
     {
-        var relationship = await relationships.GetRelationship(
-            Guid.Parse(request.AccountId),
-            Guid.Parse(request.RelatedId),
-            status: (RelationshipStatus?)request.Status
+        return await _stargateProfiles.GetRelationshipAsync(
+            request,
+            cancellationToken: context.CancellationToken
         );
-        return new DyGetRelationshipResponse
-        {
-            Relationship = relationship?.ToProtoValue()
-        };
     }
 
     public override async Task<BoolValue> HasRelationship(DyGetRelationshipRequest request, ServerCallContext context)
     {
-        if (request.EitherDirection && request.HasStatus
-            && (Shared.Models.RelationshipStatus)request.Status == Shared.Models.RelationshipStatus.Blocked)
-        {
-            var isBlocked = await relationships.IsBlockedEitherDirection(
-                Guid.Parse(request.AccountId),
-                Guid.Parse(request.RelatedId)
-            );
-            return new BoolValue { Value = isBlocked };
-        }
-
-        bool hasRelationship;
-        if (!request.HasStatus)
-            hasRelationship = await relationships.HasExistingRelationship(
-                Guid.Parse(request.AccountId),
-                Guid.Parse(request.RelatedId)
-            );
-        else
-            hasRelationship = await relationships.HasRelationshipWithStatus(
-                Guid.Parse(request.AccountId),
-                Guid.Parse(request.RelatedId),
-                (Shared.Models.RelationshipStatus)request.Status
-            );
-        return new BoolValue { Value = hasRelationship };
+        return await _stargateProfiles.HasRelationshipAsync(
+            request,
+            cancellationToken: context.CancellationToken
+        );
     }
 
     public override async Task<DyGrantBadgeResponse> GrantBadge(DyGrantBadgeRequest request, ServerCallContext context)

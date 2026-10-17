@@ -30,7 +30,6 @@ public class AppDatabase(
     public DbSet<SnAccountBoardItem> AccountBoardItems { get; set; } = null!;
     public DbSet<SnApplePass> ApplePasses { get; set; } = null!;
     public DbSet<SnApplePassRegistration> ApplePassRegistrations { get; set; } = null!;
-    public DbSet<SnAccountRelationship> AccountRelationships { get; set; } = null!;
     public DbSet<SnAccountStatus> AccountStatuses { get; set; } = null!;
     public DbSet<SnCheckInResult> AccountCheckInResults { get; set; } = null!;
     public DbSet<SnPresenceActivity> PresenceActivities { get; set; } = null!;
@@ -139,9 +138,6 @@ public class AppDatabase(
             .WithMany(g => g.Members)
             .HasForeignKey(pg => pg.GroupId)
             .OnDelete(DeleteBehavior.Cascade);
-
-        modelBuilder.Entity<SnAccountRelationship>()
-            .HasKey(r => new { FromAccountId = r.AccountId, ToAccountId = r.RelatedId });
 
         modelBuilder.Entity<SnTest>().HasIndex(x => x.Key).IsUnique();
         modelBuilder.Entity<SnTestQuestionGroup>().HasIndex(x => x.Key).IsUnique();
@@ -287,13 +283,9 @@ public class AppDatabaseRecyclingJob(AppDatabase db, ILogger<AppDatabaseRecyclin
 
         logger.LogInformation("Cleaning up expired records...");
 
-        // Expired relationships
-        var affectedRows = await db.AccountRelationships
-            .Where(x => x.ExpiredAt != null && x.ExpiredAt <= now)
-            .ExecuteDeleteAsync();
-        logger.LogDebug("Removed {Count} records of expired relationships.", affectedRows);
+        // Relationship expiry is maintained by Stargate, which owns that table.
         // Expired permission group members
-        affectedRows = await db.PermissionGroupMembers
+        var affectedRows = await db.PermissionGroupMembers
             .Where(x => x.ExpiredAt != null && x.ExpiredAt <= now)
             .ExecuteDeleteAsync();
         logger.LogDebug("Removed {Count} records of expired permission group members.", affectedRows);

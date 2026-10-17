@@ -2866,11 +2866,9 @@ TIP-: 忌提示标题 | 具体提醒，要写清今天不适合怎么做、容�
 
         if (!isOwner && viewerId.HasValue)
         {
-            var isFriend = await db.AccountRelationships.AnyAsync(r =>
-                r.AccountId == accountId
-                && r.RelatedId == viewerId.Value
-                && (r.Status == RelationshipStatus.Friends || r.Status == RelationshipStatus.CloseFriend)
-            );
+            // Friends family check: RelationshipStatus.Friends is strict and would
+            // miss CloseFriend, so test membership of the friend list instead.
+            var isFriend = (await relationships.ListAccountFriends(accountId)).Contains(viewerId.Value);
 
             calendarEvents = calendarEvents
                 .Where(e =>
@@ -3155,12 +3153,9 @@ TIP-: 忌提示标题 | 具体提醒，要写清今天不适合怎么做、容�
 
         if (calendarEvent.Visibility == EventVisibility.Friends)
         {
-            // Check if viewer is a friend
-            var isFriend = await db.AccountRelationships.AnyAsync(r =>
-                r.AccountId == calendarEvent.AccountId
-                && r.RelatedId == viewerId
-                && (r.Status == RelationshipStatus.Friends || r.Status == RelationshipStatus.CloseFriend)
-            );
+            // Friends family check: RelationshipStatus.Friends is strict and would
+            // miss CloseFriend, so test membership of the friend list instead.
+            var isFriend = (await relationships.ListAccountFriends(calendarEvent.AccountId)).Contains(viewerId);
             return isFriend;
         }
 
@@ -3249,14 +3244,8 @@ TIP-: 忌提示标题 | 具体提醒，要写清今天不适合怎么做、容�
 
     public async Task<List<Guid>> GetFriendAccountIdsAsync(Guid accountId)
     {
-        return await db.AccountRelationships
-            .Where(r =>
-                r.AccountId == accountId
-                && (r.Status == RelationshipStatus.Friends || r.Status == RelationshipStatus.CloseFriend)
-                && (r.ExpiredAt == null || r.ExpiredAt > SystemClock.Instance.GetCurrentInstant())
-            )
-            .Select(r => r.RelatedId)
-            .ToListAsync();
+        // Friends family (Friends OR CloseFriend, non-expired) now lives in Stargate.
+        return await relationships.ListAccountFriends(accountId);
     }
 
     public void PurgeCalendarEventSubscriptionCache(Guid subscriberId)
@@ -3515,11 +3504,9 @@ TIP-: 忌提示标题 | 具体提醒，要写清今天不适合怎么做、容�
         // For Friends visibility, check friendship status
         if (!isOwner)
         {
-            var isFriend = await db.AccountRelationships.AnyAsync(r =>
-                r.AccountId == user.Id
-                && r.RelatedId == effectiveViewerId
-                && (r.Status == RelationshipStatus.Friends || r.Status == RelationshipStatus.CloseFriend)
-            );
+            // Friends family check: RelationshipStatus.Friends is strict and would
+            // miss CloseFriend, so test membership of the friend list instead.
+            var isFriend = (await relationships.ListAccountFriends(user.Id)).Contains(effectiveViewerId);
 
             userEvents = userEvents
                 .Where(e =>
@@ -3852,11 +3839,9 @@ TIP-: 忌提示标题 | 具体提醒，要写清今天不适合怎么做、容�
         bool isFriend = false;
         if (!isOwner && viewerId.HasValue)
         {
-            isFriend = await db.AccountRelationships.AnyAsync(r =>
-                r.AccountId == user.Id
-                && r.RelatedId == viewerId.Value
-                && (r.Status == RelationshipStatus.Friends || r.Status == RelationshipStatus.CloseFriend)
-            );
+            // Friends family check: RelationshipStatus.Friends is strict and would
+            // miss CloseFriend, so test membership of the friend list instead.
+            isFriend = (await relationships.ListAccountFriends(user.Id)).Contains(viewerId.Value);
 
             if (!isFriend)
             {

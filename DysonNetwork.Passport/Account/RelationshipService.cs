@@ -1,31 +1,17 @@
-using DysonNetwork.Shared.Cache;
-using DysonNetwork.Shared.Extensions;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
-using Microsoft.EntityFrameworkCore;
-using DysonNetwork.Shared.Localization;
-using DysonNetwork.Shared.Registry;
-using Microsoft.AspNetCore.Http;
-using NodaTime;
 
 namespace DysonNetwork.Passport.Account;
 
-public class RelationshipService(
-    AppDatabase db,
-    ICacheService cache,
-    DyRingService.DyRingServiceClient pusher,
-    ILocalizationService localizer,
-    AccountService accounts,
-    RemoteActionLogService remoteActionLogs,
-    IHttpContextAccessor httpContextAccessor
-)
+/// <summary>
+/// Relationship reads. The <c>account_relationships</c> table is owned by
+/// Stargate now, so this service is a thin client over the
+/// <see cref="StargateProfileClient"/> instead of talking to Passport's own
+/// database. The six <c>DyProfileService</c> relationship RPCs carry the same
+/// semantics the local queries used to implement.
+/// </summary>
+public class RelationshipService(StargateProfileClient stargateProfiles)
 {
-    private const string UserFriendsCacheKeyPrefix = "accounts:friends:";
-    private const string UserBlockedCacheKeyPrefix = "accounts:blocked:";
-    private const string UserMutedCacheKeyPrefix = "accounts:muted:";
-    private const string UserCloseFriendsCacheKeyPrefix = "accounts:close_friends:";
-    private static readonly TimeSpan CacheExpiration = TimeSpan.FromHours(1);
-
     public async Task<bool> HasExistingRelationship(Guid accountId, Guid relatedId)
     {
         if (accountId == Guid.Empty || relatedId == Guid.Empty)
@@ -33,577 +19,27 @@ public class RelationshipService(
         if (accountId == relatedId)
             return false; // Prevent self-relationships
 
-        var count = await db.AccountRelationships
-            .Where(r => (r.AccountId == accountId && r.RelatedId == relatedId) ||
-                        (r.AccountId == relatedId && r.RelatedId == accountId))
-            .CountAsync();
-        return count > 0;
-    }
-
-    public async Task<SnAccountRelationship?> GetRelationship(
-        Guid accountId,
-        Guid relatedId,
-        RelationshipStatus? status = null,
-        bool ignoreExpired = false
-    )
-    {
-        if (accountId == Guid.Empty || relatedId == Guid.Empty)
-            throw new ArgumentException("Account IDs cannot be empty.");
-
-        var relationship = await GetRelationshipEntity(accountId, relatedId, status, ignoreExpired);
-        if (relationship is null) return null;
-
-        relationship.Account = await accounts.GetAccount(relationship.AccountId)
-            ?? throw new InvalidOperationException($"Account {relationship.AccountId} not found.");
-        relationship.Related = await accounts.GetAccount(relationship.RelatedId)
-            ?? throw new InvalidOperationException($"Account {relationship.RelatedId} not found.");
-
-        return relationship;
-    }
-
-    public async Task<SnAccountRelationship> CreateRelationship(SnAccount sender, SnAccount target,
-        RelationshipStatus status)
-    {
-        if (status == RelationshipStatus.Pending)
-            throw new InvalidOperationException(
-                "Cannot create relationship with pending status, use SendFriendRequest instead.");
-        if (await HasExistingRelationship(sender.Id, target.Id))
-            throw new InvalidOperationException("Found existing relationship between you and target user.");
-
-        var relationship = await GetRelationshipEntity(sender.Id, target.Id, ignoreExpired: true, includeDeleted: true);
-        if (relationship is not null)
+        var response = await stargateProfiles.HasRelationshipAsync(new DyGetRelationshipRequest
         {
-            RestoreRelationship(relationship, status);
-            db.Update(relationship);
-        }
-        else
-        {
-            relationship = new SnAccountRelationship
-            {
-                AccountId = sender.Id,
-                RelatedId = target.Id,
-                Status = status
-            };
-
-            db.AccountRelationships.Add(relationship);
-        }
-        await db.SaveChangesAsync();
-        await PurgeRelationshipCache(sender.Id, target.Id, status);
-
-        return relationship;
-    }
-
-    public async Task<SnAccountRelationship> BlockAccount(
-        SnAccount sender,
-        SnAccount target,
-        Duration? expiresIn = null,
-        RelationshipStatus? degradeTo = null
-    )
-    {
-        var outgoingRelationship = await GetRelationshipEntity(sender.Id, target.Id, ignoreExpired: true, includeDeleted: true);
-
-        SnAccountRelationship relationship;
-        if (outgoingRelationship is not null)
-        {
-            RestoreRelationship(
-                outgoingRelationship,
-                RelationshipStatus.Blocked,
-                expiresIn.HasValue ? SystemClock.Instance.GetCurrentInstant() + expiresIn.Value : null,
-                degradeTo
-            );
-            db.Update(outgoingRelationship);
-            await db.SaveChangesAsync();
-            relationship = outgoingRelationship;
-        }
-        else
-        {
-            var incomingRelationship = await GetRelationshipEntity(target.Id, sender.Id, ignoreExpired: true, includeDeleted: true);
-            if (incomingRelationship is not null && incomingRelationship.DeletedAt is null)
-            {
-                db.Remove(incomingRelationship);
-                await db.SaveChangesAsync();
-            }
-            var newRelationship = new SnAccountRelationship
-            {
-                AccountId = sender.Id,
-                RelatedId = target.Id,
-                Status = RelationshipStatus.Blocked,
-                ExpiredAt = expiresIn.HasValue
-                    ? SystemClock.Instance.GetCurrentInstant() + expiresIn.Value
-                    : null,
-                DegradeToStatus = degradeTo
-            };
-            db.AccountRelationships.Add(newRelationship);
-            await db.SaveChangesAsync();
-            relationship = newRelationship;
-        }
-
-        CreateActionLog(
-            sender.Id,
-            ActionLogType.RelationshipBlock,
-            target.Id,
-            new Dictionary<string, object> { ["status"] = RelationshipStatus.Blocked.ToString().ToLowerInvariant() }
-        );
-        await PurgeRelationshipCache(sender.Id, target.Id, RelationshipStatus.Blocked);
-        return relationship;
-    }
-
-    public async Task<SnAccountRelationship> UnblockAccount(SnAccount sender, SnAccount target)
-    {
-        var relationship = await GetRelationship(sender.Id, target.Id, RelationshipStatus.Blocked);
-        if (relationship is null) throw new ArgumentException("There is no relationship between you and the user.");
-        relationship.Status = RelationshipStatus.Friends;
-        relationship.ExpiredAt = null;
-        relationship.DegradeToStatus = null;
-        db.Update(relationship);
-        await db.SaveChangesAsync();
-
-        CreateActionLog(sender.Id, ActionLogType.RelationshipUnblock, target.Id);
-        await PurgeRelationshipCache(sender.Id, target.Id, RelationshipStatus.Blocked, RelationshipStatus.Friends);
-
-        return relationship;
-    }
-
-    public async Task<SnAccountRelationship> MuteAccount(
-        SnAccount sender,
-        SnAccount target,
-        Duration? expiresIn = null,
-        RelationshipStatus? degradeTo = null
-    )
-    {
-        var relationship = await GetRelationshipEntity(sender.Id, target.Id, ignoreExpired: true, includeDeleted: true);
-        if (relationship is not null && relationship.DeletedAt is null && relationship.Status == RelationshipStatus.Muted)
-            throw new InvalidOperationException("You have already muted this user.");
-
-        if (relationship is not null)
-        {
-            RestoreRelationship(
-                relationship,
-                RelationshipStatus.Muted,
-                expiresIn.HasValue ? SystemClock.Instance.GetCurrentInstant() + expiresIn.Value : null,
-                degradeTo
-            );
-            db.Update(relationship);
-        }
-        else
-        {
-            relationship = new SnAccountRelationship
-            {
-                AccountId = sender.Id,
-                RelatedId = target.Id,
-                Status = RelationshipStatus.Muted,
-                ExpiredAt = expiresIn.HasValue
-                    ? SystemClock.Instance.GetCurrentInstant() + expiresIn.Value
-                    : null,
-                DegradeToStatus = degradeTo
-            };
-
-            db.AccountRelationships.Add(relationship);
-        }
-        await db.SaveChangesAsync();
-
-        CreateActionLog(sender.Id, ActionLogType.RelationshipMute, target.Id);
-        await PurgeRelationshipCache(sender.Id, target.Id, RelationshipStatus.Muted);
-
-        return relationship;
-    }
-
-    public async Task<SnAccountRelationship> UnmuteAccount(SnAccount sender, SnAccount target)
-    {
-        var relationship = await GetRelationship(sender.Id, target.Id, RelationshipStatus.Muted);
-        if (relationship is null) throw new ArgumentException("There is no mute relationship with this user.");
-        relationship.Status = RelationshipStatus.Friends;
-        relationship.ExpiredAt = null;
-        relationship.DegradeToStatus = null;
-        db.Update(relationship);
-        await db.SaveChangesAsync();
-
-        CreateActionLog(sender.Id, ActionLogType.RelationshipUnmute, target.Id);
-        await PurgeRelationshipCache(sender.Id, target.Id, RelationshipStatus.Muted, RelationshipStatus.Friends);
-
-        return relationship;
-    }
-
-    private const int MaxCloseFriends = 200;
-
-    public async Task<SnAccountRelationship> AddCloseFriend(SnAccount sender, SnAccount target)
-    {
-        var relationship = await GetRelationshipEntity(sender.Id, target.Id, ignoreExpired: true, includeDeleted: true);
-        if (relationship is null || relationship.DeletedAt is not null || relationship.Status != RelationshipStatus.Friends && relationship.Status != RelationshipStatus.CloseFriend)
-            throw new InvalidOperationException("Only friends can be added to your close friends list.");
-
-        if (relationship.Status == RelationshipStatus.CloseFriend)
-            throw new InvalidOperationException("This user is already in your close friends list.");
-
-        var currentCount = await db.AccountRelationships
-            .Where(r => r.AccountId == sender.Id && r.Status == RelationshipStatus.CloseFriend)
-            .CountAsync();
-        if (currentCount >= MaxCloseFriends)
-            throw new InvalidOperationException($"You can have at most {MaxCloseFriends} close friends.");
-
-        relationship.Status = RelationshipStatus.CloseFriend;
-        relationship.ExpiredAt = null;
-        relationship.DegradeToStatus = null;
-        db.Update(relationship);
-        await db.SaveChangesAsync();
-
-        CreateActionLog(sender.Id, ActionLogType.RelationshipCloseFriend, target.Id);
-        await PurgeRelationshipCache(sender.Id, target.Id, RelationshipStatus.Friends, RelationshipStatus.CloseFriend);
-
-        return relationship;
-    }
-
-    public async Task<SnAccountRelationship> RemoveCloseFriend(SnAccount sender, SnAccount target)
-    {
-        var relationship = await GetRelationship(sender.Id, target.Id, RelationshipStatus.CloseFriend);
-        if (relationship is null) throw new ArgumentException("This user is not in your close friends list.");
-        relationship.Status = RelationshipStatus.Friends;
-        relationship.ExpiredAt = null;
-        relationship.DegradeToStatus = null;
-        db.Update(relationship);
-        await db.SaveChangesAsync();
-
-        CreateActionLog(sender.Id, ActionLogType.RelationshipUnCloseFriend, target.Id);
-        await PurgeRelationshipCache(sender.Id, target.Id, RelationshipStatus.Friends, RelationshipStatus.CloseFriend);
-
-        return relationship;
-    }
-
-    public async Task<bool> IsCloseFriend(Guid userId, Guid otherId)
-    {
-        if (userId == Guid.Empty || otherId == Guid.Empty)
-            return false;
-        if (userId == otherId)
-            return false;
-
-        var relationship = await GetRelationship(userId, otherId, RelationshipStatus.CloseFriend);
-        return relationship is not null;
-    }
-
-    public async Task<List<Guid>> ListCloseFriends(Guid accountId)
-    {
-        return await GetCachedRelationships(accountId, RelationshipStatus.CloseFriend, UserCloseFriendsCacheKeyPrefix);
-    }
-
-    public async Task<SnAccountRelationship> UpdateAlias(Guid accountId, Guid relatedId, string? alias)
-    {
-        var relationship = await db.AccountRelationships
-            .FirstOrDefaultAsync(r => r.AccountId == accountId && r.RelatedId == relatedId);
-        if (relationship is null)
-            throw new ArgumentException("There is no relationship between you and the user.");
-
-        relationship.Alias = string.IsNullOrWhiteSpace(alias) ? null : alias.Trim();
-        db.Update(relationship);
-        await db.SaveChangesAsync();
-
-        return relationship;
-    }
-
-    public async Task<List<Guid>> GetMutualFriends(Guid accountId, Guid otherAccountId)
-    {
-        var myFriends = await ListAccountFriends(accountId);
-        var theirFriends = await ListAccountFriends(otherAccountId);
-        return myFriends.Intersect(theirFriends).ToList();
-    }
-
-    public class RelationshipDelta
-    {
-        public List<SnAccountRelationship> Added { get; set; } = [];
-        public List<SnAccountRelationship> Updated { get; set; } = [];
-        public List<Guid> Removed { get; set; } = [];
-        public Instant ServerTimestamp { get; set; }
-    }
-
-    public async Task<RelationshipDelta> GetRelationshipDelta(Guid accountId, Instant since)
-    {
-        var now = SystemClock.Instance.GetCurrentInstant();
-
-        var added = await db.AccountRelationships
-            .Where(r => r.AccountId == accountId && r.CreatedAt > since && r.DeletedAt == null)
-            .ToListAsync();
-
-        var updated = await db.AccountRelationships
-            .Where(r => r.AccountId == accountId
-                        && r.UpdatedAt > since
-                        && r.CreatedAt <= since
-                        && r.DeletedAt == null)
-            .ToListAsync();
-
-        var removed = await db.AccountRelationships
-            .Where(r => r.AccountId == accountId && r.DeletedAt != null && r.DeletedAt > since)
-            .Select(r => r.RelatedId)
-            .ToListAsync();
-
-        return new RelationshipDelta
-        {
-            Added = added,
-            Updated = updated,
-            Removed = removed,
-            ServerTimestamp = now
-        };
-    }
-
-    public async Task<SnAccountRelationship> SendFriendRequest(SnAccount sender, SnAccount target)
-    {
-        if (await HasExistingRelationship(sender.Id, target.Id))
-            throw new InvalidOperationException("Found existing relationship between you and target user.");
-
-        var relationship = await GetRelationshipEntity(sender.Id, target.Id, ignoreExpired: true, includeDeleted: true);
-        if (relationship is not null)
-        {
-            RestoreRelationship(
-                relationship,
-                RelationshipStatus.Pending,
-                Instant.FromDateTimeUtc(DateTime.UtcNow.AddDays(7))
-            );
-            db.Update(relationship);
-        }
-        else
-        {
-            relationship = new SnAccountRelationship
-            {
-                AccountId = sender.Id,
-                RelatedId = target.Id,
-                Status = RelationshipStatus.Pending,
-                ExpiredAt = Instant.FromDateTimeUtc(DateTime.UtcNow.AddDays(7))
-            };
-
-            db.AccountRelationships.Add(relationship);
-        }
-        await db.SaveChangesAsync();
-
-        CreateActionLog(sender.Id, ActionLogType.RelationshipFriendRequest, target.Id);
-        await pusher.SendPushNotificationToUserAsync(new DySendPushNotificationToUserRequest
-        {
-            UserId = target.Id.ToString(),
-            Notification = new DyPushNotification
-            {
-                Topic = "relationships.friends.request",
-                Title = localizer.Get("friendRequestTitle", locale: sender.Language, args: new { sender = sender.Nick }),
-                Body = localizer.Get("friendRequestBody", locale: sender.Language),
-                ActionUri = "/account/relationships",
-                IsSavable = true
-            }
+            AccountId = accountId.ToString(),
+            RelatedId = relatedId.ToString()
         });
-
-        await PurgeRelationshipCache(sender.Id, target.Id, RelationshipStatus.Pending);
-
-        return relationship;
-    }
-
-    public async Task DeleteFriendRequest(Guid accountId, Guid relatedId)
-    {
-        if (accountId == Guid.Empty || relatedId == Guid.Empty)
-            throw new ArgumentException("Account IDs cannot be empty.");
-
-        var affectedRows = await db.AccountRelationships
-            .Where(r => r.AccountId == accountId && r.RelatedId == relatedId && r.Status == RelationshipStatus.Pending)
-            .ExecuteDeleteAsync();
-
-        if (affectedRows == 0)
-            throw new ArgumentException("Friend request was not found.");
-
-        await PurgeRelationshipCache(accountId, relatedId, RelationshipStatus.Pending);
-    }
-
-    public async Task<SnAccountRelationship> AcceptFriendRelationship(
-        SnAccountRelationship relationship,
-        RelationshipStatus status = RelationshipStatus.Friends
-    )
-    {
-        if (relationship.Status != RelationshipStatus.Pending)
-            throw new ArgumentException("Cannot accept friend request that not in pending status.");
-        if (status == RelationshipStatus.Pending)
-            throw new ArgumentException("Cannot accept friend request by setting the new status to pending.");
-
-        // Whatever the receiver decides to apply which status to the relationship,
-        // the sender should always see the user as a friend since the sender ask for it
-        relationship.Status = RelationshipStatus.Friends;
-        relationship.ExpiredAt = null;
-        relationship.DegradeToStatus = null;
-        db.Update(relationship);
-
-        var relationshipBackward = await GetRelationshipEntity(
-            relationship.RelatedId,
-            relationship.AccountId,
-            ignoreExpired: true,
-            includeDeleted: true
-        );
-        if (relationshipBackward is not null)
-        {
-            RestoreRelationship(relationshipBackward, status);
-            db.Update(relationshipBackward);
-        }
-        else
-        {
-            relationshipBackward = new SnAccountRelationship
-            {
-                AccountId = relationship.RelatedId,
-                RelatedId = relationship.AccountId,
-                Status = status
-            };
-            db.AccountRelationships.Add(relationshipBackward);
-        }
-
-        await db.SaveChangesAsync();
-
-        CreateActionLog(
-            relationship.RelatedId,
-            ActionLogType.RelationshipFriendAccept,
-            relationship.AccountId,
-            new Dictionary<string, object> { ["status"] = status.ToString().ToLowerInvariant() }
-        );
-        CreateActionLog(
-            relationship.AccountId,
-            ActionLogType.RelationshipFriendEstablished,
-            relationship.RelatedId
-        );
-        CreateActionLog(
-            relationship.RelatedId,
-            ActionLogType.RelationshipFriendEstablished,
-            relationship.AccountId
-        );
-        await PurgeRelationshipCache(relationship.AccountId, relationship.RelatedId, RelationshipStatus.Friends,
-            status);
-
-        return relationshipBackward;
-    }
-
-    public async Task<SnAccountRelationship> UpdateRelationship(Guid accountId, Guid relatedId,
-        RelationshipStatus status)
-    {
-        var relationship = await GetRelationship(accountId, relatedId);
-        if (relationship is null) throw new ArgumentException("There is no relationship between you and the user.");
-        if (relationship.Status == status) return relationship;
-        var oldStatus = relationship.Status;
-        relationship.Status = status;
-        db.Update(relationship);
-        await db.SaveChangesAsync();
-
-        await PurgeRelationshipCache(accountId, relatedId, oldStatus, status);
-
-        return relationship;
-    }
-
-    public async Task<SnAccountRelationship> DeleteRelationship(Guid accountId, Guid relatedId)
-    {
-        var relationship = await GetRelationship(accountId, relatedId);
-        if (relationship is null) throw new ArgumentException("There is no relationship between you and the user.");
-        db.Remove(relationship);
-        await db.SaveChangesAsync();
-
-        await PurgeRelationshipCache(accountId, relatedId, relationship.Status);
-        
-        return relationship;
-    }
-
-    public async Task<List<Guid>> ListAccountFriends(SnAccount account, bool isRelated = false)
-    {
-        return await ListAccountFriends(account.Id, isRelated);
-    }
-
-    public async Task<List<Guid>> ListAccountFriends(Guid accountId, bool isRelated = false)
-    {
-        return await GetCachedRelationships(accountId, RelationshipStatus.Friends, UserFriendsCacheKeyPrefix,
-            isRelated);
-    }
-
-    public async Task<List<Guid>> ListAccountBlocked(SnAccount account, bool isRelated = false)
-    {
-        return await ListAccountBlocked(account.Id, isRelated);
-    }
-
-    public async Task<List<Guid>> ListAccountBlocked(Guid accountId, bool isRelated = false)
-    {
-        return await GetCachedRelationships(accountId, RelationshipStatus.Blocked, UserBlockedCacheKeyPrefix,
-            isRelated);
-    }
-
-    public async Task<List<Guid>> ListAllBlockedAccountIds(Guid accountId)
-    {
-        var cacheKey = $"{UserBlockedCacheKeyPrefix}all:{accountId}";
-        var cached = await cache.GetAsync<List<Guid>>(cacheKey);
-        if (cached is not null)
-            return cached;
-
-        var now = Instant.FromDateTimeUtc(DateTime.UtcNow);
-        var blockedIds = await db.AccountRelationships
-            .Where(r => r.Status == RelationshipStatus.Blocked)
-            .Where(r => r.ExpiredAt == null || r.ExpiredAt > now)
-            .Where(r => r.AccountId == accountId || r.RelatedId == accountId)
-            .Select(r => r.AccountId == accountId ? r.RelatedId : r.AccountId)
-            .Distinct()
-            .ToListAsync();
-
-        await cache.SetAsync(cacheKey, blockedIds, CacheExpiration);
-        return blockedIds;
-    }
-
-    public async Task<List<Guid>> ListAccountMuted(Guid accountId)
-    {
-        return await GetCachedRelationships(accountId, RelationshipStatus.Muted, UserMutedCacheKeyPrefix);
-    }
-
-    public async Task<int> ProcessExpiredRelationshipsAsync(CancellationToken cancellationToken = default)
-    {
-        var now = SystemClock.Instance.GetCurrentInstant();
-        var expired = await db.AccountRelationships
-            .Where(r => r.ExpiredAt != null && r.ExpiredAt <= now)
-            .ToListAsync(cancellationToken);
-
-        if (expired.Count == 0)
-            return 0;
-
-        var purgeTasks = new List<Task>();
-        foreach (var rel in expired)
-        {
-            if (rel.DegradeToStatus.HasValue)
-            {
-                var oldStatus = rel.Status;
-                rel.Status = rel.DegradeToStatus.Value;
-                rel.ExpiredAt = null;
-                rel.DegradeToStatus = null;
-                db.Update(rel);
-                purgeTasks.Add(PurgeRelationshipCache(rel.AccountId, rel.RelatedId, oldStatus, rel.Status));
-            }
-            else
-            {
-                db.Remove(rel);
-                purgeTasks.Add(PurgeRelationshipCache(rel.AccountId, rel.RelatedId, rel.Status));
-            }
-        }
-
-        await db.SaveChangesAsync(cancellationToken);
-        await Task.WhenAll(purgeTasks);
-
-        return expired.Count;
-    }
-
-    private void CreateActionLog(
-        Guid accountId,
-        string action,
-        Guid relatedAccountId,
-        Dictionary<string, object>? meta = null
-    )
-    {
-        var request = httpContextAccessor.HttpContext?.Request;
-        var payload = meta ?? new Dictionary<string, object>();
-        payload["related_account_id"] = relatedAccountId;
-
-        remoteActionLogs.CreateActionLog(
-            accountId,
-            action,
-            payload,
-            request?.Headers.UserAgent.ToString(),
-            request?.GetClientIpAddress()
-        );
+        return response.Value;
     }
 
     public async Task<bool> HasRelationshipWithStatus(Guid accountId, Guid relatedId,
         RelationshipStatus status = RelationshipStatus.Friends)
     {
-        var relationship = await GetRelationship(accountId, relatedId, status);
-        return relationship is not null;
+        if (accountId == Guid.Empty || relatedId == Guid.Empty)
+            throw new ArgumentException("Account IDs cannot be empty.");
+
+        var response = await stargateProfiles.HasRelationshipAsync(new DyGetRelationshipRequest
+        {
+            AccountId = accountId.ToString(),
+            RelatedId = relatedId.ToString(),
+            Status = (int)status
+        });
+        return response.Value;
     }
 
     public async Task<bool> IsBlockedEitherDirection(Guid userId, Guid otherId)
@@ -613,147 +49,99 @@ public class RelationshipService(
         if (userId == otherId)
             return false;
 
-        var (smaller, larger) = userId.CompareTo(otherId) < 0
-            ? (userId, otherId)
-            : (otherId, userId);
-
-        var cacheKey = $"{UserBlockedCacheKeyPrefix}either:{smaller}:{larger}";
-        var cached = await cache.GetAsync<bool?>(cacheKey);
-        if (cached.HasValue)
-            return cached.Value;
-
-        var now = Instant.FromDateTimeUtc(DateTime.UtcNow);
-        var isBlocked = await db.AccountRelationships
-            .Where(r => r.Status == RelationshipStatus.Blocked)
-            .Where(r => r.ExpiredAt == null || r.ExpiredAt > now)
-            .AnyAsync(r =>
-                (r.AccountId == userId && r.RelatedId == otherId) ||
-                (r.AccountId == otherId && r.RelatedId == userId)
-            );
-
-        await cache.SetAsync(cacheKey, isBlocked, CacheExpiration);
-        return isBlocked;
+        var response = await stargateProfiles.HasRelationshipAsync(new DyGetRelationshipRequest
+        {
+            AccountId = userId.ToString(),
+            RelatedId = otherId.ToString(),
+            Status = (int)RelationshipStatus.Blocked,
+            EitherDirection = true
+        });
+        return response.Value;
     }
 
-    private async Task<List<Guid>> GetCachedRelationships(
+    public async Task<List<Guid>> ListAccountFriends(SnAccount account, bool isRelated = false)
+    {
+        return await ListAccountFriends(account.Id, isRelated);
+    }
+
+    public async Task<List<Guid>> ListAccountFriends(Guid accountId, bool isRelated = false)
+    {
+        return await ListRelationshipsAsync(
+            accountId,
+            isRelated,
+            request => stargateProfiles.ListFriendsAsync(request).ResponseAsync
+        );
+    }
+
+    public async Task<List<Guid>> ListAccountBlocked(SnAccount account, bool isRelated = false)
+    {
+        return await ListAccountBlocked(account.Id, isRelated);
+    }
+
+    public async Task<List<Guid>> ListAccountBlocked(Guid accountId, bool isRelated = false)
+    {
+        return await ListRelationshipsAsync(
+            accountId,
+            isRelated,
+            request => stargateProfiles.ListBlockedAsync(request).ResponseAsync
+        );
+    }
+
+    public async Task<List<Guid>> ListAllBlockedAccountIds(Guid accountId)
+    {
+        var outgoing = await ListAccountBlocked(accountId);
+        var incoming = await ListAccountBlocked(accountId, true);
+        return outgoing.Concat(incoming).Distinct().ToList();
+    }
+
+    public async Task<List<Guid>> ListAccountMuted(Guid accountId)
+    {
+        return await ListRelationshipsAsync(
+            accountId,
+            isRelated: false,
+            request => stargateProfiles.ListMutedAsync(request).ResponseAsync
+        );
+    }
+
+    public async Task<List<Guid>> ListCloseFriends(Guid accountId)
+    {
+        return await ListRelationshipsAsync(
+            accountId,
+            isRelated: false,
+            request => stargateProfiles.ListCloseFriendsAsync(request).ResponseAsync
+        );
+    }
+
+    public async Task<bool> IsCloseFriend(Guid userId, Guid otherId)
+    {
+        if (userId == Guid.Empty || otherId == Guid.Empty)
+            return false;
+        if (userId == otherId)
+            return false;
+
+        return await HasRelationshipWithStatus(userId, otherId, RelationshipStatus.CloseFriend);
+    }
+
+    /// <summary>
+    /// Calls one of the relationship list RPCs. <paramref name="isRelated"/> selects
+    /// the reverse direction (rows where the account is the related side).
+    /// </summary>
+    private static async Task<List<Guid>> ListRelationshipsAsync(
         Guid accountId,
-        RelationshipStatus status,
-        string cachePrefix,
-        bool isRelated = false
+        bool isRelated,
+        Func<DyListRelationshipSimpleRequest, Task<DyListRelationshipSimpleResponse>> call
     )
     {
         if (accountId == Guid.Empty)
             throw new ArgumentException("Account ID cannot be empty.");
 
-        var cacheKey = $"{cachePrefix}{accountId}:{isRelated}";
-        var relationships = await cache.GetAsync<List<Guid>>(cacheKey);
+        var request = new DyListRelationshipSimpleRequest();
+        if (isRelated)
+            request.RelatedId = accountId.ToString();
+        else
+            request.AccountId = accountId.ToString();
 
-        if (relationships != null) return relationships;
-        var now = Instant.FromDateTimeUtc(DateTime.UtcNow);
-        var query = db.AccountRelationships
-            .Where(r => isRelated ? r.RelatedId == accountId : r.AccountId == accountId)
-            .Where(r => status == RelationshipStatus.Friends
-                ? r.Status == RelationshipStatus.Friends || r.Status == RelationshipStatus.CloseFriend
-                : r.Status == status)
-            .Where(r => r.ExpiredAt == null || r.ExpiredAt > now)
-            .Select(r => isRelated ? r.AccountId : r.RelatedId);
-
-        relationships = await query.ToListAsync();
-
-        await cache.SetAsync(cacheKey, relationships, CacheExpiration);
-
-        return relationships;
-    }
-
-    private async Task PurgeRelationshipCache(Guid accountId, Guid relatedId, params RelationshipStatus[] statuses)
-    {
-        if (statuses.Length == 0)
-        {
-            statuses = Enum.GetValues<RelationshipStatus>();
-        }
-
-        var keysToRemove = new List<string>();
-
-        if (statuses.Contains(RelationshipStatus.Friends) || statuses.Contains(RelationshipStatus.Pending))
-        {
-            keysToRemove.Add($"{UserFriendsCacheKeyPrefix}{accountId}");
-            keysToRemove.Add($"{UserFriendsCacheKeyPrefix}{relatedId}");
-        }
-
-        if (statuses.Contains(RelationshipStatus.Blocked))
-        {
-            keysToRemove.Add($"{UserBlockedCacheKeyPrefix}{accountId}");
-            keysToRemove.Add($"{UserBlockedCacheKeyPrefix}{relatedId}");
-            keysToRemove.Add($"{UserBlockedCacheKeyPrefix}all:{accountId}");
-            keysToRemove.Add($"{UserBlockedCacheKeyPrefix}all:{relatedId}");
-
-            var (smaller, larger) = accountId.CompareTo(relatedId) < 0
-                ? (accountId, relatedId)
-                : (relatedId, accountId);
-            keysToRemove.Add($"{UserBlockedCacheKeyPrefix}either:{smaller}:{larger}");
-        }
-
-        if (statuses.Contains(RelationshipStatus.Muted))
-        {
-            keysToRemove.Add($"{UserMutedCacheKeyPrefix}{accountId}:False");
-            keysToRemove.Add($"{UserMutedCacheKeyPrefix}{relatedId}:False");
-        }
-
-        if (statuses.Contains(RelationshipStatus.CloseFriend))
-        {
-            keysToRemove.Add($"{UserCloseFriendsCacheKeyPrefix}{accountId}:False");
-            keysToRemove.Add($"{UserCloseFriendsCacheKeyPrefix}{relatedId}:False");
-        }
-
-        var removeTasks = keysToRemove.Select(key => cache.RemoveAsync(key));
-        await Task.WhenAll(removeTasks);
-    }
-
-    private IQueryable<SnAccountRelationship> BuildRelationshipQuery(
-        Guid accountId,
-        Guid relatedId,
-        RelationshipStatus? status = null,
-        bool ignoreExpired = false,
-        bool includeDeleted = false
-    )
-    {
-        var now = Instant.FromDateTimeUtc(DateTime.UtcNow);
-        IQueryable<SnAccountRelationship> query = includeDeleted
-            ? db.AccountRelationships.IgnoreQueryFilters()
-            : db.AccountRelationships;
-
-        query = query.Where(r => r.AccountId == accountId && r.RelatedId == relatedId);
-
-        if (!ignoreExpired)
-            query = query.Where(r => r.ExpiredAt == null || r.ExpiredAt > now);
-        if (status is not null)
-            query = query.Where(r => r.Status == status);
-
-        return query;
-    }
-
-    private Task<SnAccountRelationship?> GetRelationshipEntity(
-        Guid accountId,
-        Guid relatedId,
-        RelationshipStatus? status = null,
-        bool ignoreExpired = false,
-        bool includeDeleted = false
-    )
-    {
-        return BuildRelationshipQuery(accountId, relatedId, status, ignoreExpired, includeDeleted)
-            .FirstOrDefaultAsync();
-    }
-
-    private static void RestoreRelationship(
-        SnAccountRelationship relationship,
-        RelationshipStatus status,
-        Instant? expiredAt = null,
-        RelationshipStatus? degradeTo = null
-    )
-    {
-        relationship.DeletedAt = null;
-        relationship.Status = status;
-        relationship.ExpiredAt = expiredAt;
-        relationship.DegradeToStatus = degradeTo;
+        var response = await call(request);
+        return response.AccountsId.Select(Guid.Parse).ToList();
     }
 }

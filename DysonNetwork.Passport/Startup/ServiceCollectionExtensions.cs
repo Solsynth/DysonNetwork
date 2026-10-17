@@ -167,6 +167,13 @@ public static class ServiceCollectionExtensions
         services.AddGrpcClientWithSharedChannel<DyProfileService.DyProfileServiceClient>(
             "https://_grpc.passport",
             "DyProfileService");
+        // Relationship reads/writes moved to Stargate, which owns the
+        // account_relationships table. The plain DyProfileServiceClient above still
+        // points at Passport because profile/badge/board RPCs stay local, so the
+        // Stargate-dialed client uses a distinct type.
+        services.AddGrpcClientWithSharedChannel<StargateProfileClient>(
+            "https://_grpc.stargate",
+            "StargateProfile");
         services.AddScoped<RemoteAccountContactService>();
         services.AddScoped<RemoteAccountConnectionService>();
         services.AddGrpcClientWithSharedChannel<DyActionLogService.DyActionLogServiceClient>(

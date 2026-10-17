@@ -200,9 +200,8 @@ public class MagicSpellService(
                     var accountId = spell.AccountId.Value;
                     await db.AccountStatuses.Where(s => s.AccountId == accountId).ExecuteDeleteAsync();
                     await db.PresenceActivities.Where(p => p.AccountId == accountId).ExecuteDeleteAsync();
-                    await db.AccountRelationships
-                        .Where(r => r.AccountId == accountId || r.RelatedId == accountId)
-                        .ExecuteDeleteAsync();
+                    // Relationship rows are owned by Stargate; it purges them when it
+                    // consumes the AccountRemovalConfirmedEvent published below.
                     await db.Badges.Where(b => b.AccountId == accountId).ExecuteDeleteAsync();
                     await db.RealmMembers.Where(m => m.AccountId == accountId).ExecuteDeleteAsync();
                     await db.PermissionGroupMembers

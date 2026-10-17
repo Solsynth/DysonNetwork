@@ -33,16 +33,8 @@ public class PassRewindService(AppDatabase db, RemoteActionLogService remoteActi
                 // use UTC
             }
 
-        var newFriendsCount = await db.AccountRelationships
-            .Where(r => r.CreatedAt >= startDate && r.CreatedAt < endDate)
-            .Where(r => r.AccountId == accountId)
-            .Where(r => r.Status == RelationshipStatus.Friends)
-            .CountAsync();
-        var newBlockedCount = await db.AccountRelationships
-            .Where(r => r.CreatedAt >= startDate && r.CreatedAt < endDate)
-            .Where(r => r.AccountId == accountId)
-            .Where(r => r.Status == RelationshipStatus.Blocked)
-            .CountAsync();
+        // The new_friends_count / new_blocked_count rewind counters were dropped:
+        // relationship data moved to Stargate, and no consumer reads those keys.
 
         var checkInDates = await db.AccountCheckInResults
             .Where(a => a.CreatedAt >= startDate && a.CreatedAt < endDate)
@@ -100,8 +92,6 @@ public class PassRewindService(AppDatabase db, RemoteActionLogService remoteActi
             ["most_active_day"] = mostActiveDay?.Date.ToString("yyyy-MM-dd"),
             ["most_active_weekday"] = mostActiveWeekday?.Day.ToString(),
             ["latest_active_time"] = latestActiveTime?.ToString(@"hh\:mm"),
-            ["new_friends_count"] = newFriendsCount,
-            ["new_blocked_count"] = newBlockedCount,
         };
 
         return new DyRewindEvent
