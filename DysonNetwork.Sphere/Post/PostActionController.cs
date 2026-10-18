@@ -132,6 +132,10 @@ public class PostActionController(
             return null;
         if (string.IsNullOrWhiteSpace(post.Content))
             return BadRequest(new ApiError { Code = "POST_BLOG_INVALID_URL", Message = "Blog post content must be a valid URL.", Status = 400 });
+        // Solian links render natively in the client, so a preview card built
+        // from the same page would only duplicate the link.
+        if (LinkEmbed.IsSelfHostedUrl(post.Content))
+            return null;
 
         try
         {

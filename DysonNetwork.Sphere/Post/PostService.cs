@@ -2155,11 +2155,17 @@ public partial class PostService(
             url = url[..^1];
         }
 
-        return
-            Uri.TryCreate(url, UriKind.Absolute, out var uri)
-            && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps)
-                ? uri.ToString()
-                : null;
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
+            return null;
+        if (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps)
+            return null;
+
+        // Links back to Solian itself are rendered natively by the client;
+        // expanding them produces a redundant preview card.
+        if (LinkEmbed.IsSelfHostedHost(uri.Host))
+            return null;
+
+        return uri.ToString();
     }
 
     private async Task<SnPost> PreviewPostLinkAsync(SnPost item)
