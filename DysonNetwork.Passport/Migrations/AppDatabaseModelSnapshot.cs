@@ -1361,51 +1361,6 @@ namespace DysonNetwork.Passport.Migrations
                     b.ToTable("account_quest_progresses", (string)null);
                 });
 
-            modelBuilder.Entity("DysonNetwork.Shared.Models.SnAccountRelationship", b =>
-                {
-                    b.Property<Guid>("AccountId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("account_id");
-
-                    b.Property<Guid>("RelatedId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("related_id");
-
-                    b.Property<string>("Alias")
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)")
-                        .HasColumnName("alias");
-
-                    b.Property<Instant>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<short?>("DegradeToStatus")
-                        .HasColumnType("smallint")
-                        .HasColumnName("degrade_to_status");
-
-                    b.Property<Instant?>("DeletedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("deleted_at");
-
-                    b.Property<Instant?>("ExpiredAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("expired_at");
-
-                    b.Property<short>("Status")
-                        .HasColumnType("smallint")
-                        .HasColumnName("status");
-
-                    b.Property<Instant>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at");
-
-                    b.HasKey("AccountId", "RelatedId")
-                        .HasName("pk_account_relationships");
-
-                    b.ToTable("account_relationships", (string)null);
-                });
-
             modelBuilder.Entity("DysonNetwork.Shared.Models.SnAccountStatus", b =>
                 {
                     b.Property<Guid>("Id")

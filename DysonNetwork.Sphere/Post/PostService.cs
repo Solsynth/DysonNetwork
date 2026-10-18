@@ -1938,14 +1938,30 @@ public partial class PostService(
         if (draftedAt is not null && publishedAt is not null)
             throw new InvalidOperationException("Cannot set both draftedAt and publishedAt.");
 
+        var entity = db.Entry(post);
+        var previousTitle = entity.Property(e => e.Title).OriginalValue;
+        var previousDescription = entity.Property(e => e.Description).OriginalValue;
+        var previousContent = entity.Property(e => e.Content).OriginalValue;
+        var previousVisibility = entity.Property(e => e.Visibility).OriginalValue;
+        var previousDraftedAt = entity.Property(e => e.DraftedAt).OriginalValue;
+        var previousPublishedAt = entity.Property(e => e.PublishedAt).OriginalValue;
+        var previousAttachmentIds = post.Attachments
+            .Select(a => a.Id)
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .ToList();
+
         if (publishedAt is not null)
         {
             // User cannot set the published at to the past to prevent scam,
             // But we can just let the controller set the published at, because when no changes to
-            // the published at will blocked the update operation
+            // the published at will blocked the update operation.
+            // A scheduled post being published early is the exception: the
+            // client asks for "now", which is already slightly in the past by
+            // the time the request lands.
+            var wasScheduled = previousPublishedAt is not null && previousPublishedAt.Value > now;
             if (publishedAt.Value < now)
             {
-                if (post.DraftedAt is not null)
+                if (post.DraftedAt is not null || wasScheduled)
                     publishedAt = now;
                 else
                     throw new InvalidOperationException("Cannot set the published at to the past.");
@@ -1960,18 +1976,6 @@ public partial class PostService(
             post.DraftedAt = draftedAt;
             post.PublishedAt = null;
         }
-
-        var entity = db.Entry(post);
-        var previousTitle = entity.Property(e => e.Title).OriginalValue;
-        var previousDescription = entity.Property(e => e.Description).OriginalValue;
-        var previousContent = entity.Property(e => e.Content).OriginalValue;
-        var previousVisibility = entity.Property(e => e.Visibility).OriginalValue;
-        var previousDraftedAt = entity.Property(e => e.DraftedAt).OriginalValue;
-        var previousPublishedAt = entity.Property(e => e.PublishedAt).OriginalValue;
-        var previousAttachmentIds = post.Attachments
-            .Select(a => a.Id)
-            .Where(id => !string.IsNullOrWhiteSpace(id))
-            .ToList();
 
         var wasPublished =
             previousDraftedAt is null
