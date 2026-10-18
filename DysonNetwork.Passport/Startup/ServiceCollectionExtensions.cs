@@ -45,6 +45,7 @@ public static class ServiceCollectionExtensions
         services.Configure<AccountActivationOptions>(configuration.GetSection("AccountActivation"));
         services.Configure<AffiliationPurchaseOptions>(configuration.GetSection("AffiliationPurchase"));
         services.Configure<NameChangeCardOptions>(configuration.GetSection("NameChangeCard"));
+        services.Configure<RelationshipFallbackOptions>(configuration.GetSection("RelationshipFallback"));
 
         services.AddDbContext<AppDatabase>();
         services.AddHttpContextAccessor();
